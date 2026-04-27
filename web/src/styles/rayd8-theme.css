@@ -1,0 +1,266 @@
+:root {
+  --rayd8-bg: #05080a;
+  --rayd8-panel: rgba(7, 13, 17, 0.76);
+  --rayd8-text-primary: #f2f7f6;
+  --rayd8-text-secondary: #9fb0b0;
+  --rayd8-border: rgba(255, 255, 255, 0.08);
+}
+
+.rayd8-bg {
+  isolation: isolate;
+}
+
+.aurora-layer {
+  background:
+    radial-gradient(ellipse 120% 100% at 12% 22%, rgba(72, 255, 191, 0.38), transparent 42%),
+    radial-gradient(ellipse 90% 85% at 78% 18%, rgba(99, 179, 255, 0.34), transparent 40%),
+    radial-gradient(ellipse 110% 80% at 50% 85%, rgba(255, 186, 120, 0.18), transparent 44%),
+    radial-gradient(ellipse 60% 70% at 40% 48%, rgba(167, 139, 250, 0.18), transparent 50%);
+  filter: blur(118px) saturate(1.1);
+  mix-blend-mode: screen;
+  opacity: 0.5;
+}
+
+.aurora-layer-secondary {
+  background:
+    radial-gradient(ellipse 100% 95% at 28% 60%, rgba(196, 181, 255, 0.28), transparent 46%),
+    radial-gradient(ellipse 90% 88% at 86% 42%, rgba(64, 224, 197, 0.22), transparent 42%),
+    radial-gradient(ellipse 80% 75% at 12% 78%, rgba(192, 132, 255, 0.16), transparent 48%),
+    radial-gradient(ellipse 100% 60% at 62% 8%, rgba(99, 102, 241, 0.14), transparent 45%);
+  filter: blur(128px) saturate(1.15);
+  mix-blend-mode: screen;
+  opacity: 0.48;
+}
+
+.geometry-layer {
+  opacity: 0.22;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(circle at center, black, transparent 85%);
+}
+
+.particles-layer {
+  opacity: 0.3;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.14) 1px, transparent 1.6px),
+    radial-gradient(circle, rgba(186, 230, 255, 0.09) 1px, transparent 1.6px),
+    radial-gradient(circle, rgba(52, 211, 196, 0.06) 0.5px, transparent 1.2px);
+  background-position:
+    0 0,
+    32px 48px,
+    0 0;
+  background-size:
+    64px 64px,
+    98px 98px,
+    32px 32px;
+  animation: particles-float 24s ease-in-out infinite, particles-drift 46s linear infinite;
+}
+
+/* Lava-blob “cosmic flow” (motion + blur by Framer; this is the static paint) */
+.cosmic-lava-a {
+  background:
+    radial-gradient(ellipse 100% 85% at 18% 36%, rgba(94, 234, 212, 0.4), transparent 50%),
+    radial-gradient(ellipse 85% 95% at 75% 58%, rgba(167, 139, 250, 0.3), transparent 50%),
+    radial-gradient(ellipse 110% 60% at 50% 12%, rgba(56, 189, 248, 0.22), transparent 46%);
+  filter: blur(120px) saturate(1.18);
+  opacity: 0.5;
+}
+
+.cosmic-lava-b {
+  background:
+    radial-gradient(ellipse 90% 80% at 68% 30%, rgba(244, 114, 182, 0.22), transparent 48%),
+    radial-gradient(ellipse 100% 75% at 14% 70%, rgba(20, 184, 166, 0.28), transparent 50%),
+    radial-gradient(ellipse 80% 55% at 52% 90%, rgba(99, 102, 241, 0.2), transparent 44%),
+    radial-gradient(ellipse 50% 45% at 30% 16%, rgba(196, 181, 255, 0.14), transparent 42%);
+  filter: blur(112px) saturate(1.2);
+  opacity: 0.45;
+}
+
+.rayd8-bg[data-variant='landing'] .aurora-layer {
+  opacity: 0.5;
+  filter: blur(124px) saturate(1.12);
+}
+
+.rayd8-bg[data-variant='landing'] .aurora-layer-secondary {
+  opacity: 0.45;
+  filter: blur(132px) saturate(1.2);
+}
+
+.rayd8-bg[data-variant='landing'] .geometry-layer {
+  opacity: 0.16;
+}
+
+.rayd8-bg[data-variant='landing'] .particles-layer {
+  opacity: 0.34;
+  animation: particles-cosmic-waltz 30s ease-in-out infinite, particles-tile-sweep 50s linear infinite;
+  background-size:
+    82px 82px,
+    120px 120px,
+    30px 30px;
+  background-position:
+    0 0,
+    32px 48px,
+    0 0;
+  mix-blend-mode: screen;
+}
+
+.rayd8-bg[data-variant='landing']::before {
+  opacity: 0.4;
+}
+
+.rayd8-bg[data-variant='landing']::after {
+  opacity: 0.32;
+}
+
+.rayd8-bg[data-intensity='low'] .aurora-layer,
+.rayd8-bg[data-intensity='low'] .aurora-layer-secondary {
+  opacity: 0.3;
+}
+
+.rayd8-bg[data-reduced-effects='true'] .cosmic-lava-a,
+.rayd8-bg[data-reduced-effects='true'] .cosmic-lava-b,
+.rayd8-bg[data-reduced-effects='true'] .geometry-layer,
+.rayd8-bg[data-reduced-effects='true'] .light-bloom-wrap,
+.rayd8-bg[data-reduced-effects='true'] .aurora-layer,
+.rayd8-bg[data-reduced-effects='true'] .aurora-layer-secondary {
+  animation: none;
+}
+
+.rayd8-bg[data-variant='landing'] .cosmic-lava-a {
+  opacity: 0.55;
+}
+.rayd8-bg[data-variant='landing'] .cosmic-lava-b {
+  opacity: 0.5;
+}
+
+.rayd8-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 0% 28%, rgba(110, 220, 180, 0.12), transparent 30%),
+    radial-gradient(circle at 100% 32%, rgba(108, 126, 255, 0.12), transparent 32%),
+    radial-gradient(circle at 68% 100%, rgba(255, 214, 170, 0.08), transparent 30%);
+  opacity: 0.7;
+}
+
+.rayd8-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, rgba(5, 8, 10, 0.28) 0%, transparent 24%, transparent 76%, rgba(5, 8, 10, 0.2) 100%),
+    linear-gradient(180deg, rgba(5, 8, 10, 0.1) 0%, transparent 22%, transparent 78%, rgba(5, 8, 10, 0.12) 100%);
+}
+
+@keyframes particles-float {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(-1.1%, -0.8%, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Horizontal tile drift: moves starfield from left to right, seamless (matches layer sizes) */
+@keyframes particles-drift {
+  0% {
+    background-position:
+      0 0,
+      32px 48px,
+      0 0;
+  }
+  100% {
+    background-position:
+      64px 0,
+      96px 48px,
+      32px 0;
+  }
+}
+
+@keyframes particles-cosmic-waltz {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  25% {
+    transform: translate3d(1.8%, -0.2%, 0);
+  }
+  50% {
+    transform: translate3d(2.6%, 0.25%, 0);
+  }
+  75% {
+    transform: translate3d(0.8%, 0.15%, 0);
+  }
+}
+
+/* Faster tile sweep for landing: stronger left-to-right “stream” */
+@keyframes particles-tile-sweep {
+  0% {
+    background-position:
+      0 0,
+      32px 48px,
+      0 0;
+  }
+  100% {
+    background-position:
+      200px 0,
+      260px 48px,
+      120px 0;
+  }
+}
+
+/* Soft animated “rainbow light” border for benefits still (BenefitsImageSection) */
+.benefits-visual-rainbow-drum {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 0;
+  width: 200vmax;
+  height: 200vmax;
+  margin: 0;
+  pointer-events: none;
+  background: conic-gradient(
+    from 0deg,
+    rgba(45, 212, 191, 0.42) 0deg,
+    rgba(34, 211, 238, 0.38) 45deg,
+    rgba(59, 130, 246, 0.4) 100deg,
+    rgba(129, 140, 248, 0.38) 160deg,
+    rgba(192, 132, 252, 0.36) 220deg,
+    rgba(244, 114, 182, 0.34) 280deg,
+    rgba(45, 212, 191, 0.42) 360deg
+  );
+  filter: blur(0.6px) saturate(1.12);
+  animation: benefits-rainbow-drift 20s linear infinite;
+  will-change: transform;
+}
+
+@keyframes benefits-rainbow-drift {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.rayd8-bg[data-reduced-effects='true'] .benefits-visual-rainbow-drum {
+  animation: none;
+  transform: translate(-50%, -50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .benefits-visual-rainbow-drum {
+    animation: none;
+    transform: translate(-50%, -50%);
+  }
+}

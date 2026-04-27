@@ -1,0 +1,17 @@
+node_modules
+dist
+.DS_Store
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+coverage
+.eslintcache
+RAYD8-Expansion
+RAYD8-Premium
+RAYD8-REGEN
+web/node_modules
+web/dist
+api/node_modules
+api/dist
