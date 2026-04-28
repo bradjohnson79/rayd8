@@ -56,12 +56,17 @@ export function DashboardShell({
       <div
         className={[
           'relative z-10',
-          presentation === 'immersive' ? `h-screen ${desktopSidebarOffsetClass}` : `min-h-screen ${desktopSidebarOffsetClass}`,
+          presentation === 'immersive'
+            ? `h-[100dvh] ${desktopSidebarOffsetClass}`
+            : `min-h-[100dvh] ${desktopSidebarOffsetClass}`,
         ].join(' ')}
       >
         {presentation === 'immersive' ? (
           <>
-            <div className="fixed left-4 top-4 z-50 md:hidden">
+            <div
+              className="fixed left-4 z-50 md:hidden"
+              style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}
+            >
               <button
                 aria-label={menuButtonLabel}
                 className={`inline-flex h-11 w-11 items-center justify-center rounded-lg border border-white/12 bg-white/10 text-white shadow-[0_8px_30px_rgba(0,0,0,0.16)] backdrop-blur-xl ${menuButtonClassName}`}
@@ -73,7 +78,10 @@ export function DashboardShell({
             </div>
 
             {!hideImmersiveIdentityCluster ? (
-              <div className="fixed right-4 top-4 z-50 flex items-center gap-3 pointer-events-auto sm:right-6 sm:top-6">
+              <div
+                className="fixed right-4 z-50 flex items-center gap-3 pointer-events-auto sm:right-6"
+                style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}
+              >
                 <div className="hidden rounded-[1.4rem] bg-[rgba(5,7,12,0.42)] px-4 py-3 text-right shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-2xl sm:block">
                   <p className={`text-[10px] uppercase tracking-[0.32em] ${accentCopy.badge}`}>{eyebrow}</p>
                   <p className="mt-2 text-sm font-medium text-white">{user.email}</p>
@@ -128,7 +136,10 @@ export function DashboardShell({
             ) : null}
           </>
         ) : (
-          <header className="sticky top-0 z-20 border-b border-white/10 bg-[rgba(5,7,12,0.44)] backdrop-blur-2xl">
+          <header
+            className="sticky top-0 z-20 border-b border-white/10 bg-[rgba(5,7,12,0.44)] backdrop-blur-2xl"
+            style={{ paddingTop: 'env(safe-area-inset-top)' }}
+          >
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
               <div className="flex items-center gap-3">
                 <button
@@ -203,8 +214,15 @@ export function DashboardShell({
         <main
           className={
             presentation === 'immersive'
-              ? 'h-screen overflow-hidden bg-transparent'
+              ? 'h-[100dvh] overflow-hidden bg-transparent'
               : 'mx-auto max-w-6xl bg-transparent px-4 py-8 sm:px-6 lg:px-8'
+          }
+          style={
+            presentation === 'immersive'
+              ? { paddingBottom: 'env(safe-area-inset-bottom)' }
+              : {
+                  paddingBottom: 'calc(env(safe-area-inset-bottom) + 2rem)',
+                }
           }
         >
           {children}

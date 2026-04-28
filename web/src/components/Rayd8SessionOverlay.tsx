@@ -70,7 +70,7 @@ export function Rayd8SessionOverlay() {
   return createPortal(
     <div
       className={[
-        'fixed inset-0 z-[9999] h-screen w-screen bg-black',
+        'fixed inset-0 z-[9999] h-[100dvh] w-screen bg-black',
         'transition-opacity duration-300 ease-out',
         visible ? 'opacity-100' : 'opacity-0',
       ].join(' ')}

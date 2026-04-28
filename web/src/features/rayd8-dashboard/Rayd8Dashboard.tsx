@@ -11,6 +11,11 @@ import {
   type PlaybackPlan,
   type PlaybackPlanInput,
 } from '../../lib/resolvePlaybackAsset'
+import {
+  formatRuntimeClock,
+  formatRuntimeLimit,
+  formatUsagePercent,
+} from '../../lib/formatUsageRuntime'
 import { getMe } from '../../services/me'
 import {
   getPlaybackAccess,
@@ -371,7 +376,28 @@ function MemberDashboardLaunchpad({
           />
         )
       })}
+      <AmritaComingSoonSection />
     </div>
+  )
+}
+
+function AmritaComingSoonSection() {
+  return (
+    <ExperienceSection
+      bodyPrimary="AMRITA is the next RAYD8 environment in development, designed as a more elevated immersive field with a distinct visual atmosphere and deeper long-form session focus."
+      bodySecondary="This section is a preview placeholder for the upcoming release so both Free Trial and REGEN members can see what is coming next in the platform experience."
+      ctaLabel="Coming late May 2026"
+      ctaTone="disabled"
+      id="amrita"
+      onClick={() => {}}
+      sectionNote="Coming late May 2026"
+      sectionNoteTone="muted"
+      showcaseSubtitle="RAYD8 AMRITA"
+      showcaseTitle="AMRITA Preview"
+      tags={['Coming Soon', 'Cosmic Aurora', 'Member Preview']}
+      title="AMRITA"
+      tone="amrita"
+    />
   )
 }
 
@@ -743,7 +769,7 @@ function SectionLayout({
 function SectionBackground({ tone }: { tone: SectionTone }) {
   const toneClasses: Record<SectionTone, string> = {
     amrita:
-      'bg-[radial-gradient(circle_at_72%_24%,rgba(245,158,11,0.36),transparent_26%),radial-gradient(circle_at_18%_76%,rgba(250,204,21,0.18),transparent_34%),linear-gradient(180deg,#040608_0%,#0b0906_100%)]',
+      'bg-[radial-gradient(circle_at_18%_24%,rgba(34,211,238,0.22),transparent_26%),radial-gradient(circle_at_74%_20%,rgba(168,85,247,0.26),transparent_28%),radial-gradient(circle_at_62%_72%,rgba(16,185,129,0.18),transparent_30%),linear-gradient(180deg,#02040a_0%,#090d1b_48%,#05070d_100%)]',
     expansion:
       'bg-[radial-gradient(circle_at_72%_22%,rgba(59,130,246,0.34),transparent_26%),radial-gradient(circle_at_18%_78%,rgba(14,165,233,0.18),transparent_34%),linear-gradient(180deg,#03060b_0%,#09101a_100%)]',
     premium:
@@ -777,7 +803,7 @@ function ExperienceShowcase({
 }) {
   const toneGlowClasses: Record<SectionTone, string> = {
     amrita:
-      'before:bg-[radial-gradient(circle_at_50%_50%,rgba(245,158,11,0.5),transparent_62%)] after:border-amber-200/35',
+      'before:bg-[radial-gradient(circle_at_50%_50%,rgba(129,140,248,0.42),transparent_62%)] after:border-cyan-200/30',
     expansion:
       'before:bg-[radial-gradient(circle_at_50%_50%,rgba(96,165,250,0.54),transparent_62%)] after:border-sky-200/35',
     premium:
@@ -803,6 +829,19 @@ function ExperienceShowcase({
             className="relative z-10 h-full w-full object-cover"
             src={imageSrc}
           />
+        ) : tone === 'amrita' ? (
+          <div className="relative z-10 flex h-full w-full items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_30%_25%,rgba(34,211,238,0.18),transparent_22%),radial-gradient(circle_at_72%_28%,rgba(168,85,247,0.22),transparent_26%),radial-gradient(circle_at_50%_78%,rgba(16,185,129,0.18),transparent_28%),linear-gradient(135deg,rgba(6,10,20,0.96),rgba(10,20,36,0.92))]">
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.04),transparent)] opacity-80" />
+            <div className="absolute left-[12%] top-[20%] h-28 w-28 rounded-full bg-cyan-300/15 blur-3xl" />
+            <div className="absolute right-[10%] top-[18%] h-32 w-32 rounded-full bg-violet-300/18 blur-3xl" />
+            <div className="absolute bottom-[14%] left-[30%] h-24 w-36 rounded-full bg-emerald-300/14 blur-3xl" />
+            <div className="relative z-10 rounded-[1.6rem] border border-white/12 bg-white/[0.04] px-8 py-10 text-center shadow-[0_18px_60px_rgba(0,0,0,0.24)] backdrop-blur-xl">
+              <p className="text-[11px] uppercase tracking-[0.34em] text-cyan-100/65">Coming late May 2026</p>
+              <p className="mt-5 text-3xl font-semibold tracking-[0.24em] text-white sm:text-4xl">
+                RAYD8 AMRITA
+              </p>
+            </div>
+          </div>
         ) : (
           <div className="relative z-10 h-full w-full bg-gradient-to-br from-white/10 via-transparent to-white/5">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_22%,rgba(255,255,255,0.16),transparent_18%),radial-gradient(circle_at_72%_38%,rgba(255,255,255,0.08),transparent_26%)]" />
@@ -856,12 +895,13 @@ function DashboardUsageSummary({
                   {experience === 'regen' ? 'REGEN' : experience}
                 </p>
                 <p className="mt-2 text-lg font-semibold text-white">
-                  {formatHours(summary.usedSeconds)} / {formatHours(summary.limitSeconds)} hrs
+                  {formatRuntimeClock(summary.usedSeconds)} / {formatRuntimeLimit(summary.limitSeconds)}
                 </p>
+                <p className="mt-1 text-xs text-white/55">{formatUsagePercent(summary.usagePercent)}</p>
                 <p className="mt-1 text-xs text-white/55">
                   {summary.isBlocked
                     ? 'Preview used'
-                    : `${formatHours(summary.remainingSeconds)} hrs remaining`}
+                    : `${formatRuntimeClock(summary.remainingSeconds)} remaining`}
                 </p>
               </div>
             )
@@ -875,15 +915,16 @@ function DashboardUsageSummary({
                 REGEN Monthly Pool
               </p>
               <p className="mt-2 text-lg font-semibold text-white">
-                {formatHours(access.regen.usedSeconds)} / {formatHours(access.regen.limitSeconds)} hrs
+                {formatRuntimeClock(access.regen.usedSeconds)} / {formatRuntimeLimit(access.regen.limitSeconds)}
               </p>
             </div>
             <p className="text-sm text-white/60">
               {access.regen.isBlocked
                 ? 'Monthly limit reached'
-                : `${formatHours(access.regen.remainingSeconds)} hrs remaining this cycle`}
+                : `${formatRuntimeClock(access.regen.remainingSeconds)} remaining this cycle`}
             </p>
           </div>
+          <p className="mt-3 text-xs text-emerald-100/65">{formatUsagePercent(access.regen.usagePercent)}</p>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
             <div
               className="h-full rounded-full bg-[linear-gradient(90deg,rgba(52,211,153,0.85),rgba(16,185,129,1))]"
@@ -894,12 +935,4 @@ function DashboardUsageSummary({
       ) : null}
     </div>
   )
-}
-
-function formatHours(seconds: number | null) {
-  if (seconds === null) {
-    return 'Unlimited'
-  }
-
-  return (seconds / 3600).toFixed(seconds >= 36_000 ? 0 : 1)
 }
