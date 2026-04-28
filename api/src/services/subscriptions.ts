@@ -1,8 +1,14 @@
-import { and, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import Stripe from 'stripe'
 import { db } from '../db/client.js'
 import { env } from '../env.js'
-import { stripeCheckoutSessions, stripeEvents, subscriptions, users } from '../db/schema.js'
+import {
+  stripeCheckoutSessions,
+  stripeEvents,
+  subscriptionCancellationFeedback,
+  subscriptions,
+  users,
+} from '../db/schema.js'
 import { clerkClient } from '../lib/clerk.js'
 import { dispatchNotification } from './notifications/dispatchNotification.js'
 
@@ -15,6 +21,13 @@ const stripeClient = env.STRIPE_SECRET_KEY
 type ManagedPlan = 'regen'
 type ManagedPlanType = 'single' | 'multi'
 type PersistedPlan = 'free' | 'premium' | 'regen' | 'amrita'
+export type CancellationReason =
+  | 'too_expensive'
+  | 'not_using_enough'
+  | 'technical_issues'
+  | 'didnt_see_results'
+  | 'found_alternative'
+  | 'other'
 
 function getPriceIdForPlan(plan: ManagedPlan) {
   return plan === 'regen' ? env.STRIPE_REGEN_PRICE_ID : null
@@ -130,6 +143,7 @@ async function markEventProcessed(stripeEventId: string, type: string) {
 }
 
 async function upsertSubscriptionRecord(input: {
+  cancelAtPeriodEnd: boolean
   customerId: string
   plan: PersistedPlan
   planType: ManagedPlanType
@@ -152,6 +166,7 @@ async function upsertSubscriptionRecord(input: {
       status: input.status,
       plan: input.plan,
       planType: input.planType,
+      cancelAtPeriodEnd: input.cancelAtPeriodEnd,
       currentPeriodStart: input.currentPeriodStart,
       currentPeriodEnd: input.currentPeriodEnd,
     })
@@ -162,6 +177,7 @@ async function upsertSubscriptionRecord(input: {
         status: input.status,
         plan: input.plan,
         planType: input.planType,
+        cancelAtPeriodEnd: input.cancelAtPeriodEnd,
         currentPeriodStart: input.currentPeriodStart,
         currentPeriodEnd: input.currentPeriodEnd,
       },
@@ -200,6 +216,46 @@ async function findSubscriptionContext(stripeSubscriptionId: string) {
     .limit(1)
 
   return subscriptionRecord ?? null
+}
+
+async function findManageableSubscriptionForUser(userId: string) {
+  if (!db) {
+    return null
+  }
+
+  const [subscriptionRecord] = await db
+    .select()
+    .from(subscriptions)
+    .where(
+      and(
+        eq(subscriptions.userId, userId),
+        inArray(subscriptions.status, ['active', 'trialing', 'past_due', 'unpaid']),
+      ),
+    )
+    .orderBy(desc(subscriptions.currentPeriodEnd), desc(subscriptions.createdAt))
+    .limit(1)
+
+  return subscriptionRecord ?? null
+}
+
+async function storeCancellationFeedback(input: {
+  currentPeriodEnd: Date | null
+  customMessage?: string | null
+  reasons: CancellationReason[]
+  stripeSubscriptionId: string
+  userId: string
+}) {
+  if (!db) {
+    return
+  }
+
+  await db.insert(subscriptionCancellationFeedback).values({
+    userId: input.userId,
+    stripeSubscriptionId: input.stripeSubscriptionId,
+    reasons: input.reasons,
+    customMessage: input.customMessage?.trim() ? input.customMessage.trim() : null,
+    currentPeriodEnd: input.currentPeriodEnd,
+  })
 }
 
 async function getUserNotificationContext(userId: string) {
@@ -257,6 +313,7 @@ function getCheckoutSessionContext(session: Stripe.Checkout.Session) {
 }
 
 export async function upsertUserSubscription(input: {
+  cancelAtPeriodEnd?: boolean
   clerkUserId: string
   currentPeriodEnd?: Date | null
   currentPeriodStart?: Date | null
@@ -273,6 +330,7 @@ export async function upsertUserSubscription(input: {
     status: input.status,
     plan: input.plan,
     planType: input.planType ?? 'single',
+    cancelAtPeriodEnd: input.cancelAtPeriodEnd ?? false,
     currentPeriodStart: input.currentPeriodStart ?? null,
     currentPeriodEnd: input.currentPeriodEnd ?? null,
   })
@@ -281,6 +339,7 @@ export async function upsertUserSubscription(input: {
 }
 
 export async function updateSubscriptionStatus(input: {
+  cancelAtPeriodEnd?: boolean
   currentPeriodEnd?: Date | null
   currentPeriodStart?: Date | null
   status: string
@@ -299,6 +358,7 @@ export async function updateSubscriptionStatus(input: {
     .set({
       status: input.status,
       plan: nextPlan,
+      cancelAtPeriodEnd: input.cancelAtPeriodEnd ?? false,
       currentPeriodStart: input.currentPeriodStart ?? existingSubscription.currentPeriodStart,
       currentPeriodEnd: input.currentPeriodEnd ?? existingSubscription.currentPeriodEnd,
     })
@@ -342,6 +402,7 @@ async function activateCheckoutSession(session: Stripe.Checkout.Session) {
     status: 'active',
     plan: sessionContext.plan,
     planType: sessionContext.planType,
+    cancelAtPeriodEnd: Boolean(subscriptionDetails?.cancel_at_period_end),
     currentPeriodStart: fromUnixTimestamp(
       subscriptionDetails?.items.data[0]?.current_period_start,
     ),
@@ -385,6 +446,7 @@ async function syncSubscriptionFromStripe(subscription: Stripe.Subscription) {
     status: subscription.status,
     plan,
     planType,
+    cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
     currentPeriodStart: fromUnixTimestamp(subscription.items.data[0]?.current_period_start),
     currentPeriodEnd: fromUnixTimestamp(subscription.items.data[0]?.current_period_end),
   })
@@ -431,6 +493,7 @@ async function handleSubscriptionDeleted(event: Stripe.CustomerSubscriptionDelet
   await updateSubscriptionStatus({
     status: 'canceled',
     stripeSubscriptionId: subscription.id,
+    cancelAtPeriodEnd: false,
     currentPeriodStart: fromUnixTimestamp(subscription.items.data[0]?.current_period_start),
     currentPeriodEnd: fromUnixTimestamp(subscription.items.data[0]?.current_period_end),
   })
@@ -588,6 +651,111 @@ export async function processStripeEvent(event: Stripe.Event) {
   await markEventProcessed(event.id, event.type)
 
   return { duplicate: false }
+}
+
+export async function createBillingPortalSession(input: { userId: string }) {
+  if (!stripeClient) {
+    throw new Error('Stripe is not configured. Add the Stripe secret key and portal settings.')
+  }
+
+  const subscription = await findManageableSubscriptionForUser(input.userId)
+
+  if (!subscription) {
+    throw new Error('No active REGEN subscription was found for this account.')
+  }
+
+  const session = await stripeClient.billingPortal.sessions.create({
+    customer: subscription.stripeCustomerId,
+    return_url: `${env.APP_URL}/dashboard/settings`,
+  })
+
+  return {
+    currentPeriodEnd: subscription.currentPeriodEnd,
+    url: session.url,
+  }
+}
+
+export async function getBillingStatus(userId: string) {
+  const subscription = await findManageableSubscriptionForUser(userId)
+
+  if (!subscription) {
+    return {
+      subscription: null,
+    }
+  }
+
+  return {
+    subscription: {
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      currentPeriodStart: subscription.currentPeriodStart,
+      plan: subscription.plan,
+      status: subscription.status,
+      stripeSubscriptionId: subscription.stripeSubscriptionId,
+    },
+  }
+}
+
+export async function cancelSubscriptionAtPeriodEnd(input: {
+  customMessage?: string | null
+  reasons: CancellationReason[]
+  userId: string
+}) {
+  if (!stripeClient) {
+    throw new Error('Stripe is not configured. Add the Stripe secret key and portal settings.')
+  }
+
+  const subscription = await findManageableSubscriptionForUser(input.userId)
+
+  if (!subscription) {
+    throw new Error('No active REGEN subscription was found for this account.')
+  }
+
+  if (subscription.cancelAtPeriodEnd) {
+    return {
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      status: subscription.status,
+      stripeSubscriptionId: subscription.stripeSubscriptionId,
+      cancelAtPeriodEnd: true,
+    }
+  }
+
+  const updatedSubscription = await stripeClient.subscriptions.update(
+    subscription.stripeSubscriptionId,
+    {
+      cancel_at_period_end: true,
+    },
+  )
+
+  const currentPeriodStart = fromUnixTimestamp(updatedSubscription.items.data[0]?.current_period_start)
+  const currentPeriodEnd = fromUnixTimestamp(updatedSubscription.items.data[0]?.current_period_end)
+
+  await upsertSubscriptionRecord({
+    userId: input.userId,
+    customerId: String(updatedSubscription.customer),
+    stripeSubscriptionId: updatedSubscription.id,
+    status: updatedSubscription.status,
+    plan: subscription.plan,
+    planType: subscription.planType,
+    cancelAtPeriodEnd: Boolean(updatedSubscription.cancel_at_period_end),
+    currentPeriodStart,
+    currentPeriodEnd,
+  })
+
+  await storeCancellationFeedback({
+    userId: input.userId,
+    stripeSubscriptionId: updatedSubscription.id,
+    reasons: input.reasons,
+    customMessage: input.customMessage,
+    currentPeriodEnd,
+  })
+
+  return {
+    currentPeriodEnd,
+    status: updatedSubscription.status,
+    stripeSubscriptionId: updatedSubscription.id,
+    cancelAtPeriodEnd: Boolean(updatedSubscription.cancel_at_period_end),
+  }
 }
 
 export async function getActiveSubscription(userId: string) {

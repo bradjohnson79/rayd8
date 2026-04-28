@@ -32,6 +32,14 @@ export const notificationStatusEnum = pgEnum('notification_status', [
   'skipped_duplicate',
   'dry_run',
 ])
+export const cancellationReasonEnum = pgEnum('cancellation_reason', [
+  'too_expensive',
+  'not_using_enough',
+  'technical_issues',
+  'didnt_see_results',
+  'found_alternative',
+  'other',
+])
 
 export const users = pgTable(
   'users',
@@ -57,6 +65,7 @@ export const subscriptions = pgTable(
     status: text('status').notNull(),
     plan: planEnum('plan').notNull(),
     planType: planTypeEnum('plan_type').notNull().default('single'),
+    cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
     currentPeriodStart: timestamp('current_period_start', { withTimezone: true }),
     currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -64,6 +73,30 @@ export const subscriptions = pgTable(
   (table) => [
     uniqueIndex('subscriptions_customer_idx').on(table.stripeCustomerId),
     uniqueIndex('subscriptions_subscription_idx').on(table.stripeSubscriptionId),
+  ],
+)
+
+export const subscriptionCancellationFeedback = pgTable(
+  'subscription_cancellation_feedback',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    stripeSubscriptionId: text('stripe_subscription_id')
+      .notNull()
+      .references(() => subscriptions.stripeSubscriptionId),
+    reasons: jsonb('reasons')
+      .$type<Array<'too_expensive' | 'not_using_enough' | 'technical_issues' | 'didnt_see_results' | 'found_alternative' | 'other'>>()
+      .notNull()
+      .default([]),
+    customMessage: text('custom_message'),
+    currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('subscription_cancellation_feedback_user_idx').on(table.userId),
+    index('subscription_cancellation_feedback_subscription_idx').on(table.stripeSubscriptionId),
   ],
 )
 

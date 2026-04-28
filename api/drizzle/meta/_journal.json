@@ -57,6 +57,13 @@
       "when": 1777356572019,
       "tag": "0007_sloppy_stature",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1777410820670,
+      "tag": "0008_striped_ogun",
+      "breakpoints": true
     }
   ]
 }

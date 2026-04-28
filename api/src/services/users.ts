@@ -6,6 +6,7 @@ import {
   activeSessions,
   contactMessages,
   stripeCheckoutSessions,
+  subscriptionCancellationFeedback,
   subscriptions,
   usagePeriods,
   usageSessions,
@@ -66,6 +67,10 @@ async function reconcileUserIdentity(nextUser: UserRecord) {
     })
 
     await db.update(subscriptions).set({ userId: nextUser.id }).where(eq(subscriptions.userId, userWithEmail.id))
+    await db
+      .update(subscriptionCancellationFeedback)
+      .set({ userId: nextUser.id })
+      .where(eq(subscriptionCancellationFeedback.userId, userWithEmail.id))
     await db.update(userSettings).set({ userId: nextUser.id }).where(eq(userSettings.userId, userWithEmail.id))
     await db
       .update(stripeCheckoutSessions)
