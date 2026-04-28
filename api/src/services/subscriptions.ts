@@ -5,23 +5,27 @@ import { env } from '../env.js'
 import { stripeCheckoutSessions, stripeEvents, subscriptions, users } from '../db/schema.js'
 import { clerkClient } from '../lib/clerk.js'
 
-const stripeClient = env.STRIPE_SECRET_KEY ? new Stripe(env.STRIPE_SECRET_KEY) : null
+const stripeClient = env.STRIPE_SECRET_KEY
+  ? new Stripe(env.STRIPE_SECRET_KEY, {
+      apiVersion: '2024-06-20' as never,
+    })
+  : null
 
-type ManagedPlan = 'premium' | 'regen'
+type ManagedPlan = 'regen'
 type ManagedPlanType = 'single' | 'multi'
 type PersistedPlan = 'free' | 'premium' | 'regen' | 'amrita'
 
 function getPriceIdForPlan(plan: ManagedPlan) {
-  return plan === 'premium' ? env.STRIPE_PREMIUM_PRICE_ID : env.STRIPE_REGEN_PRICE_ID
+  return plan === 'regen' ? env.STRIPE_REGEN_PRICE_ID : null
+}
+
+function parseManagedPlan(value: unknown): ManagedPlan | null {
+  return value === 'regen' ? value : null
 }
 
 function planFromPriceId(priceId?: string | null) {
   if (!priceId) {
     return null
-  }
-
-  if (priceId === env.STRIPE_PREMIUM_PRICE_ID) {
-    return 'premium'
   }
 
   if (priceId === env.STRIPE_REGEN_PRICE_ID) {
@@ -216,10 +220,10 @@ function toStripeResourceId(value: string | Stripe.Subscription | Stripe.Custome
 function getCheckoutSessionContext(session: Stripe.Checkout.Session) {
   const metadata = session.metadata ?? {}
   const userId = session.client_reference_id ?? metadata.userId
-  const plan = (metadata.plan as ManagedPlan | 'amrita' | undefined) ?? 'premium'
+  const plan = parseManagedPlan(metadata.plan)
   const planType = normalizePlanType(metadata.planType)
 
-  if (!userId || !session.subscription || !session.customer) {
+  if (!userId || !plan || !session.subscription || !session.customer) {
     return null
   }
 
@@ -230,6 +234,69 @@ function getCheckoutSessionContext(session: Stripe.Checkout.Session) {
     stripeSubscriptionId: toStripeResourceId(session.subscription),
     userId,
   }
+}
+
+export async function upsertUserSubscription(input: {
+  clerkUserId: string
+  currentPeriodEnd?: Date | null
+  currentPeriodStart?: Date | null
+  plan: PersistedPlan
+  planType?: ManagedPlanType
+  status: string
+  stripeCustomerId: string
+  stripeSubscriptionId: string
+}) {
+  await upsertSubscriptionRecord({
+    userId: input.clerkUserId,
+    customerId: input.stripeCustomerId,
+    stripeSubscriptionId: input.stripeSubscriptionId,
+    status: input.status,
+    plan: input.plan,
+    planType: input.planType ?? 'single',
+    currentPeriodStart: input.currentPeriodStart ?? null,
+    currentPeriodEnd: input.currentPeriodEnd ?? null,
+  })
+
+  await updateClerkPlan(input.clerkUserId, input.plan)
+}
+
+export async function updateSubscriptionStatus(input: {
+  currentPeriodEnd?: Date | null
+  currentPeriodStart?: Date | null
+  status: string
+  stripeSubscriptionId: string
+}) {
+  const existingSubscription = await findSubscriptionContext(input.stripeSubscriptionId)
+
+  if (!db || !existingSubscription) {
+    return
+  }
+
+  const nextPlan = input.status === 'canceled' ? 'free' : existingSubscription.plan
+
+  await db
+    .update(subscriptions)
+    .set({
+      status: input.status,
+      plan: nextPlan,
+      currentPeriodStart: input.currentPeriodStart ?? existingSubscription.currentPeriodStart,
+      currentPeriodEnd: input.currentPeriodEnd ?? existingSubscription.currentPeriodEnd,
+    })
+    .where(eq(subscriptions.stripeSubscriptionId, input.stripeSubscriptionId))
+
+  await db
+    .update(users)
+    .set({ plan: nextPlan })
+    .where(eq(users.id, existingSubscription.userId))
+
+  await updateClerkPlan(existingSubscription.userId, nextPlan)
+}
+
+export async function markSubscriptionPastDue(stripeSubscriptionId: string) {
+  await updateSubscriptionStatus({
+    status: 'past_due',
+    stripeSubscriptionId,
+  })
 }
 
 async function activateCheckoutSession(session: Stripe.Checkout.Session) {
@@ -248,9 +315,9 @@ async function activateCheckoutSession(session: Stripe.Checkout.Session) {
       ? expandedSubscription
       : null
 
-  await upsertSubscriptionRecord({
-    userId: sessionContext.userId,
-    customerId: sessionContext.customerId,
+  await upsertUserSubscription({
+    clerkUserId: sessionContext.userId,
+    stripeCustomerId: sessionContext.customerId,
     stripeSubscriptionId: sessionContext.stripeSubscriptionId,
     status: 'active',
     plan: sessionContext.plan,
@@ -261,7 +328,6 @@ async function activateCheckoutSession(session: Stripe.Checkout.Session) {
     currentPeriodEnd: fromUnixTimestamp(subscriptionDetails?.items.data[0]?.current_period_end),
   })
   await markCheckoutSessionProcessed(session.id, sessionContext.userId)
-  await updateClerkPlan(sessionContext.userId, sessionContext.plan)
 
   return {
     plan: sessionContext.plan,
@@ -274,8 +340,7 @@ async function handleCheckoutCompleted(event: Stripe.CheckoutSessionCompletedEve
   await activateCheckoutSession(session)
 }
 
-async function handleSubscriptionUpdated(event: Stripe.CustomerSubscriptionUpdatedEvent) {
-  const subscription = event.data.object
+async function syncSubscriptionFromStripe(subscription: Stripe.Subscription) {
   const existingSubscription = await findSubscriptionContext(subscription.id)
   const userId = subscription.metadata.userId ?? existingSubscription?.userId
 
@@ -284,7 +349,7 @@ async function handleSubscriptionUpdated(event: Stripe.CustomerSubscriptionUpdat
   }
 
   const plan =
-    (subscription.metadata.plan as 'premium' | 'regen' | 'amrita' | undefined) ??
+    (subscription.metadata.plan as 'regen' | 'amrita' | undefined) ??
     planFromPriceId(subscription.items.data[0]?.price.id) ??
     existingSubscription?.plan ??
     'free'
@@ -293,9 +358,9 @@ async function handleSubscriptionUpdated(event: Stripe.CustomerSubscriptionUpdat
     existingSubscription?.planType ??
     'single'
 
-  await upsertSubscriptionRecord({
-    userId,
-    customerId: String(subscription.customer),
+  await upsertUserSubscription({
+    clerkUserId: userId,
+    stripeCustomerId: String(subscription.customer),
     stripeSubscriptionId: subscription.id,
     status: subscription.status,
     plan,
@@ -303,33 +368,61 @@ async function handleSubscriptionUpdated(event: Stripe.CustomerSubscriptionUpdat
     currentPeriodStart: fromUnixTimestamp(subscription.items.data[0]?.current_period_start),
     currentPeriodEnd: fromUnixTimestamp(subscription.items.data[0]?.current_period_end),
   })
-  await updateClerkPlan(userId, plan)
+}
+
+async function handleSubscriptionCreated(event: Stripe.CustomerSubscriptionCreatedEvent) {
+  await syncSubscriptionFromStripe(event.data.object)
+}
+
+async function handleSubscriptionUpdated(event: Stripe.CustomerSubscriptionUpdatedEvent) {
+  await syncSubscriptionFromStripe(event.data.object)
 }
 
 async function handleSubscriptionDeleted(event: Stripe.CustomerSubscriptionDeletedEvent) {
   const subscription = event.data.object
-  const existingSubscription = await findSubscriptionContext(subscription.id)
+  await updateSubscriptionStatus({
+    status: 'canceled',
+    stripeSubscriptionId: subscription.id,
+    currentPeriodStart: fromUnixTimestamp(subscription.items.data[0]?.current_period_start),
+    currentPeriodEnd: fromUnixTimestamp(subscription.items.data[0]?.current_period_end),
+  })
+}
 
-  if (!db || !existingSubscription) {
+async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceededEvent) {
+  const invoice = event.data.object as Stripe.Invoice & {
+    subscription?: string | Stripe.Subscription | null
+  }
+  const subscriptionId =
+    typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id
+
+  if (!subscriptionId) {
     return
   }
 
-  await db
-    .update(subscriptions)
-    .set({
-      status: 'canceled',
-      plan: 'free',
-      currentPeriodStart: fromUnixTimestamp(subscription.items.data[0]?.current_period_start),
-      currentPeriodEnd: fromUnixTimestamp(subscription.items.data[0]?.current_period_end),
+  if (!stripeClient) {
+    await updateSubscriptionStatus({
+      status: 'active',
+      stripeSubscriptionId: subscriptionId,
     })
-    .where(eq(subscriptions.stripeSubscriptionId, subscription.id))
+    return
+  }
 
-  await db
-    .update(users)
-    .set({ plan: 'free' })
-    .where(eq(users.id, existingSubscription.userId))
+  const subscription = await stripeClient.subscriptions.retrieve(subscriptionId)
+  await syncSubscriptionFromStripe(subscription)
+}
 
-  await updateClerkPlan(existingSubscription.userId, 'free')
+async function handleInvoicePaymentFailed(event: Stripe.InvoicePaymentFailedEvent) {
+  const invoice = event.data.object as Stripe.Invoice & {
+    subscription?: string | Stripe.Subscription | null
+  }
+  const subscriptionId =
+    typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id
+
+  if (!subscriptionId) {
+    return
+  }
+
+  await markSubscriptionPastDue(subscriptionId)
 }
 
 export async function processStripeEvent(event: Stripe.Event) {
@@ -341,11 +434,20 @@ export async function processStripeEvent(event: Stripe.Event) {
     case 'checkout.session.completed':
       await handleCheckoutCompleted(event as Stripe.CheckoutSessionCompletedEvent)
       break
+    case 'customer.subscription.created':
+      await handleSubscriptionCreated(event as Stripe.CustomerSubscriptionCreatedEvent)
+      break
     case 'customer.subscription.updated':
       await handleSubscriptionUpdated(event as Stripe.CustomerSubscriptionUpdatedEvent)
       break
     case 'customer.subscription.deleted':
       await handleSubscriptionDeleted(event as Stripe.CustomerSubscriptionDeletedEvent)
+      break
+    case 'invoice.payment_succeeded':
+      await handleInvoicePaymentSucceeded(event as Stripe.InvoicePaymentSucceededEvent)
+      break
+    case 'invoice.payment_failed':
+      await handleInvoicePaymentFailed(event as Stripe.InvoicePaymentFailedEvent)
       break
     default:
       break

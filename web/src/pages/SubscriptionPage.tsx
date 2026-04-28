@@ -5,7 +5,7 @@ import { Rayd8Background } from '../components/Rayd8Background'
 import { useAuthToken } from '../features/dashboard/useAuthToken'
 import { useAuthUser } from '../features/dashboard/useAuthUser'
 import { MarketingButton } from '../features/landing/components/MarketingButton'
-import { createBillingCheckout, getBillingConfig } from '../services/billing'
+import { createBillingCheckout } from '../services/billing'
 
 const PLAN_STORAGE_KEY = 'rayd8_plan'
 const RESUME_STORAGE_KEY = 'rayd8_subscription_resume'
@@ -71,8 +71,6 @@ export function SubscriptionPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const user = useAuthUser()
   const getAuthToken = useAuthToken()
-  const [regenConfigured, setRegenConfigured] = useState(false)
-  const [isLoadingConfig, setIsLoadingConfig] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const selectedPlan = normalizePlan(searchParams.get('plan'))
@@ -82,36 +80,6 @@ export function SubscriptionPage() {
     () => planCards.find((card) => card.plan === selectedPlan) ?? planCards[0],
     [selectedPlan],
   )
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadBillingConfig() {
-      try {
-        const config = await getBillingConfig()
-
-        if (!cancelled) {
-          setRegenConfigured(config.regenConfigured)
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setStatusMessage(
-            error instanceof Error ? error.message : 'Unable to reach the billing API.',
-          )
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoadingConfig(false)
-        }
-      }
-    }
-
-    void loadBillingConfig()
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   useEffect(() => {
     if (!user.isAuthenticated) {
@@ -179,8 +147,7 @@ export function SubscriptionPage() {
     setSearchParams(nextSearchParams, { replace: true })
   }
 
-  const regenDisabled = isLoadingConfig || !regenConfigured || isSubmitting
-  const primaryButtonDisabled = selectedPlan === 'regen' ? regenDisabled : isSubmitting
+  const primaryButtonDisabled = isSubmitting
 
   return (
     <Rayd8Background intensity="low" variant="landing">
@@ -288,7 +255,7 @@ export function SubscriptionPage() {
                         ]
                           .filter(Boolean)
                           .join(' ')}
-                        disabled={card.plan === 'regen' ? regenDisabled : isSubmitting}
+                        disabled={isSubmitting}
                         onClick={() => {
                           selectPlan(card.plan)
                           void handlePlanAction(card.plan)
@@ -306,9 +273,7 @@ export function SubscriptionPage() {
             <div className="mt-8 rounded-2xl border border-white/10 bg-black/15 px-4 py-4 text-sm leading-6 text-slate-300">
               {selectedPlan === 'free'
                 ? 'Free Trial starts immediately after authentication.'
-                : regenConfigured
-                  ? 'REGEN uses a secure server-created Stripe Checkout session.'
-                  : 'Stripe checkout is not configured yet. Once it is available, you can continue to checkout here.'}
+                : 'REGEN uses a secure server-created Stripe Checkout session and activates on your dashboard after payment completes.'}
             </div>
 
             <div className="mt-6">

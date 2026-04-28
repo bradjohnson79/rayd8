@@ -15,6 +15,7 @@ import { healthRoutes } from './routes/health.js'
 import { meRoutes } from './routes/me.js'
 import { playerRoutes } from './routes/player.js'
 import { settingsRoutes } from './routes/settings.js'
+import { stripeWebhookRoutes } from './routes/stripeWebhook.js'
 import { usageRoutes } from './routes/usage.js'
 
 export function buildServer() {
@@ -54,6 +55,7 @@ export function buildServer() {
   void app.register(playerRoutes)
   void app.register(usageRoutes)
   void app.register(settingsRoutes)
+  void app.register(stripeWebhookRoutes)
   void app.register(contactRoutes, { prefix: '/api/contact' })
   void app.register(billingRoutes)
   void app.register(adminMessageRoutes, { prefix: '/api/admin/messages' })

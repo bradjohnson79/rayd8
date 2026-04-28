@@ -4,7 +4,8 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   build: {
-    chunkSizeWarningLimit: 550,
+    chunkSizeWarningLimit: 800,
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -22,8 +23,7 @@ export default defineConfig({
 
           if (
             id.includes('/src/features/landing') ||
-            id.includes('/src/pages/LandingPage') ||
-            id.includes('/public/hero/')
+            id.includes('/src/pages/LandingPage')
           ) {
             return 'landing'
           }

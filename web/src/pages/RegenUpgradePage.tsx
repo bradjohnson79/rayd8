@@ -1,50 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthToken } from '../features/dashboard/useAuthToken'
 import { useAuthUser } from '../features/dashboard/useAuthUser'
-import { createBillingCheckout, getBillingConfig } from '../services/billing'
-
-const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
+import { createBillingCheckout } from '../services/billing'
 
 export function RegenUpgradePage() {
   const user = useAuthUser()
   const getAuthToken = useAuthToken()
-  const [regenConfigured, setRegenConfigured] = useState(false)
-  const [statusMessage, setStatusMessage] = useState('Checking billing configuration...')
+  const [statusMessage, setStatusMessage] = useState(
+    'Upgrade opens in secure Stripe Checkout and activates REGEN access on your dashboard after payment completes.',
+  )
   const [isCheckingOut, setIsCheckingOut] = useState(false)
 
   const isFreeMember = user.plan === 'free'
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadConfig() {
-      try {
-        const config = await getBillingConfig()
-
-        if (!cancelled) {
-          setRegenConfigured(config.regenConfigured)
-          setStatusMessage(
-            config.regenConfigured
-              ? 'Stripe checkout is available. Continue to the secure payment flow to upgrade to REGEN.'
-              : 'REGEN checkout is not fully configured yet. The upgrade button will activate once the Stripe gateway and REGEN price are set on the API.',
-          )
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setStatusMessage(
-            error instanceof Error ? error.message : 'Unable to reach the billing API.',
-          )
-        }
-      }
-    }
-
-    void loadConfig()
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   async function startRegenUpgrade() {
     if (!isFreeMember) {
@@ -91,11 +59,6 @@ export function RegenUpgradePage() {
             </Link>
             .
           </p>
-        ) : !clerkEnabled && !user.isAuthenticated ? (
-          <p className="text-sm leading-6 text-amber-100/90">
-            Sign in to start checkout. In demo mode without Clerk, the billing flow cannot be started
-            from the browser.
-          </p>
         ) : null}
         <p className="text-sm leading-6 text-slate-300/90">{statusMessage}</p>
       </section>
@@ -104,7 +67,7 @@ export function RegenUpgradePage() {
         <div className="max-w-sm">
           <button
             className="w-full rounded-full bg-emerald-500/90 px-6 py-3 text-sm font-medium text-white transition hover:bg-emerald-400 hover:shadow-[0_0_28px_rgba(16,185,129,0.28)] disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={!regenConfigured || isCheckingOut}
+            disabled={isCheckingOut}
             onClick={() => void startRegenUpgrade()}
             type="button"
           >

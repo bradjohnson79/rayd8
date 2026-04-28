@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { ConversionButton } from './components/ConversionButton'
 
 const HERO_VIDEO_PATH = '/hero/RAYD8_Hero.mp4'
@@ -8,10 +8,11 @@ interface HeroSectionProps {
   reducedEffects?: boolean
 }
 
-export function HeroSection({ reducedEffects = false }: HeroSectionProps) {
+export const HeroSection = memo(function HeroSection({ reducedEffects = false }: HeroSectionProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [videoFailed, setVideoFailed] = useState(false)
   const [isVideoReady, setIsVideoReady] = useState(false)
+  const shouldRenderVideo = !reducedEffects && !videoFailed
 
   const tryPlay = useCallback((video: HTMLVideoElement) => {
     video.muted = true
@@ -28,7 +29,7 @@ export function HeroSection({ reducedEffects = false }: HeroSectionProps) {
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video || videoFailed) {
+    if (!video || !shouldRenderVideo) {
       return
     }
 
@@ -46,11 +47,11 @@ export function HeroSection({ reducedEffects = false }: HeroSectionProps) {
     }
     document.addEventListener('visibilitychange', syncPlayback)
     return () => document.removeEventListener('visibilitychange', syncPlayback)
-  }, [tryPlay, videoFailed, isVideoReady])
+  }, [isVideoReady, shouldRenderVideo, tryPlay])
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video || videoFailed) {
+    if (!video || !shouldRenderVideo) {
       return
     }
 
@@ -85,11 +86,11 @@ export function HeroSection({ reducedEffects = false }: HeroSectionProps) {
       video.removeEventListener('ended', onEnded)
       video.removeEventListener('pause', onPause)
     }
-  }, [isVideoReady, tryPlay, videoFailed])
+  }, [isVideoReady, shouldRenderVideo, tryPlay])
 
   return (
     <section className="relative min-h-[100svh] w-full overflow-hidden" id="hero">
-      {!videoFailed ? (
+      {shouldRenderVideo ? (
         <>
           <img
             alt=""
@@ -97,6 +98,7 @@ export function HeroSection({ reducedEffects = false }: HeroSectionProps) {
             className="absolute inset-0 z-0 h-full w-full min-h-full min-w-full object-cover"
             decoding="async"
             draggable={false}
+            fetchPriority="high"
             src={HERO_STILL}
           />
           <video
@@ -121,7 +123,7 @@ export function HeroSection({ reducedEffects = false }: HeroSectionProps) {
               }
             }}
             playsInline
-            preload="auto"
+            preload="metadata"
           >
             <source src={HERO_VIDEO_PATH} type="video/mp4" />
           </video>
@@ -132,6 +134,7 @@ export function HeroSection({ reducedEffects = false }: HeroSectionProps) {
           className="absolute inset-0 z-0 h-full w-full object-cover"
           decoding="async"
           draggable={false}
+          fetchPriority="high"
           src={HERO_STILL}
         />
       )}
@@ -192,4 +195,4 @@ export function HeroSection({ reducedEffects = false }: HeroSectionProps) {
       </div>
     </section>
   )
-}
+})

@@ -1,6 +1,5 @@
 import { Suspense, useEffect, useMemo } from 'react'
 import { Rayd8Background } from '../components/Rayd8Background'
-import { BenefitsImageSection } from '../features/landing/BenefitsImageSection'
 import { LandingNavbar } from '../features/landing/LandingNavbar'
 import { DeferredRender } from '../features/landing/components/DeferredRender'
 import { lazyWithPreload } from '../features/landing/lazyWithPreload'
@@ -8,6 +7,11 @@ import { useLandingPerformanceMode } from '../features/landing/useLandingPerform
 
 const HeroSection = lazyWithPreload(() =>
   import('../features/landing/HeroSection').then((module) => ({ default: module.HeroSection })),
+)
+const BenefitsImageSection = lazyWithPreload(() =>
+  import('../features/landing/BenefitsImageSection').then((module) => ({
+    default: module.BenefitsImageSection,
+  })),
 )
 const TeaserSection = lazyWithPreload(() =>
   import('../features/landing/TeaserSection').then((module) => ({ default: module.TeaserSection })),
@@ -57,6 +61,7 @@ export function LandingPage() {
     }
 
     const preloadNonCritical = () => {
+      void BenefitsImageSection.preload()
       void TestimonialsSection.preload()
       void ContactSection.preload()
       void LandingFooter.preload()
@@ -78,7 +83,14 @@ export function LandingPage() {
         <Suspense fallback={<LandingSectionFallback className="pt-4" minHeightClassName="min-h-[100svh]" />}>
           <HeroSection reducedEffects={reducedEffects} />
         </Suspense>
-        <BenefitsImageSection />
+        <DeferredRender
+          fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}
+          rootMargin={deferredRootMargin}
+        >
+          <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
+            <BenefitsImageSection />
+          </Suspense>
+        </DeferredRender>
         <DeferredRender
           fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}
           rootMargin={deferredRootMargin}

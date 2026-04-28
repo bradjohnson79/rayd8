@@ -1,16 +1,14 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { env } from '../env.js'
 import {
   createCheckoutSession,
-  processStripeEvent,
   verifyCheckoutSession,
-  verifyStripeWebhook,
 } from '../services/subscriptions.js'
 import { syncUserFromClerk } from '../services/users.js'
 
 const checkoutBodySchema = z.object({
-  plan: z.enum(['premium', 'regen']),
+  plan: z.literal('regen'),
 })
 
 const verifySessionBodySchema = z.object({
@@ -18,7 +16,7 @@ const verifySessionBodySchema = z.object({
 })
 
 export const billingRoutes: FastifyPluginAsync = async (app) => {
-  app.post('/v1/billing/checkout', async (request, reply) => {
+  const handleCheckout = async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.auth?.userId) {
       return reply.code(401).send({ error: 'Authentication required.' })
     }
@@ -43,30 +41,10 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
     }
 
     return { checkoutUrl: session.url }
-  })
+  }
 
-  app.post('/v1/billing/webhook', async (request, reply) => {
-    const signature = request.headers['stripe-signature']
-    const rawBody =
-      typeof request.rawBody === 'string' || Buffer.isBuffer(request.rawBody)
-        ? request.rawBody
-        : JSON.stringify(request.body)
-
-    const event = verifyStripeWebhook(rawBody, typeof signature === 'string' ? signature : undefined)
-
-    if (!event) {
-      return reply.code(400).send({
-        error: 'Webhook verification failed. Check Stripe keys and signature handling.',
-      })
-    }
-
-    const result = await processStripeEvent(event)
-
-    return reply.send({
-      duplicate: result.duplicate,
-      received: true,
-    })
-  })
+  app.post('/v1/billing/checkout', handleCheckout)
+  app.post('/api/stripe/create-checkout-session', handleCheckout)
 
   app.post('/v1/billing/verify-session', async (request, reply) => {
     if (!request.auth?.userId) {
@@ -90,12 +68,10 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/v1/billing/config', async () => {
     const stripeGatewayConfigured = Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET)
-    const premiumConfigured = Boolean(stripeGatewayConfigured && env.STRIPE_PREMIUM_PRICE_ID)
     const regenConfigured = Boolean(stripeGatewayConfigured && env.STRIPE_REGEN_PRICE_ID)
 
     return {
       stripeConfigured: stripeGatewayConfigured,
-      premiumConfigured,
       regenConfigured,
     }
   })

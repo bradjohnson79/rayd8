@@ -1,7 +1,8 @@
 import { memo } from 'react'
-import { Show, SignInButton, UserButton } from '@clerk/react'
+import { Show, SignInButton, UserButton, useClerk } from '@clerk/react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { MobileMenu } from '../../components/MobileMenu'
 import { useAuthUser } from '../dashboard/useAuthUser'
 import { ConversionButton } from './components/ConversionButton'
 
@@ -12,8 +13,17 @@ const navigationItems = [
   { href: '#contact', label: 'Contact' },
 ]
 
+const mobileNavigationItems = [
+  { href: '#hero', label: 'Home' },
+  { href: '#about', label: 'About' },
+  { href: '#testimonials', label: 'Testimonials' },
+  { href: '#contact', label: 'Contact' },
+]
+
 export const LandingNavbar = memo(function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { openSignIn, openSignUp } = useClerk()
   const user = useAuthUser()
 
   useEffect(() => {
@@ -66,6 +76,19 @@ export const LandingNavbar = memo(function LandingNavbar() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <button
+            aria-expanded={mobileMenuOpen}
+            aria-label="Open navigation menu"
+            className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] text-white/82 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition hover:border-emerald-200/35 hover:bg-white/[0.08] hover:text-white hover:shadow-[0_0_28px_rgba(16,185,129,0.22)] lg:hidden"
+            onClick={() => setMobileMenuOpen(true)}
+            type="button"
+          >
+            <span aria-hidden className="flex flex-col gap-1.5">
+              <span className="block h-0.5 w-5 rounded-full bg-current" />
+              <span className="block h-0.5 w-5 rounded-full bg-current" />
+              <span className="block h-0.5 w-5 rounded-full bg-current" />
+            </span>
+          </button>
           {user.isAuthenticated ? (
             <>
               <ConversionButton
@@ -106,6 +129,14 @@ export const LandingNavbar = memo(function LandingNavbar() {
           )}
         </div>
       </div>
+      <MobileMenu
+        isAuthenticated={user.isAuthenticated}
+        items={mobileNavigationItems}
+        onClose={() => setMobileMenuOpen(false)}
+        onSignIn={() => void openSignIn()}
+        onSignUp={() => void openSignUp()}
+        open={mobileMenuOpen}
+      />
     </header>
   )
 })
