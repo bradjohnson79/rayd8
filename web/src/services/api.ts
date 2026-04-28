@@ -1,4 +1,20 @@
-export const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const productionApiBaseUrl = 'https://rayd8-api.onrender.com'
+
+function resolveApiBaseUrl() {
+  const configuredApiBaseUrl = import.meta.env.VITE_API_URL?.trim()
+
+  if (configuredApiBaseUrl) {
+    return configuredApiBaseUrl
+  }
+
+  if (typeof window !== 'undefined' && window.location.hostname === 'rayd8.app') {
+    return productionApiBaseUrl
+  }
+
+  return 'http://localhost:3001'
+}
+
+export const apiBaseUrl = resolveApiBaseUrl()
 
 export async function apiRequest<T>(
   path: string,

@@ -2,10 +2,10 @@ import { UserProfile } from '@clerk/react'
 import { useState } from 'react'
 import { useAuthToken } from '../features/dashboard/useAuthToken'
 import { useAuthUser } from '../features/dashboard/useAuthUser'
+import { apiBaseUrl } from '../services/api'
 import { createBillingCheckout } from '../services/billing'
 
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
-const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 const streamBaseUrl = import.meta.env.VITE_STREAM_BASE_URL || 'Not configured'
 
 export function SettingsPage() {
