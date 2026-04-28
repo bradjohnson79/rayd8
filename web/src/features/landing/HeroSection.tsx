@@ -155,14 +155,26 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
       />
 
       <div className="relative z-[3] mx-auto flex w-full max-w-7xl flex-col px-4 pb-20 pt-24 sm:px-6 sm:pb-24 sm:pt-[30vh] lg:px-8 lg:pt-[34vh]">
-        <div className="max-w-3xl">
+        <div className="max-w-3xl rounded-[2rem] border border-black/45 bg-[linear-gradient(180deg,rgba(14,20,30,0.48),rgba(7,10,16,0.3))] px-5 py-6 shadow-[0_20px_70px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:px-7 sm:py-8">
           <p className="text-[10px] font-medium uppercase leading-relaxed tracking-[0.36em] text-emerald-200/80 sm:text-[11px] sm:tracking-[0.4em]">
             Living visual resonance
           </p>
-          <h1 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:mt-6 sm:text-5xl md:text-6xl lg:text-7xl">
+          <h1
+            className="mt-5 text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:mt-6 sm:text-5xl md:text-6xl lg:text-7xl"
+            style={{
+              textShadow:
+                '-1px 0 0 rgba(0,0,0,0.7), 1px 0 0 rgba(0,0,0,0.7), 0 -1px 0 rgba(0,0,0,0.7), 0 1px 0 rgba(0,0,0,0.7), 0 10px 30px rgba(0,0,0,0.28)',
+            }}
+          >
             Turn Your Space Into a Living Field of Regeneration
           </h1>
-          <p className="mt-5 max-w-2xl text-base leading-8 text-slate-200/90 sm:mt-6 sm:text-lg">
+          <p
+            className="mt-5 max-w-2xl text-base leading-8 text-slate-200/90 sm:mt-6 sm:text-lg"
+            style={{
+              textShadow:
+                '-1px 0 0 rgba(0,0,0,0.68), 1px 0 0 rgba(0,0,0,0.68), 0 -1px 0 rgba(0,0,0,0.68), 0 1px 0 rgba(0,0,0,0.68), 0 8px 24px rgba(0,0,0,0.24)',
+            }}
+          >
             RAYD8® is the world&apos;s first digital scalar-inspired visual resonance system designed to
             elevate your state physically, mentally, and energetically in minutes.
           </p>
