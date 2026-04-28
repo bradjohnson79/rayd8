@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import fp from 'fastify-plugin'
+import { verifyToken } from '@clerk/backend'
 import { env } from '../env.js'
 import { clerkClient } from '../lib/clerk.js'
 import { getUserAppPlan, syncUserFromClerk } from '../services/users.js'
@@ -30,6 +31,24 @@ function toRequestHeaders(request: FastifyRequest) {
   return headers
 }
 
+function getBearerToken(request: FastifyRequest) {
+  const authorizationHeader = request.headers.authorization
+
+  if (!authorizationHeader?.startsWith('Bearer ')) {
+    return null
+  }
+
+  return authorizationHeader.slice('Bearer '.length).trim() || null
+}
+
+function getAuthorizedParties() {
+  const values = [env.APP_URL, 'https://rayd8.app', 'http://localhost:5173']
+    .map((value) => value?.trim())
+    .filter(Boolean)
+
+  return Array.from(new Set(values))
+}
+
 const authPlugin: FastifyPluginAsync = async (app) => {
   app.decorateRequest('auth', null)
 
@@ -40,37 +59,56 @@ const authPlugin: FastifyPluginAsync = async (app) => {
     }
 
     try {
-      const authState = await clerkClient.authenticateRequest(
-        new Request(toRequestUrl(request), {
-          method: request.method,
-          headers: toRequestHeaders(request),
-        }),
-        {
-          acceptsToken: 'session_token',
-        },
-      )
+      const bearerToken = getBearerToken(request)
+      let userId: string | null = null
 
-      if (!authState.isAuthenticated) {
+      if (bearerToken) {
+        const payload = await verifyToken(bearerToken, {
+          authorizedParties: getAuthorizedParties(),
+          ...(env.CLERK_JWT_KEY ? { jwtKey: env.CLERK_JWT_KEY } : {}),
+          secretKey: env.CLERK_SECRET_KEY,
+        })
+
+        userId = typeof payload.sub === 'string' ? payload.sub : null
+      } else {
+        const authState = await clerkClient.authenticateRequest(
+          new Request(toRequestUrl(request), {
+            method: request.method,
+            headers: toRequestHeaders(request),
+          }),
+        )
+
+        if (!authState.isAuthenticated) {
+          request.auth = null
+          return
+        }
+
+        const auth = authState.toAuth()
+        userId = auth.userId ?? null
+      }
+
+      if (!userId) {
         request.auth = null
         return
       }
 
-      const auth = authState.toAuth()
-
-      if (!auth.userId) {
-        request.auth = null
-        return
-      }
-
-      const user = await syncUserFromClerk(auth.userId)
+      const user = await syncUserFromClerk(userId)
 
       request.auth = {
-        userId: auth.userId,
+        userId,
         email: user?.email ?? null,
         plan: getUserAppPlan(user?.plan),
         role: user?.role ?? 'member',
       }
-    } catch {
+    } catch (error) {
+      request.log.warn(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          hasAuthorizationHeader: Boolean(request.headers.authorization),
+          path: request.url,
+        },
+        'Clerk authentication failed',
+      )
       request.auth = null
     }
   })
