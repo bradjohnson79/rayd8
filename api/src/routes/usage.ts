@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { maybeDispatchStreamLimitReached } from '../services/notifications/streamLimitNotifications.js'
 import { toAppPlan } from '../services/player/accessPolicy.js'
 import { addTrackedUsageSeconds } from '../services/player/usagePeriods.js'
 import { getUsageSnapshotForUser } from '../services/player/usageSummary.js'
@@ -25,6 +26,24 @@ export const usageRoutes: FastifyPluginAsync = async (app) => {
       role: request.auth.role,
       userId: request.auth.userId,
     })
+
+    await Promise.all([
+      maybeDispatchStreamLimitReached({
+        access: snapshot.access.expansion,
+        plan,
+        userId: request.auth.userId,
+      }),
+      maybeDispatchStreamLimitReached({
+        access: snapshot.access.premium,
+        plan,
+        userId: request.auth.userId,
+      }),
+      maybeDispatchStreamLimitReached({
+        access: snapshot.access.regen,
+        plan,
+        userId: request.auth.userId,
+      }),
+    ])
 
     return {
       access: snapshot.access,
@@ -54,6 +73,24 @@ export const usageRoutes: FastifyPluginAsync = async (app) => {
       role: request.auth.role,
       userId: request.auth.userId,
     })
+
+    await Promise.all([
+      maybeDispatchStreamLimitReached({
+        access: snapshot.access.expansion,
+        plan,
+        userId: request.auth.userId,
+      }),
+      maybeDispatchStreamLimitReached({
+        access: snapshot.access.premium,
+        plan,
+        userId: request.auth.userId,
+      }),
+      maybeDispatchStreamLimitReached({
+        access: snapshot.access.regen,
+        plan,
+        userId: request.auth.userId,
+      }),
+    ])
 
     return {
       access: snapshot.access,

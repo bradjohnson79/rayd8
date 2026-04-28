@@ -7,6 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "postinstall": "npm run build",
     "start": "node dist/server.js",
+    "test:smoke": "vitest run src/services/notifications/notifications.smoke.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
@@ -30,6 +31,7 @@
     "@types/node": "^25.6.0",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
   }
 }

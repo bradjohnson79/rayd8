@@ -10,6 +10,7 @@ import {
   type ExperienceAccessSummary,
   type Experience,
 } from '../services/player/accessPolicy.js'
+import { maybeDispatchStreamLimitReached } from '../services/notifications/streamLimitNotifications.js'
 import { getExperienceAccessForUser } from '../services/player/usageSummary.js'
 import {
   endUsageSession,
@@ -134,6 +135,12 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       userId: request.auth.userId,
     })
 
+    await maybeDispatchStreamLimitReached({
+      access,
+      plan: request.auth.plan,
+      userId: request.auth.userId,
+    })
+
     return { access }
   })
 
@@ -151,6 +158,11 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
     })
 
     if (!access.allowed) {
+      await maybeDispatchStreamLimitReached({
+        access,
+        plan: request.auth.plan,
+        userId: request.auth.userId,
+      })
       return reply.code(403).send({
         error: getBlockedExperienceMessage(access),
       })
@@ -189,6 +201,12 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       userId: request.auth.userId,
     })
 
+    await maybeDispatchStreamLimitReached({
+      access,
+      plan: request.auth.plan,
+      userId: request.auth.userId,
+    })
+
     return {
       access: {
         ...access,
@@ -218,6 +236,12 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       experience: session.experience,
       plan: request.auth.plan,
       role: request.auth.role,
+      userId: request.auth.userId,
+    })
+
+    await maybeDispatchStreamLimitReached({
+      access,
+      plan: request.auth.plan,
       userId: request.auth.userId,
     })
 

@@ -14,6 +14,7 @@ import {
   users,
 } from '../db/schema.js'
 import { clerkClient } from '../lib/clerk.js'
+import { dispatchNotification } from './notifications/dispatchNotification.js'
 import { toAppPlan } from './player/accessPolicy.js'
 
 export type UserRecord = InferSelectModel<typeof users>
@@ -97,6 +98,16 @@ async function reconcileUserIdentity(nextUser: UserRecord) {
   })
 }
 
+async function safeDispatchNotification(
+  ...args: Parameters<typeof dispatchNotification>
+) {
+  try {
+    await dispatchNotification(...args)
+  } catch (error) {
+    console.error('[notifications]', error)
+  }
+}
+
 export async function syncUserFromClerk(userId: string) {
   if (!clerkClient) {
     return null
@@ -124,9 +135,32 @@ export async function syncUserFromClerk(userId: string) {
     return nextUser
   }
 
+  const [existingUserById] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
   await reconcileUserIdentity(nextUser)
 
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+
+  if (!existingUserById && user) {
+    await safeDispatchNotification({
+      event: 'user.created',
+      payload: {
+        email: user.email,
+        entityId: user.id,
+        userId: user.id,
+      },
+      userId: user.id,
+    })
+
+    await safeDispatchNotification({
+      event: 'admin.new.user',
+      payload: {
+        email: user.email,
+        entityId: user.id,
+        userId: user.id,
+      },
+      userId: user.id,
+    })
+  }
 
   return user ?? nextUser
 }

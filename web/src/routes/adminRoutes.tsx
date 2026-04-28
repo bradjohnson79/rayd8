@@ -60,6 +60,11 @@ const AdminMessagesPage = lazy(() =>
     default: module.AdminMessagesPage,
   })),
 )
+const AdminNotificationsPage = lazy(() =>
+  import('../pages/admin/admin-tools/Notifications').then((module) => ({
+    default: module.AdminNotificationsPage,
+  })),
+)
 const AdminSettingsToolPage = lazy(() =>
   import('../pages/admin/admin-tools/AdminSettings').then((module) => ({
     default: module.AdminSettingsToolPage,
@@ -99,6 +104,7 @@ export const adminRoutes: RouteObject = {
             { path: 'subscribers', element: lazyElement(<AdminSubscribersPage />) },
             { path: 'mux', element: lazyElement(<AdminMuxPage />) },
             { path: 'messages', element: lazyElement(<AdminMessagesPage />) },
+            { path: 'notifications', element: lazyElement(<AdminNotificationsPage />) },
             { path: 'admin-settings', element: lazyElement(<AdminSettingsToolPage />) },
           ],
         },

@@ -19,6 +19,7 @@ const adminItems = [
   { label: 'Subscribers', to: '/admin/subscribers' },
   { label: 'Mux', to: '/admin/mux' },
   { label: 'Messages', to: '/admin/messages' },
+  { label: 'Notifications', to: '/admin/notifications' },
   { label: 'Admin Settings', to: '/admin/admin-settings' },
 ]
 

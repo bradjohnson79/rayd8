@@ -4,6 +4,7 @@ import { db } from '../db/client.js'
 import { env } from '../env.js'
 import { stripeCheckoutSessions, stripeEvents, subscriptions, users } from '../db/schema.js'
 import { clerkClient } from '../lib/clerk.js'
+import { dispatchNotification } from './notifications/dispatchNotification.js'
 
 const stripeClient = env.STRIPE_SECRET_KEY
   ? new Stripe(env.STRIPE_SECRET_KEY, {
@@ -201,6 +202,25 @@ async function findSubscriptionContext(stripeSubscriptionId: string) {
   return subscriptionRecord ?? null
 }
 
+async function getUserNotificationContext(userId: string) {
+  if (!db) {
+    return null
+  }
+
+  const [userRecord] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1)
+  return userRecord ?? null
+}
+
+async function safeDispatchNotification(
+  ...args: Parameters<typeof dispatchNotification>
+) {
+  try {
+    await dispatchNotification(...args)
+  } catch (error) {
+    console.error('[notifications]', error)
+  }
+}
+
 function normalizePlanType(value: unknown): ManagedPlanType {
   return value === 'multi' ? 'multi' : 'single'
 }
@@ -371,7 +391,34 @@ async function syncSubscriptionFromStripe(subscription: Stripe.Subscription) {
 }
 
 async function handleSubscriptionCreated(event: Stripe.CustomerSubscriptionCreatedEvent) {
-  await syncSubscriptionFromStripe(event.data.object)
+  const subscription = event.data.object
+  await syncSubscriptionFromStripe(subscription)
+
+  const existingSubscription = await findSubscriptionContext(subscription.id)
+  const userId = subscription.metadata.userId ?? existingSubscription?.userId
+
+  if (!userId) {
+    return
+  }
+
+  const userContext = await getUserNotificationContext(userId)
+
+  await safeDispatchNotification({
+    event: 'subscription.created',
+    payload: {
+      currentPeriodEnd: fromUnixTimestamp(subscription.items.data[0]?.current_period_end)?.toISOString() ?? null,
+      currentPeriodStart:
+        fromUnixTimestamp(subscription.items.data[0]?.current_period_start)?.toISOString() ?? null,
+      entityId: subscription.id,
+      plan:
+        (subscription.metadata.plan as PersistedPlan | undefined) ??
+        existingSubscription?.plan ??
+        'regen',
+      subscriptionId: subscription.id,
+      userEmail: userContext?.email ?? null,
+    },
+    userId,
+  })
 }
 
 async function handleSubscriptionUpdated(event: Stripe.CustomerSubscriptionUpdatedEvent) {
@@ -380,11 +427,35 @@ async function handleSubscriptionUpdated(event: Stripe.CustomerSubscriptionUpdat
 
 async function handleSubscriptionDeleted(event: Stripe.CustomerSubscriptionDeletedEvent) {
   const subscription = event.data.object
+  const existingSubscription = await findSubscriptionContext(subscription.id)
   await updateSubscriptionStatus({
     status: 'canceled',
     stripeSubscriptionId: subscription.id,
     currentPeriodStart: fromUnixTimestamp(subscription.items.data[0]?.current_period_start),
     currentPeriodEnd: fromUnixTimestamp(subscription.items.data[0]?.current_period_end),
+  })
+
+  const userId = subscription.metadata.userId ?? existingSubscription?.userId
+
+  if (!userId) {
+    return
+  }
+
+  const userContext = await getUserNotificationContext(userId)
+
+  await safeDispatchNotification({
+    event: 'subscription.cancelled',
+    payload: {
+      cancelledAt: new Date().toISOString(),
+      entityId: subscription.id,
+      plan:
+        (subscription.metadata.plan as PersistedPlan | undefined) ??
+        existingSubscription?.plan ??
+        'regen',
+      subscriptionId: subscription.id,
+      userEmail: userContext?.email ?? null,
+    },
+    userId,
   })
 }
 
@@ -409,6 +480,45 @@ async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceed
 
   const subscription = await stripeClient.subscriptions.retrieve(subscriptionId)
   await syncSubscriptionFromStripe(subscription)
+  const existingSubscription = await findSubscriptionContext(subscription.id)
+  const userId = subscription.metadata.userId ?? existingSubscription?.userId
+
+  if (!userId) {
+    return
+  }
+
+  const userContext = await getUserNotificationContext(userId)
+  const amount = (invoice.amount_paid ?? invoice.amount_due ?? 0) / 100
+  const plan =
+    (subscription.metadata.plan as PersistedPlan | undefined) ??
+    existingSubscription?.plan ??
+    'regen'
+
+  await safeDispatchNotification({
+    event: 'payment.succeeded',
+    payload: {
+      amount,
+      currency: invoice.currency ?? 'usd',
+      entityId: invoice.id,
+      paymentId: invoice.id,
+      plan,
+      userEmail: userContext?.email ?? null,
+    },
+    userId,
+  })
+
+  await safeDispatchNotification({
+    event: 'admin.payment.received',
+    payload: {
+      amount,
+      currency: invoice.currency ?? 'usd',
+      entityId: invoice.id,
+      paymentId: invoice.id,
+      plan,
+      userEmail: userContext?.email ?? null,
+    },
+    userId,
+  })
 }
 
 async function handleInvoicePaymentFailed(event: Stripe.InvoicePaymentFailedEvent) {
@@ -423,6 +533,28 @@ async function handleInvoicePaymentFailed(event: Stripe.InvoicePaymentFailedEven
   }
 
   await markSubscriptionPastDue(subscriptionId)
+  const existingSubscription = await findSubscriptionContext(subscriptionId)
+  const userId = existingSubscription?.userId
+
+  if (!userId) {
+    return
+  }
+
+  const userContext = await getUserNotificationContext(userId)
+
+  await safeDispatchNotification({
+    event: 'payment.failed',
+    payload: {
+      amount: (invoice.amount_due ?? 0) / 100,
+      currency: invoice.currency ?? 'usd',
+      entityId: invoice.id,
+      paymentId: invoice.id,
+      plan: existingSubscription?.plan ?? 'regen',
+      reason: invoice.last_finalization_error?.message ?? 'Stripe could not collect the payment.',
+      userEmail: userContext?.email ?? null,
+    },
+    userId,
+  })
 }
 
 export async function processStripeEvent(event: Stripe.Event) {

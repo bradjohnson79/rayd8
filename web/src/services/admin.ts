@@ -59,6 +59,68 @@ export interface ContactMessageRecord {
   created_at: string
 }
 
+export interface AdminNotificationEventInfo {
+  event: string
+  label: string
+  recipientType: 'user' | 'admin'
+  configurable: boolean
+  enabled: boolean
+}
+
+export interface AdminNotificationSettings {
+  adminRecipientsOverride: string[]
+  effectiveAdminRecipients: string[]
+  enabledEvents: Record<string, boolean>
+}
+
+export interface AdminNotificationEventsResponse {
+  events: AdminNotificationEventInfo[]
+  sample_payloads: Record<string, Record<string, unknown>>
+  settings: AdminNotificationSettings
+}
+
+export interface AdminNotificationActivityRecord {
+  id: string
+  event: string
+  entity_id: string
+  recipient: string
+  type: 'user' | 'admin'
+  status: string
+  error: string | null
+  sent_at: string | null
+  created_at: string
+  updated_at: string
+  user_id: string | null
+  payload: Record<string, unknown>
+}
+
+export interface AdminNotificationPreviewResponse {
+  preview: {
+    event: string
+    html: string
+    payload: Record<string, unknown>
+    recipients: string[]
+    subject: string
+  }
+}
+
+export interface AdminNotificationTestResponse {
+  result: {
+    delivered: number
+    recipients: string[]
+    skipped: number
+    subject?: string
+    success: boolean
+  }
+}
+
+export interface AdminNotificationRetryResponse {
+  result: {
+    results: Array<{ id: string; skipped?: boolean; success: boolean }>
+    total: number
+  }
+}
+
 export async function getAdminOverview(token: string) {
   return apiRequest<{ overview: AdminOverview }>('/api/admin/users/overview', undefined, token)
 }
@@ -122,6 +184,83 @@ export async function getAdminMuxPlaybackToken(assetId: string, token: string) {
 
 export async function getAdminMessages(token: string) {
   return apiRequest<{ messages: ContactMessageRecord[] }>('/api/admin/messages', undefined, token)
+}
+
+export async function getAdminNotificationEvents(token: string) {
+  return apiRequest<AdminNotificationEventsResponse>('/api/admin/notifications/events', undefined, token)
+}
+
+export async function getAdminNotificationActivity(token: string) {
+  return apiRequest<{ activity: AdminNotificationActivityRecord[] }>(
+    '/api/admin/notifications/activity',
+    undefined,
+    token,
+  )
+}
+
+export async function previewAdminNotification(
+  payload: {
+    event: string
+    payload?: Record<string, unknown>
+    recipientOverride?: string[]
+  },
+  token: string,
+) {
+  return apiRequest<AdminNotificationPreviewResponse>(
+    '/api/admin/notifications/preview',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+}
+
+export async function sendAdminNotificationTest(
+  payload: {
+    event: string
+    messageOverride?: string
+    payload?: Record<string, unknown>
+    recipientOverride?: string[]
+  },
+  token: string,
+) {
+  return apiRequest<AdminNotificationTestResponse>(
+    '/api/admin/notifications/test',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+}
+
+export async function retryAdminNotifications(payload: { ids?: string[] }, token: string) {
+  return apiRequest<AdminNotificationRetryResponse>(
+    '/api/admin/notifications/retry',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+}
+
+export async function updateAdminNotificationSettings(
+  payload: {
+    adminRecipientsOverride?: string[]
+    enabledEvents?: Record<string, boolean>
+  },
+  token: string,
+) {
+  return apiRequest<{ settings: AdminNotificationSettings }>(
+    '/api/admin/notifications/settings',
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
 }
 
 export async function createContactMessage(

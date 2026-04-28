@@ -1,6 +1,8 @@
 import {
   boolean,
+  index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -21,6 +23,14 @@ export const speedModeEnum = pgEnum('speed_mode', [
   'superFast',
   'slow',
   'superSlow',
+])
+export const notificationRecipientTypeEnum = pgEnum('notification_recipient_type', ['user', 'admin'])
+export const notificationStatusEnum = pgEnum('notification_status', [
+  'pending',
+  'sent',
+  'failed',
+  'skipped_duplicate',
+  'dry_run',
 ])
 
 export const users = pgTable(
@@ -165,3 +175,46 @@ export const contactMessages = pgTable('contact_messages', {
   status: text('status').notNull().default('new'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+export const notificationSettings = pgTable('notification_settings', {
+  id: text('id').primaryKey(),
+  enabledEvents: jsonb('enabled_events')
+    .$type<Record<string, boolean>>()
+    .notNull()
+    .default({}),
+  adminRecipientsOverride: jsonb('admin_recipients_override')
+    .$type<string[]>()
+    .notNull()
+    .default([]),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const notificationsLog = pgTable(
+  'notifications_log',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    event: text('event').notNull(),
+    entityId: text('entity_id').notNull(),
+    userId: text('user_id').references(() => users.id),
+    recipient: text('recipient').notNull(),
+    type: notificationRecipientTypeEnum('type').notNull(),
+    status: notificationStatusEnum('status').notNull().default('pending'),
+    error: text('error'),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('notifications_log_event_idx').on(table.event),
+    index('notifications_log_entity_id_idx').on(table.entityId),
+    index('notifications_log_status_idx').on(table.status),
+    index('notifications_log_event_entity_recipient_idx').on(
+      table.event,
+      table.entityId,
+      table.recipient,
+      table.type,
+    ),
+  ],
+)

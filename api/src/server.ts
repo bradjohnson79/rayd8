@@ -7,6 +7,7 @@ import { env } from './env.js'
 import { registerAuth } from './plugins/auth.js'
 import { adminMessageRoutes } from './routes/admin/messages.js'
 import { adminMuxRoutes } from './routes/admin/mux.js'
+import { adminNotificationRoutes } from './routes/admin/notifications.js'
 import { adminStripeRoutes } from './routes/admin/stripe.js'
 import { adminUserRoutes } from './routes/admin/users.js'
 import { billingRoutes } from './routes/billing.js'
@@ -61,6 +62,7 @@ export function buildServer() {
   void app.register(adminMessageRoutes, { prefix: '/api/admin/messages' })
   void app.register(adminStripeRoutes, { prefix: '/api/admin/stripe' })
   void app.register(adminMuxRoutes, { prefix: '/api/admin/mux' })
+  void app.register(adminNotificationRoutes, { prefix: '/api/admin/notifications' })
   void app.register(adminUserRoutes, { prefix: '/api/admin/users' })
 
   return app
