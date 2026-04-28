@@ -16,3 +16,4 @@ web/dist
 api/node_modules
 api/dist
 web/public/testimonials/*.mp4
+.vercel

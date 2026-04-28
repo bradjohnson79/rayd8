@@ -41,10 +41,10 @@ export function useAuthUser(): AuthUser {
 }
 
 function useClerkAuthUser(): AuthUser {
-  const { isSignedIn } = useAuth()
-  const { user } = useUser()
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth()
+  const { isLoaded: isUserLoaded, user } = useUser()
 
-  if (!isSignedIn || !user) {
+  if (!isAuthLoaded || !isUserLoaded || !isSignedIn || !user) {
     return demoUser
   }
 

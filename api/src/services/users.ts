@@ -49,53 +49,52 @@ async function reconcileUserIdentity(nextUser: UserRecord) {
     return
   }
 
-  await db.transaction(async (tx) => {
-    const [userWithEmail] = await tx.select().from(users).where(eq(users.email, nextUser.email)).limit(1)
+  const [userWithEmail] = await db.select().from(users).where(eq(users.email, nextUser.email)).limit(1)
 
-    if (userWithEmail && userWithEmail.id !== nextUser.id) {
-      await tx
-        .update(users)
-        .set({
-          email: `${userWithEmail.email}__relinked__${userWithEmail.id}`,
-        })
-        .where(eq(users.id, userWithEmail.id))
-
-      await tx.insert(users).values({
-        ...nextUser,
-        createdAt: userWithEmail.createdAt,
+  if (userWithEmail && userWithEmail.id !== nextUser.id) {
+    // Neon HTTP does not support transactions, so keep the relink flow explicit.
+    await db
+      .update(users)
+      .set({
+        email: `${userWithEmail.email}__relinked__${userWithEmail.id}`,
       })
+      .where(eq(users.id, userWithEmail.id))
 
-      await tx.update(subscriptions).set({ userId: nextUser.id }).where(eq(subscriptions.userId, userWithEmail.id))
-      await tx.update(userSettings).set({ userId: nextUser.id }).where(eq(userSettings.userId, userWithEmail.id))
-      await tx
-        .update(stripeCheckoutSessions)
-        .set({ userId: nextUser.id })
-        .where(eq(stripeCheckoutSessions.userId, userWithEmail.id))
-      await tx.update(usageSessions).set({ userId: nextUser.id }).where(eq(usageSessions.userId, userWithEmail.id))
-      await tx.update(usagePeriods).set({ userId: nextUser.id }).where(eq(usagePeriods.userId, userWithEmail.id))
-      await tx.update(userDevices).set({ userId: nextUser.id }).where(eq(userDevices.userId, userWithEmail.id))
-      await tx.update(activeSessions).set({ userId: nextUser.id }).where(eq(activeSessions.userId, userWithEmail.id))
-      await tx
-        .update(contactMessages)
-        .set({ userId: nextUser.id })
-        .where(eq(contactMessages.userId, userWithEmail.id))
+    await db.insert(users).values({
+      ...nextUser,
+      createdAt: userWithEmail.createdAt,
+    })
 
-      await tx.delete(users).where(eq(users.id, userWithEmail.id))
-      return
-    }
+    await db.update(subscriptions).set({ userId: nextUser.id }).where(eq(subscriptions.userId, userWithEmail.id))
+    await db.update(userSettings).set({ userId: nextUser.id }).where(eq(userSettings.userId, userWithEmail.id))
+    await db
+      .update(stripeCheckoutSessions)
+      .set({ userId: nextUser.id })
+      .where(eq(stripeCheckoutSessions.userId, userWithEmail.id))
+    await db.update(usageSessions).set({ userId: nextUser.id }).where(eq(usageSessions.userId, userWithEmail.id))
+    await db.update(usagePeriods).set({ userId: nextUser.id }).where(eq(usagePeriods.userId, userWithEmail.id))
+    await db.update(userDevices).set({ userId: nextUser.id }).where(eq(userDevices.userId, userWithEmail.id))
+    await db.update(activeSessions).set({ userId: nextUser.id }).where(eq(activeSessions.userId, userWithEmail.id))
+    await db
+      .update(contactMessages)
+      .set({ userId: nextUser.id })
+      .where(eq(contactMessages.userId, userWithEmail.id))
 
-    await tx
-      .insert(users)
-      .values(nextUser)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          email: nextUser.email,
-          role: nextUser.role,
-          plan: nextUser.plan,
-        },
-      })
-  })
+    await db.delete(users).where(eq(users.id, userWithEmail.id))
+    return
+  }
+
+  await db
+    .insert(users)
+    .values(nextUser)
+    .onConflictDoUpdate({
+      target: users.id,
+      set: {
+        email: nextUser.email,
+        role: nextUser.role,
+        plan: nextUser.plan,
+      },
+    })
 }
 
 async function safeDispatchNotification(

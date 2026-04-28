@@ -1,15 +1,22 @@
 import { useAuth } from '@clerk/react'
+import { useCallback } from 'react'
 
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
 
 function useClerkAuthToken() {
-  const { getToken, isSignedIn } = useAuth()
+  const { getToken, isLoaded, isSignedIn } = useAuth()
 
-  if (!isSignedIn) {
-    return async () => null
-  }
+  return useCallback(async () => {
+    if (!isLoaded || !isSignedIn) {
+      return null
+    }
 
-  return getToken
+    try {
+      return await getToken({ skipCache: true })
+    } catch {
+      return null
+    }
+  }, [getToken, isLoaded, isSignedIn])
 }
 
 function useDemoAuthToken() {
