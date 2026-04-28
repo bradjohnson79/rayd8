@@ -385,13 +385,10 @@ function AmritaComingSoonSection() {
   return (
     <ExperienceSection
       bodyPrimary="AMRITA is the next RAYD8 environment in development, designed as a more elevated immersive field with a distinct visual atmosphere and deeper long-form session focus."
-      bodySecondary="This section is a preview placeholder for the upcoming release so both Free Trial and REGEN members can see what is coming next in the platform experience."
       ctaLabel="Coming late May 2026"
       ctaTone="disabled"
       id="amrita"
       onClick={() => {}}
-      sectionNote="Coming late May 2026"
-      sectionNoteTone="muted"
       showcaseSubtitle="RAYD8 AMRITA"
       showcaseTitle="AMRITA Preview"
       tags={['Coming Soon', 'Cosmic Aurora', 'Member Preview']}
@@ -597,7 +594,7 @@ function RegenSection({
 
 function ExperienceSection({
   bodyPrimary,
-  bodySecondary,
+  bodySecondary = '',
   ctaLabel,
   ctaTone,
   disabled = false,
@@ -614,7 +611,7 @@ function ExperienceSection({
   tone,
 }: {
   bodyPrimary: string
-  bodySecondary: string
+  bodySecondary?: string
   ctaLabel: string
   ctaTone: 'active' | 'disabled' | 'secondary'
   disabled?: boolean
@@ -706,16 +703,18 @@ function SectionCtaButton({
 function ExperienceBody({
   note,
   primary,
-  secondary,
+  secondary = '',
   tags,
   tone,
 }: {
   note?: string | null
   primary: string
-  secondary: string
+  secondary?: string
   tags: string[]
   tone: 'muted' | 'warning'
 }) {
+  const hasSecondary = secondary.trim().length > 0
+
   return (
     <div className="flex max-w-[520px] flex-col gap-8">
       <div className="flex flex-wrap gap-2">
@@ -728,19 +727,24 @@ function ExperienceBody({
         <p className="text-base leading-8 text-white/82">{primary}</p>
       </div>
 
-      <div className="border-t border-white/10 pt-6">
-        <p className="text-base leading-8 text-white/72">{secondary}</p>
-        {note ? (
-          <p
-            className={[
-              'mt-4 text-sm leading-6',
-              tone === 'warning' ? 'text-amber-100' : 'text-white/58',
-            ].join(' ')}
-          >
-            {note}
-          </p>
-        ) : null}
-      </div>
+      {hasSecondary || note ? (
+        <div className="border-t border-white/10 pt-6">
+          {hasSecondary ? (
+            <p className="text-base leading-8 text-white/72">{secondary}</p>
+          ) : null}
+          {note ? (
+            <p
+              className={[
+                hasSecondary ? 'mt-4 ' : '',
+                'text-sm leading-6',
+                tone === 'warning' ? 'text-amber-100' : 'text-white/58',
+              ].join('')}
+            >
+              {note}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }
