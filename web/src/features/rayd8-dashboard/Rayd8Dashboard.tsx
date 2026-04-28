@@ -735,10 +735,12 @@ function ExperienceBody({
           {note ? (
             <p
               className={[
-                hasSecondary ? 'mt-4 ' : '',
+                hasSecondary ? 'mt-4' : '',
                 'text-sm leading-6',
                 tone === 'warning' ? 'text-amber-100' : 'text-white/58',
-              ].join('')}
+              ]
+                .filter(Boolean)
+                .join(' ')}
             >
               {note}
             </p>
