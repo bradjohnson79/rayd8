@@ -155,7 +155,7 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
           </p>
         </div>
 
-        <nav className="flex flex-1 items-center px-3 pb-6 md:px-3 md:pb-10">
+        <nav className="flex-1 overflow-y-auto px-3 pb-6 md:px-3 md:pb-10">
           <ul className="w-full space-y-2">
             {items.map((item) => (
               <li key={item.to}>
