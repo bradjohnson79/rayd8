@@ -123,7 +123,7 @@ export function AdminSidebar({ onClose, open }: AdminSidebarProps) {
           'fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-white/10',
           'bg-[rgba(4,6,10,0.58)] shadow-[0_18px_80px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition-transform duration-300',
           open ? 'translate-x-0' : '-translate-x-full',
-          'xl:translate-x-0',
+          'xl:w-[25vw] xl:translate-x-0',
         ].join(' ')}
       >
         <div className="border-b border-white/10 px-5 py-6">

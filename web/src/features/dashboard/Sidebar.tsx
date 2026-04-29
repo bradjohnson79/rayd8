@@ -123,6 +123,11 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
     onClose()
   }
 
+  function handleBackToHome() {
+    navigate('/')
+    onClose()
+  }
+
   return (
     <>
       {open ? (
@@ -138,12 +143,14 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
         className={[
           'fixed inset-y-0 left-0 z-30 flex w-72 flex-col bg-[rgba(7,12,16,0.82)] shadow-[0_18px_80px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition-transform duration-300',
           open ? 'translate-x-0' : '-translate-x-full',
-          'md:w-64 md:bg-transparent md:shadow-none md:backdrop-blur-0 md:translate-x-0 lg:w-[20vw]',
+          'md:w-[25vw] md:bg-transparent md:shadow-none md:backdrop-blur-0 md:translate-x-0',
         ].join(' ')}
       >
         <div className="px-5 py-6 md:px-4 md:py-8">
-          <p className="text-xs uppercase tracking-[0.24em] text-emerald-200/80 md:text-[11px] md:leading-[1.15rem]">RAYD8®</p>
-          <p className="mt-3 text-xs uppercase leading-[1.15rem] tracking-[0.24em] text-slate-400 md:text-[11px]">
+          <p className="text-2xl uppercase tracking-[0.24em] text-emerald-200/80 md:text-[22px] md:leading-[1.4rem]">
+            RAYD8®
+          </p>
+          <p className="mt-3 text-2xl uppercase leading-[1.4rem] tracking-[0.24em] text-slate-400 md:text-[22px]">
             {user.plan}
           </p>
         </div>
@@ -176,6 +183,16 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
             ))}
           </ul>
         </nav>
+
+        <div className="px-3 pb-6 md:px-3 md:pb-8">
+          <button
+            className="flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs uppercase tracking-[0.24em] text-white transition-colors hover:bg-white/[0.08]"
+            onClick={handleBackToHome}
+            type="button"
+          >
+            Back To Home
+          </button>
+        </div>
       </aside>
     </>
   )

@@ -10,14 +10,14 @@ const navigationItems = [
   { href: '#hero', label: 'Use RAYD8® Now' },
   { href: '#about', label: 'About RAYD8®' },
   { href: '#testimonials', label: 'Testimonials' },
-  { href: '#contact', label: 'Contact' },
+  { href: '#contact-form', label: 'Contact' },
 ]
 
 const mobileNavigationItems = [
   { href: '#hero', label: 'Home' },
   { href: '#about', label: 'About' },
   { href: '#testimonials', label: 'Testimonials' },
-  { href: '#contact', label: 'Contact' },
+  { href: '#contact-form', label: 'Contact' },
 ]
 
 export const LandingNavbar = memo(function LandingNavbar() {
@@ -43,7 +43,7 @@ export const LandingNavbar = memo(function LandingNavbar() {
           'mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-full border px-5 py-3 transition-all duration-300',
           scrolled
             ? 'border-white/12 bg-[rgba(6,10,14,0.78)] shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-2xl'
-            : 'border-transparent bg-transparent',
+            : 'border-white/10 bg-[rgba(6,10,14,0.72)] shadow-[0_12px_36px_rgba(0,0,0,0.18)] backdrop-blur-2xl',
         ].join(' ')}
       >
         <Link

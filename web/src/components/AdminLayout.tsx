@@ -12,7 +12,7 @@ export function AdminLayout() {
     <DashboardShell
       accent="violet"
       description="Identity, billing, content, and streaming orchestration stay active while plan previews change the dashboard core."
-      desktopSidebarOffsetClass="xl:pl-72"
+      desktopSidebarOffsetClass="xl:pl-[25vw]"
       eyebrow="RAYD8® operating system"
       menuButtonClassName=""
       menuButtonLabel="Open admin navigation"

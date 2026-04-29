@@ -12,7 +12,7 @@ export function DashboardLayout() {
     <DashboardShell
       accent="emerald"
       description="One shared dashboard surface for session launch, guidance, and account controls."
-      desktopSidebarOffsetClass="md:pl-64 lg:pl-[20vw]"
+      desktopSidebarOffsetClass="md:pl-[25vw]"
       eyebrow="RAYD8® USER ACCOUNT"
       menuButtonClassName=""
       menuButtonLabel="Open navigation"

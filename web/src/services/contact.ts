@@ -1,10 +1,21 @@
 import { apiRequest } from './api'
 
+export type PublicContactTopic = 'general_inquiry' | 'report_a_bug' | 'testimonial'
+
+export interface PublicContactAttachment {
+  contentBase64: string
+  contentType: string
+  filename: string
+  size: number
+}
+
 interface PublicContactPayload {
+  attachment?: PublicContactAttachment
   company?: string
   email: string
   message: string
   name: string
+  topic: PublicContactTopic
 }
 
 export function createPublicContactMessage(payload: PublicContactPayload) {

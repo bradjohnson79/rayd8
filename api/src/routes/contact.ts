@@ -9,8 +9,17 @@ const contactMessageSchema = z.object({
   name: z.string().min(2).max(120),
 })
 
+const publicContactAttachmentSchema = z.object({
+  contentBase64: z.string().min(1).max(10_000_000),
+  contentType: z.string().regex(/^image\//),
+  filename: z.string().min(1).max(255),
+  size: z.number().int().positive().max(5 * 1024 * 1024),
+})
+
 const publicContactMessageSchema = contactMessageSchema.extend({
+  attachment: publicContactAttachmentSchema.optional(),
   company: z.string().max(200).optional().default(''),
+  topic: z.enum(['general_inquiry', 'report_a_bug', 'testimonial']),
 })
 
 const publicContactRequestLog = new Map<string, number>()
@@ -75,10 +84,12 @@ export const contactRoutes: FastifyPluginAsync = async (app) => {
     publicContactRequestLog.set(requestKey, now)
 
     const emailDelivered = await sendContactAdminEmail({
+      attachment: payload.attachment,
       authEmail: 'Public landing visitor',
       message: payload.message,
       name: payload.name,
       replyToEmail: payload.email,
+      topic: payload.topic,
       userId: 'public-landing',
     }).catch((error) => {
       request.log.error(error, 'Failed to deliver public landing contact email.')
