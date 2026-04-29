@@ -20,6 +20,10 @@ const emptyStats: AdminMuxStats = {
   total_duration_seconds: 0,
 }
 
+function formatMinutes(valueInSeconds: number) {
+  return Math.round(valueInSeconds / 60)
+}
+
 export function AdminMuxPage() {
   const getAuthToken = useAuthToken()
   const [assets, setAssets] = useState<AdminMuxAsset[]>([])
@@ -162,8 +166,8 @@ export function AdminMuxPage() {
               ? 'Loading duration totals...'
               : `Mux environment: ${stats.environment_key ?? 'not configured'}`
           }
-          label="Duration seconds"
-          value={stats.total_duration_seconds}
+          label="Duration minutes"
+          value={formatMinutes(stats.total_duration_seconds)}
         />
       </div>
 
@@ -197,7 +201,7 @@ export function AdminMuxPage() {
                 </div>
                 <div className="rounded-2xl bg-white/[0.05] px-4 py-3 backdrop-blur-xl">
                   <dt className="text-xs uppercase tracking-[0.24em] text-slate-500">Duration</dt>
-                  <dd className="mt-2 text-slate-100">{asset.duration_seconds}s</dd>
+                  <dd className="mt-2 text-slate-100">{formatMinutes(asset.duration_seconds)} min</dd>
                 </div>
                 <div className="rounded-2xl bg-white/[0.05] px-4 py-3 backdrop-blur-xl">
                   <dt className="text-xs uppercase tracking-[0.24em] text-slate-500">Status</dt>
