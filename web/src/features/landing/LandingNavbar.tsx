@@ -7,17 +7,17 @@ import { useAuthUser } from '../dashboard/useAuthUser'
 import { ConversionButton } from './components/ConversionButton'
 
 const navigationItems = [
-  { href: '#hero', label: 'Use RAYD8® Now' },
+  { href: '/#teaser', label: 'Use RAYD8® Now' },
   { href: '#about', label: 'About RAYD8®' },
   { href: '#testimonials', label: 'Testimonials' },
-  { href: '#contact-form', label: 'Contact' },
+  { href: '/#contact-form', label: 'Contact' },
 ]
 
 const mobileNavigationItems = [
   { href: '#hero', label: 'Home' },
   { href: '#about', label: 'About' },
   { href: '#testimonials', label: 'Testimonials' },
-  { href: '#contact-form', label: 'Contact' },
+  { href: '/#contact-form', label: 'Contact' },
 ]
 
 export const LandingNavbar = memo(function LandingNavbar() {

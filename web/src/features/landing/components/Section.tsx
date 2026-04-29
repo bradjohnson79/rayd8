@@ -25,7 +25,7 @@ export function Section({
 }: SectionProps) {
   return (
     <motion.section
-      className={`relative px-4 py-18 sm:px-6 lg:px-8 ${className}`.trim()}
+      className={`relative scroll-mt-32 px-4 py-18 sm:scroll-mt-40 sm:px-6 lg:px-8 ${className}`.trim()}
       id={id}
       initial={reducedEffects ? false : { opacity: 0, y: 36 }}
       transition={{ duration: 0.8, ease: 'easeOut' }}
