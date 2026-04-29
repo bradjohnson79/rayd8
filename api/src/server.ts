@@ -42,6 +42,7 @@ export function buildServer() {
   void app.register(cors, {
     origin: true,
     credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
   void app.register(sensible)
   void app.register(rawBody, {
