@@ -19,6 +19,8 @@ import { settingsRoutes } from './routes/settings.js'
 import { stripeWebhookRoutes } from './routes/stripeWebhook.js'
 import { usageRoutes } from './routes/usage.js'
 
+const allowedCorsOrigins = ['https://rayd8.app', 'http://localhost:5173']
+
 export function buildServer() {
   const app = Fastify({
     logger: env.NODE_ENV !== 'test',
@@ -40,9 +42,10 @@ export function buildServer() {
   })
 
   void app.register(cors, {
-    origin: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    origin: allowedCorsOrigins,
   })
   void app.register(sensible)
   void app.register(rawBody, {
