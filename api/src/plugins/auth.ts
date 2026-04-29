@@ -42,7 +42,7 @@ function getBearerToken(request: FastifyRequest) {
 }
 
 function getAuthorizedParties() {
-  const values = [env.APP_URL, 'https://rayd8.app', 'http://localhost:5173']
+  const values = [env.APP_URL, 'https://rayd8.app', 'https://www.rayd8.app', 'http://localhost:5173']
     .map((value) => value?.trim())
     .filter(Boolean)
 

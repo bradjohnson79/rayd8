@@ -19,7 +19,14 @@ import { settingsRoutes } from './routes/settings.js'
 import { stripeWebhookRoutes } from './routes/stripeWebhook.js'
 import { usageRoutes } from './routes/usage.js'
 
-const allowedCorsOrigins = ['https://rayd8.app', 'http://localhost:5173']
+const allowedCorsOrigins = Array.from(
+  new Set([
+    env.APP_URL.trim(),
+    'https://rayd8.app',
+    'https://www.rayd8.app',
+    'http://localhost:5173',
+  ]),
+)
 
 export function buildServer() {
   const app = Fastify({

@@ -24,6 +24,7 @@ export default defineConfig({
       },
     },
   },
+  envPrefix: ['VITE_API_URL', 'VITE_CLERK_', 'VITE_SOURCE_OF_TRUTH_', 'VITE_STRIPE_'],
   envDir: '..',
   plugins: [react(), tailwindcss()],
   server: {

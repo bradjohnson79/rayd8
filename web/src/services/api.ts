@@ -1,5 +1,9 @@
 const productionApiBaseUrl = 'https://rayd8-api.onrender.com'
 
+function isLocalHostname(hostname: string) {
+  return hostname === 'localhost' || hostname === '127.0.0.1'
+}
+
 function resolveApiBaseUrl() {
   const configuredApiBaseUrl = import.meta.env.VITE_API_URL?.trim()
 
@@ -7,11 +11,11 @@ function resolveApiBaseUrl() {
     return configuredApiBaseUrl
   }
 
-  if (typeof window !== 'undefined' && window.location.hostname === 'rayd8.app') {
-    return productionApiBaseUrl
+  if (typeof window !== 'undefined') {
+    return isLocalHostname(window.location.hostname) ? 'http://localhost:3001' : productionApiBaseUrl
   }
 
-  return 'http://localhost:3001'
+  return productionApiBaseUrl
 }
 
 export const apiBaseUrl = resolveApiBaseUrl()
