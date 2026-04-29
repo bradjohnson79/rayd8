@@ -64,6 +64,13 @@
       "when": 1777410820670,
       "tag": "0008_striped_ogun",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777440385332,
+      "tag": "0009_modern_darkstar",
+      "breakpoints": true
     }
   ]
 }

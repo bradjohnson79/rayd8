@@ -139,6 +139,18 @@ export const stripeCheckoutSessions = pgTable(
   (table) => [uniqueIndex('stripe_checkout_sessions_session_id_idx').on(table.stripeSessionId)],
 )
 
+export const archivedAdminOrders = pgTable(
+  'archived_admin_orders',
+  {
+    stripeSubscriptionId: text('stripe_subscription_id')
+      .primaryKey()
+      .references(() => subscriptions.stripeSubscriptionId),
+    archivedAt: timestamp('archived_at', { withTimezone: true }).notNull().defaultNow(),
+    archivedBy: text('archived_by'),
+  },
+  (table) => [index('archived_admin_orders_archived_at_idx').on(table.archivedAt)],
+)
+
 export const usageSessions = pgTable('usage_sessions', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: text('user_id')

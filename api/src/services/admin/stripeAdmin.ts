@@ -1,6 +1,6 @@
 import { desc, eq } from 'drizzle-orm'
 import { db } from '../../db/client.js'
-import { subscriptions, users } from '../../db/schema.js'
+import { archivedAdminOrders, subscriptions, users } from '../../db/schema.js'
 
 export interface AdminStripeRecord {
   clerk_user_id: string
@@ -14,7 +14,22 @@ export interface AdminStripeRecord {
   current_period_end: string | null
 }
 
-async function readStripeRecords() {
+async function getArchivedOrderIds() {
+  if (!db) {
+    return new Set<string>()
+  }
+
+  const rows = await db
+    .select({ stripeSubscriptionId: archivedAdminOrders.stripeSubscriptionId })
+    .from(archivedAdminOrders)
+  return new Set(rows.map((row) => row.stripeSubscriptionId))
+}
+
+async function readStripeRecords({
+  includeArchived = false,
+}: {
+  includeArchived?: boolean
+} = {}) {
   if (!db) {
     return []
   }
@@ -35,13 +50,17 @@ async function readStripeRecords() {
     .innerJoin(users, eq(subscriptions.userId, users.id))
     .orderBy(desc(subscriptions.createdAt))
 
-  return records.map((record) => ({
-    ...record,
-    created_at: record.created_at.toISOString(),
-    current_period_end: record.current_period_end
-      ? record.current_period_end.toISOString()
-      : null,
-  })) satisfies AdminStripeRecord[]
+  const archivedOrderIds = includeArchived ? new Set<string>() : await getArchivedOrderIds()
+
+  return records
+    .filter((record) => !archivedOrderIds.has(record.stripe_subscription_id))
+    .map((record) => ({
+      ...record,
+      created_at: record.created_at.toISOString(),
+      current_period_end: record.current_period_end
+        ? record.current_period_end.toISOString()
+        : null,
+    })) satisfies AdminStripeRecord[]
 }
 
 export async function getAdminOrders() {
@@ -49,9 +68,34 @@ export async function getAdminOrders() {
 }
 
 export async function getAdminSubscribers() {
-  const records = await readStripeRecords()
+  const records = await readStripeRecords({ includeArchived: true })
 
   return records.filter((record) =>
     ['active', 'canceled', 'past_due'].includes(record.status),
   )
+}
+
+export async function archiveAdminOrders(input: {
+  archivedBy?: string
+  stripeSubscriptionIds: string[]
+}) {
+  const stripeSubscriptionIds = Array.from(
+    new Set(input.stripeSubscriptionIds.map((id) => id.trim()).filter(Boolean)),
+  )
+
+  if (!db || stripeSubscriptionIds.length === 0) {
+    return stripeSubscriptionIds
+  }
+
+  await db
+    .insert(archivedAdminOrders)
+    .values(
+      stripeSubscriptionIds.map((stripeSubscriptionId) => ({
+        archivedBy: input.archivedBy,
+        stripeSubscriptionId,
+      })),
+    )
+    .onConflictDoNothing()
+
+  return stripeSubscriptionIds
 }

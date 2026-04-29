@@ -137,6 +137,20 @@ export async function getAdminOrders(token: string) {
   )
 }
 
+export async function archiveAdminOrders(stripeSubscriptionIds: string[], token: string) {
+  return apiRequest<{
+    archived: string[]
+    orders: AdminStripeRecord[]
+  }>(
+    '/api/admin/stripe/orders/archive',
+    {
+      method: 'POST',
+      body: JSON.stringify({ stripeSubscriptionIds }),
+    },
+    token,
+  )
+}
+
 export async function getAdminSubscribers(token: string) {
   return apiRequest<{ subscribers: AdminStripeRecord[] }>(
     '/api/admin/stripe/subscribers',
