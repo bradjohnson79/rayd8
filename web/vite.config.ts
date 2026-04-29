@@ -20,13 +20,6 @@ export default defineConfig({
           if (id.includes('node_modules/@clerk')) {
             return 'clerk'
           }
-
-          if (
-            id.includes('/src/features/landing') ||
-            id.includes('/src/pages/LandingPage')
-          ) {
-            return 'landing'
-          }
         },
       },
     },

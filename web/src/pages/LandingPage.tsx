@@ -63,20 +63,37 @@ export function LandingPage() {
       cancelIdleCallback?: (handle: number) => void
     }
 
-    const preloadNonCritical = () => {
+    const preloadNearFoldSections = () => {
       void BenefitsImageSection.preload()
+      void TeaserSection.preload()
+      void AboutSection.preload()
+    }
+
+    const preloadLowerPrioritySections = () => {
       void TestimonialsSection.preload()
       void ContactSection.preload()
       void LandingFooter.preload()
     }
 
     if (windowWithIdle.requestIdleCallback) {
-      const idleId = windowWithIdle.requestIdleCallback(preloadNonCritical)
-      return () => windowWithIdle.cancelIdleCallback?.(idleId)
+      const nearFoldIdleId = windowWithIdle.requestIdleCallback(preloadNearFoldSections)
+      const lowerPriorityTimeoutId = window.setTimeout(() => {
+        windowWithIdle.requestIdleCallback?.(preloadLowerPrioritySections)
+      }, 2000)
+
+      return () => {
+        windowWithIdle.cancelIdleCallback?.(nearFoldIdleId)
+        window.clearTimeout(lowerPriorityTimeoutId)
+      }
     }
 
-    const timeoutId = window.setTimeout(preloadNonCritical, 450)
-    return () => window.clearTimeout(timeoutId)
+    const nearFoldTimeoutId = window.setTimeout(preloadNearFoldSections, 800)
+    const lowerPriorityTimeoutId = window.setTimeout(preloadLowerPrioritySections, 2400)
+
+    return () => {
+      window.clearTimeout(nearFoldTimeoutId)
+      window.clearTimeout(lowerPriorityTimeoutId)
+    }
   }, [])
 
   useEffect(() => {

@@ -13,8 +13,10 @@ export const BenefitsImageSection = memo(function BenefitsImageSection() {
             className="block h-auto w-full"
             decoding="async"
             draggable={false}
+            height={1080}
             loading="lazy"
             src={BENEFITS_IMAGE}
+            width={1920}
           />
         </div>
       </div>

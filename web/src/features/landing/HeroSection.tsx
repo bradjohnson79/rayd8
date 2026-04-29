@@ -99,7 +99,9 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
             decoding="async"
             draggable={false}
             fetchPriority="high"
+            height={1080}
             src={HERO_STILL}
+            width={1920}
           />
           <video
             ref={videoRef}
@@ -135,7 +137,9 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
           decoding="async"
           draggable={false}
           fetchPriority="high"
+          height={1080}
           src={HERO_STILL}
+          width={1920}
         />
       )}
 
