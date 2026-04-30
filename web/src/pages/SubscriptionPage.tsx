@@ -248,7 +248,9 @@ export function SubscriptionPage() {
 
                     <div className="mt-6">
                       {isRegen ? (
-                        <p className="mb-3 text-sm font-bold text-white sm:text-base">Only $19.99 USD</p>
+                        <p className="mb-3 text-sm font-bold text-white sm:text-base">
+                          Only $19.99 USD Per Month
+                        </p>
                       ) : null}
                       <MarketingButton
                         className={[

@@ -99,7 +99,7 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
               </li>
             </ul>
             <div className="mt-8 sm:mt-10">
-              <p className="mb-3 text-sm font-bold text-white sm:text-base">Only $19.99 USD</p>
+              <p className="mb-3 text-sm font-bold text-white sm:text-base">Only $19.99 USD Per Month</p>
               <ConversionButton
                 className="w-full min-h-[3rem] px-7 py-4 text-base sm:w-auto"
                 guestMode="signIn"
