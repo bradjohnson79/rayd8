@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { maybeDispatchStreamLimitReached } from '../services/notifications/streamLimitNotifications.js'
 import { toAppPlan } from '../services/player/accessPolicy.js'
+import { getTrialStatusForUser } from '../services/player/trialStatus.js'
 import { addTrackedUsageSeconds } from '../services/player/usagePeriods.js'
 import { getUsageSnapshotForUser } from '../services/player/usageSummary.js'
 import { syncUserFromClerk } from '../services/users.js'
@@ -60,6 +61,15 @@ export const usageRoutes: FastifyPluginAsync = async (app) => {
     const { seconds, version } = usageTrackSchema.parse(request.body)
     const user = await syncUserFromClerk(request.auth.userId)
     const plan = toAppPlan(user?.plan)
+    const trialStatus = await getTrialStatusForUser({
+      plan,
+      role: request.auth.role,
+      userId: request.auth.userId,
+    })
+
+    if (!trialStatus.allowed && trialStatus.reason) {
+      return reply.code(403).send({ error: trialStatus.reason })
+    }
 
     await addTrackedUsageSeconds({
       experience: version,

@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { syncUserFromClerk } from '../services/users.js'
 import { toAppPlan } from '../services/player/accessPolicy.js'
+import { getTrialStatusForUser } from '../services/player/trialStatus.js'
 import { getUsageSnapshotForUser } from '../services/player/usageSummary.js'
 
 export const meRoutes: FastifyPluginAsync = async (app) => {
@@ -31,5 +32,20 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
           }
         : null,
     }
+  })
+
+  app.get('/v1/me/trial-status', async (request, reply) => {
+    if (!request.auth?.userId) {
+      return reply.code(401).send({ error: 'Authentication required.' })
+    }
+
+    const user = await syncUserFromClerk(request.auth.userId)
+    const plan = toAppPlan(user?.plan)
+
+    return getTrialStatusForUser({
+      plan,
+      role: request.auth.role,
+      userId: request.auth.userId,
+    })
   })
 }

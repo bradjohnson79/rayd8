@@ -2,6 +2,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../../db/client.js'
 import { subscriptions, usagePeriods, users } from '../../db/schema.js'
 import type { AppPlan, Experience } from './accessPolicy.js'
+import { incrementTrialHours } from './trialStatus.js'
 
 export const MAX_HEARTBEAT_SECONDS = 30
 
@@ -200,6 +201,7 @@ export async function addTrackedUsageSeconds(input: {
   experience: Experience
   plan: AppPlan
   seconds: number
+  trackTrialHours?: boolean
   userId: string
 }) {
   const bucketPlan = toUsageBucketPlan(input.plan)
@@ -225,25 +227,26 @@ export async function addTrackedUsageSeconds(input: {
         expansionSeconds: periodRecord.expansionSeconds + normalizedSeconds,
       })
       .where(eq(usagePeriods.id, periodRecord.id))
-
-    return
-  }
-
-  if (input.experience === 'premium') {
+  } else if (input.experience === 'premium') {
     await db
       .update(usagePeriods)
       .set({
         premiumSeconds: periodRecord.premiumSeconds + normalizedSeconds,
       })
       .where(eq(usagePeriods.id, periodRecord.id))
-
-    return
+  } else {
+    await db
+      .update(usagePeriods)
+      .set({
+        regenSeconds: periodRecord.regenSeconds + normalizedSeconds,
+      })
+      .where(eq(usagePeriods.id, periodRecord.id))
   }
 
-  await db
-    .update(usagePeriods)
-    .set({
-      regenSeconds: periodRecord.regenSeconds + normalizedSeconds,
+  if (input.plan === 'free' && input.trackTrialHours !== false) {
+    await incrementTrialHours({
+      seconds: normalizedSeconds,
+      userId: input.userId,
     })
-    .where(eq(usagePeriods.id, periodRecord.id))
+  }
 }

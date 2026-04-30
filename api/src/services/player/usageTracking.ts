@@ -151,6 +151,7 @@ export async function startUsageSession(input: {
 export async function heartbeatUsageSession(input: {
   plan: AppPlan
   sessionId: string
+  trackUsage?: boolean
   userId: string
 }) {
   if (!db) {
@@ -169,7 +170,8 @@ export async function heartbeatUsageSession(input: {
 
   const now = new Date()
   const trackedSeconds = toTrackedHeartbeatSeconds(existingSession.lastHeartbeat, now)
-  const secondsWatched = existingSession.secondsWatched + trackedSeconds
+  const appliedTrackedSeconds = input.trackUsage === false ? 0 : trackedSeconds
+  const secondsWatched = existingSession.secondsWatched + appliedTrackedSeconds
   const minutesWatched = Math.floor(secondsWatched / 60)
 
   await db
@@ -189,7 +191,7 @@ export async function heartbeatUsageSession(input: {
   await addTrackedUsageSeconds({
     experience: existingSession.experience,
     plan: input.plan,
-    seconds: trackedSeconds,
+    seconds: appliedTrackedSeconds,
     userId: input.userId,
   })
 
@@ -204,6 +206,7 @@ export async function heartbeatUsageSession(input: {
 export async function endUsageSession(input: {
   plan: AppPlan
   sessionId: string
+  trackUsage?: boolean
   userId: string
 }) {
   if (!db) {
@@ -222,7 +225,8 @@ export async function endUsageSession(input: {
 
   const endedAt = new Date()
   const trackedSeconds = toTrackedHeartbeatSeconds(existingSession.lastHeartbeat, endedAt)
-  const secondsWatched = existingSession.secondsWatched + trackedSeconds
+  const appliedTrackedSeconds = input.trackUsage === false ? 0 : trackedSeconds
+  const secondsWatched = existingSession.secondsWatched + appliedTrackedSeconds
   const minutesWatched = Math.floor(secondsWatched / 60)
 
   await db
@@ -238,7 +242,7 @@ export async function endUsageSession(input: {
   await addTrackedUsageSeconds({
     experience: existingSession.experience,
     plan: input.plan,
-    seconds: trackedSeconds,
+    seconds: appliedTrackedSeconds,
     userId: input.userId,
   })
 

@@ -11,6 +11,7 @@ import {
   type Experience,
 } from '../services/player/accessPolicy.js'
 import { maybeDispatchStreamLimitReached } from '../services/notifications/streamLimitNotifications.js'
+import { getTrialStatusForUser } from '../services/player/trialStatus.js'
 import { getExperienceAccessForUser } from '../services/player/usageSummary.js'
 import {
   endUsageSession,
@@ -77,10 +78,28 @@ async function getExperienceAccess(input: {
   })
 }
 
+async function assertTrialAccess(input: {
+  plan: 'free' | 'premium' | 'regen' | 'amrita'
+  role: 'member' | 'admin'
+  userId: string
+}) {
+  return getTrialStatusForUser(input)
+}
+
 export const playerRoutes: FastifyPluginAsync = async (app) => {
   app.get('/v1/player/playback-token', async (request, reply) => {
     if (!request.auth?.userId) {
       return reply.code(401).send({ error: 'Authentication required.' })
+    }
+
+    const trialStatus = await assertTrialAccess({
+      plan: request.auth.plan,
+      role: request.auth.role,
+      userId: request.auth.userId,
+    })
+
+    if (!trialStatus.allowed && trialStatus.reason) {
+      return reply.code(403).send({ error: trialStatus.reason })
     }
 
     const { assetId, experience } = playbackTokenQuerySchema.parse(request.query)
@@ -127,6 +146,16 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(401).send({ error: 'Authentication required.' })
     }
 
+    const trialStatus = await assertTrialAccess({
+      plan: request.auth.plan,
+      role: request.auth.role,
+      userId: request.auth.userId,
+    })
+
+    if (!trialStatus.allowed && trialStatus.reason) {
+      return reply.code(403).send({ error: trialStatus.reason })
+    }
+
     const { experience } = playbackAccessQuerySchema.parse(request.query)
     const access = await getExperienceAccess({
       experience,
@@ -147,6 +176,16 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
   app.post('/v1/player/session/start', async (request, reply) => {
     if (!request.auth?.userId) {
       return reply.code(401).send({ error: 'Authentication required.' })
+    }
+
+    const trialStatus = await assertTrialAccess({
+      plan: request.auth.plan,
+      role: request.auth.role,
+      userId: request.auth.userId,
+    })
+
+    if (!trialStatus.allowed && trialStatus.reason) {
+      return reply.code(403).send({ error: trialStatus.reason })
     }
 
     const { experience } = sessionStartSchema.parse(request.body)
@@ -184,6 +223,16 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const { sessionId } = sessionHeartbeatSchema.parse(request.body)
+    const trialStatus = await assertTrialAccess({
+      plan: request.auth.plan,
+      role: request.auth.role,
+      userId: request.auth.userId,
+    })
+
+    if (!trialStatus.allowed && trialStatus.reason) {
+      return reply.code(403).send({ error: trialStatus.reason })
+    }
+
     const session = await heartbeatUsageSession({
       plan: request.auth.plan,
       sessionId,
@@ -222,9 +271,15 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const { sessionId } = sessionHeartbeatSchema.parse(request.body)
+    const trialStatus = await assertTrialAccess({
+      plan: request.auth.plan,
+      role: request.auth.role,
+      userId: request.auth.userId,
+    })
     const session = await endUsageSession({
       plan: request.auth.plan,
       sessionId,
+      trackUsage: trialStatus.allowed,
       userId: request.auth.userId,
     })
 

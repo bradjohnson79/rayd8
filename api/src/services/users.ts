@@ -17,6 +17,7 @@ import {
 import { clerkClient } from '../lib/clerk.js'
 import { dispatchNotification } from './notifications/dispatchNotification.js'
 import { toAppPlan } from './player/accessPolicy.js'
+import { ensureTrialWindowForUser } from './player/trialStatus.js'
 
 export type UserRecord = InferSelectModel<typeof users>
 
@@ -64,6 +65,10 @@ async function reconcileUserIdentity(nextUser: UserRecord) {
     await db.insert(users).values({
       ...nextUser,
       createdAt: userWithEmail.createdAt,
+      trialEndsAt: userWithEmail.trialEndsAt,
+      trialHoursUsed: userWithEmail.trialHoursUsed,
+      trialNotificationsSent: userWithEmail.trialNotificationsSent,
+      trialStartedAt: userWithEmail.trialStartedAt,
     })
 
     await db.update(subscriptions).set({ userId: nextUser.id }).where(eq(subscriptions.userId, userWithEmail.id))
@@ -132,6 +137,10 @@ export async function syncUserFromClerk(userId: string) {
     email,
     role: resolveSourceOfTruthRole(email, normalizeRole(clerkUser.publicMetadata.role)),
     plan: normalizePlan(clerkUser.publicMetadata.plan),
+    trialEndsAt: null,
+    trialHoursUsed: 0,
+    trialNotificationsSent: [],
+    trialStartedAt: null,
     createdAt: new Date(),
   }
 
@@ -164,6 +173,10 @@ export async function syncUserFromClerk(userId: string) {
       },
       userId: user.id,
     })
+  }
+
+  if (user?.plan === 'free') {
+    return (await ensureTrialWindowForUser(user.id)) ?? user
   }
 
   return user ?? nextUser

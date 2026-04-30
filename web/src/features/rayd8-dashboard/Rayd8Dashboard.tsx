@@ -4,8 +4,9 @@ import {
   useState,
   type ReactNode
 } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { Experience } from '../../app/types'
+import { ConfirmModal } from '../../components/ConfirmModal'
 import {
   normalizePlaybackPlan,
   type PlaybackPlan,
@@ -21,8 +22,10 @@ import {
   getPlaybackAccess,
   type ExperienceAccessSummary,
 } from '../../services/player'
+import type { TrialBlockReason, TrialNotificationLevel } from '../../services/trial'
 import { getUsage, type UsageResponse } from '../../services/usage'
 import { useAuthToken } from '../dashboard/useAuthToken'
+import { useTrialStatus } from '../dashboard/useTrialStatus'
 import { useAuthUser } from '../dashboard/useAuthUser'
 import { useSession } from '../session/SessionProvider'
 
@@ -33,6 +36,46 @@ interface Rayd8DashboardProps {
 type SectionTone = 'amrita' | 'expansion' | 'premium' | 'regen'
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
 const DASHBOARD_EXPERIENCES: Experience[] = ['expansion', 'premium', 'regen']
+const UPGRADE_PATH = '/subscription?plan=regen'
+
+function isTrialBlockReason(value: string): value is TrialBlockReason {
+  return value === 'TRIAL_EXPIRED' || value === 'HOURS_EXCEEDED'
+}
+
+function getTrialBlockContent(reason: TrialBlockReason) {
+  if (reason === 'HOURS_EXCEEDED') {
+    return {
+      description: "You've reached your 35-hour trial limit. Unlock full access to continue.",
+      title: "You've reached your 35-hour trial limit",
+    }
+  }
+
+  return {
+    description: 'Your 30-day free trial has ended. Continue with RAYD8 REGEN.',
+    title: 'Your 30-day free trial has ended',
+  }
+}
+
+function formatTrialHours(hoursRemaining?: number) {
+  if (typeof hoursRemaining !== 'number') {
+    return null
+  }
+
+  return `${hoursRemaining.toFixed(1)} hours remaining`
+}
+
+function getTrialBannerTone(level: TrialNotificationLevel | undefined) {
+  switch (level) {
+    case 'CRITICAL':
+      return 'border-rose-300/25 bg-rose-950/40 text-rose-100'
+    case 'HIGH':
+      return 'border-amber-300/25 bg-amber-950/30 text-amber-100'
+    case 'MEDIUM':
+      return 'border-emerald-200/20 bg-emerald-950/18 text-white'
+    default:
+      return 'border-white/10 bg-white/[0.04] text-white'
+  }
+}
 
 export function Rayd8Dashboard({
   forcedPlan = null,
@@ -57,11 +100,14 @@ function MemberDashboardLaunchpad({
   isPreviewMode?: boolean
 }) {
   const getAuthToken = useAuthToken()
+  const navigate = useNavigate()
   const user = useAuthUser()
+  const trialStatus = useTrialStatus()
   const { experienceAccess, startSession, updateExperienceAccess } = useSession()
   const [checkingExperience, setCheckingExperience] = useState<Experience | null>(null)
   const [experiencePrompts, setExperiencePrompts] = useState<Partial<Record<Experience, string>>>({})
   const [usageSnapshot, setUsageSnapshot] = useState<UsageResponse | null>(null)
+  const [trialBlockReason, setTrialBlockReason] = useState<TrialBlockReason | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -191,6 +237,43 @@ function MemberDashboardLaunchpad({
       id="member-dashboard-scroll"
     >
       <MemberAccountCluster effectivePlan={effectivePlan} user={user} />
+      {!isPreviewMode && trialStatus?.plan === 'free_trial' ? (
+        <div className="relative z-20 mx-auto max-w-7xl px-4 pt-24 sm:px-6 sm:pt-28 lg:px-8">
+          <div
+            className={[
+              'rounded-[1.6rem] border px-5 py-4 shadow-[0_18px_60px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:px-6',
+              getTrialBannerTone(trialStatus.notification?.level),
+            ].join(' ')}
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/70">
+                  Free Trial Status
+                </p>
+                <p className="mt-2 text-base font-medium text-white sm:text-lg">
+                  {trialStatus.notification?.message ?? 'Your free trial is active.'}
+                </p>
+                <p className="mt-2 text-sm text-slate-200/85">
+                  {typeof trialStatus.days_remaining === 'number'
+                    ? `${trialStatus.days_remaining} day${trialStatus.days_remaining === 1 ? '' : 's'} remaining`
+                    : 'Trial countdown unavailable'}
+                  {formatTrialHours(trialStatus.hours_remaining)
+                    ? ` • ${formatTrialHours(trialStatus.hours_remaining)}`
+                    : ''}
+                </p>
+              </div>
+
+              <button
+                className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-5 py-3 text-sm font-medium text-white shadow-[0_16px_45px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
+                onClick={() => navigate(UPGRADE_PATH)}
+                type="button"
+              >
+                Upgrade Now
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {!isPreviewMode && usageSnapshot ? (
         <div className="relative z-20 mx-auto max-w-7xl px-4 pt-24 sm:px-6 sm:pt-28 lg:px-8">
           <DashboardUsageSummary access={usageSnapshot.access} plan={usageSnapshot.plan} />
@@ -239,6 +322,11 @@ function MemberDashboardLaunchpad({
 
                   startSession('expansion', sessionStartOptions)
                 } catch (error) {
+                  if (error instanceof Error && isTrialBlockReason(error.message)) {
+                    setTrialBlockReason(error.message)
+                    return
+                  }
+
                   setExperiencePrompts((currentValue) => ({
                     ...currentValue,
                     expansion:
@@ -301,6 +389,11 @@ function MemberDashboardLaunchpad({
 
                   startSession('premium', sessionStartOptions)
                 } catch (error) {
+                  if (error instanceof Error && isTrialBlockReason(error.message)) {
+                    setTrialBlockReason(error.message)
+                    return
+                  }
+
                   setExperiencePrompts((currentValue) => ({
                     ...currentValue,
                     premium:
@@ -364,6 +457,11 @@ function MemberDashboardLaunchpad({
 
                 startSession('regen', sessionStartOptions)
               } catch (error) {
+                if (error instanceof Error && isTrialBlockReason(error.message)) {
+                  setTrialBlockReason(error.message)
+                  return
+                }
+
                 setExperiencePrompts((currentValue) => ({
                   ...currentValue,
                   regen:
@@ -377,6 +475,15 @@ function MemberDashboardLaunchpad({
         )
       })}
       <AmritaComingSoonSection />
+      <ConfirmModal
+        description={trialBlockReason ? getTrialBlockContent(trialBlockReason).description : ''}
+        onPrimary={() => navigate(UPGRADE_PATH)}
+        onSecondary={() => setTrialBlockReason(null)}
+        open={trialBlockReason !== null}
+        primaryLabel="Upgrade Now"
+        secondaryLabel="Not Now"
+        title={trialBlockReason ? getTrialBlockContent(trialBlockReason).title : 'Trial limit reached'}
+      />
     </div>
   )
 }

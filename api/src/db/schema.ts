@@ -1,5 +1,6 @@
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -51,6 +52,10 @@ export const users = pgTable(
     email: text('email').notNull(),
     role: roleEnum('role').notNull().default('member'),
     plan: planEnum('plan').notNull().default('free'),
+    trialStartedAt: timestamp('trial_started_at', { withTimezone: true }),
+    trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
+    trialHoursUsed: doublePrecision('trial_hours_used').notNull().default(0),
+    trialNotificationsSent: jsonb('trial_notifications_sent').$type<string[]>().notNull().default([]),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex('users_email_idx').on(table.email)],

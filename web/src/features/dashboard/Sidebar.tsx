@@ -88,7 +88,11 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
 
   function isItemActive(item: (typeof items)[number]) {
     if (item.kind === 'route') {
-      return item.to === '/dashboard/settings' ? settingsRouteActive : location.pathname === item.to
+      if (item.to === '/dashboard/settings') {
+        return settingsRouteActive
+      }
+
+      return location.pathname + location.search === item.to || location.pathname === item.to
     }
 
     return isDashboardRoute && activeSection === item.sectionId
@@ -162,7 +166,9 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
                 <button
                   className={[
                     'flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-xs uppercase tracking-[0.24em] transition-colors md:min-h-[4.5rem] md:flex-col md:items-start md:justify-center md:gap-2 md:px-4 md:py-3.5 md:leading-[1.15rem] md:text-[11px]',
-                    isItemActive(item)
+                    item.emphasis === 'upgrade'
+                      ? 'border border-emerald-200/20 bg-[linear-gradient(135deg,rgba(16,185,129,0.22),rgba(59,130,246,0.22))] text-white shadow-[0_14px_45px_rgba(16,185,129,0.18)] hover:border-emerald-200/30 hover:bg-[linear-gradient(135deg,rgba(16,185,129,0.3),rgba(59,130,246,0.28))]'
+                      : isItemActive(item)
                       ? 'bg-white/[0.08] text-white shadow-[0_10px_30px_rgba(0,0,0,0.14)] backdrop-blur-xl'
                       : 'text-slate-400 hover:bg-white/[0.04] hover:text-white hover:backdrop-blur-xl',
                   ].join(' ')}
@@ -175,7 +181,11 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
                   <span
                     className={[
                       'h-1.5 w-1.5 shrink-0 rounded-full transition-opacity',
-                      isItemActive(item) ? 'bg-emerald-300 opacity-100' : 'bg-white/20 opacity-0 md:opacity-40',
+                      item.emphasis === 'upgrade'
+                        ? 'bg-emerald-200 opacity-100 shadow-[0_0_12px_rgba(167,243,208,0.8)]'
+                        : isItemActive(item)
+                          ? 'bg-emerald-300 opacity-100'
+                          : 'bg-white/20 opacity-0 md:opacity-40',
                     ].join(' ')}
                   />
                 </button>

@@ -44,6 +44,8 @@ interface AudioState {
 }
 
 interface SoftDenialState {
+  ctaLabel?: string
+  ctaTo?: string
   description: string
   title: string
 }
@@ -70,6 +72,7 @@ interface SessionContextValue extends SessionState, AudioState {
 
 const HEARTBEAT_MS = 30_000
 const SOFT_DENIAL_EXIT_MS = 3_500
+const UPGRADE_PATH = '/subscription?plan=regen'
 
 const SessionContext = createContext<SessionContextValue | null>(null)
 
@@ -240,6 +243,28 @@ function toSoftDenialState(access: ExperienceAccessSummary): SoftDenialState | n
   }
 }
 
+function toTrialSoftDenialState(errorMessage: string): SoftDenialState | null {
+  if (errorMessage === 'HOURS_EXCEEDED') {
+    return {
+      ctaLabel: 'Upgrade Now',
+      ctaTo: UPGRADE_PATH,
+      description: "You've reached your 35-hour trial limit. Unlock full access to continue.",
+      title: "You've reached your 35-hour trial limit",
+    }
+  }
+
+  if (errorMessage === 'TRIAL_EXPIRED') {
+    return {
+      ctaLabel: 'Upgrade Now',
+      ctaTo: UPGRADE_PATH,
+      description: 'Your 30-day free trial has ended. Continue your experience instantly with REGEN.',
+      title: 'Your free trial has ended',
+    }
+  }
+
+  return null
+}
+
 function toUsageWarningState(access: ExperienceAccessSummary): UsageWarningState | null {
   if (access.warningState !== 'approaching_limit') {
     return null
@@ -400,6 +425,17 @@ export function SessionProvider({ children }: PropsWithChildren) {
         setTrackingSessionId(response.session.id)
       } catch (error) {
         if (!cancelled) {
+          const trialSoftDenial =
+            error instanceof Error ? toTrialSoftDenialState(error.message) : null
+
+          if (trialSoftDenial) {
+            clearTimer(softDenialTimerRef)
+            setSoftDenialState(trialSoftDenial)
+            setUsageWarningState(null)
+            setAudioError(null)
+            return
+          }
+
           setAudioError(
             error instanceof Error ? error.message : 'Unable to start the playback session.',
           )
@@ -443,8 +479,16 @@ export function SessionProvider({ children }: PropsWithChildren) {
         updateExperienceAccess(response.access)
         setUsageWarningState(toUsageWarningState(response.access))
         scheduleSoftDenialExit(toSoftDenialState(response.access))
-      } catch {
-        // Heartbeat failures stay non-blocking so playback can continue while the next tick retries.
+      } catch (error) {
+        const trialSoftDenial = error instanceof Error ? toTrialSoftDenialState(error.message) : null
+
+        if (trialSoftDenial) {
+          clearTimer(softDenialTimerRef)
+          setTrackingSessionId(null)
+          setUsageWarningState(null)
+          setSoftDenialState(trialSoftDenial)
+          void finalizeTrackedSession(trackingSessionId)
+        }
       }
     }
 

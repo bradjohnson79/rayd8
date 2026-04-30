@@ -2,6 +2,7 @@ import type { PlanTier } from '../../app/types'
 import { toDashboardSectionHref, type DashboardSectionId } from './dashboardSections'
 
 export interface SidebarItem {
+  emphasis?: 'upgrade'
   kind: 'route' | 'section'
   label: string
   to: string
@@ -24,7 +25,7 @@ export function getSidebarItems(plan: PlanTier): SidebarItem[] {
   }
 
   return [
+    { emphasis: 'upgrade', kind: 'route', label: 'Upgrade to REGEN', to: '/subscription?plan=regen' },
     ...baseItems,
-    { kind: 'route', label: 'UPGRADE', to: '/dashboard/upgrade' },
   ]
 }

@@ -34,6 +34,7 @@ import { getMemberPlaybackToken } from '../../services/player'
 import type { ExperienceAccessSummary } from '../../services/player'
 import { isMobileViewport, isSmallScreen, isTabletViewport } from '../../utils/device'
 import { useAuthToken } from '../dashboard/useAuthToken'
+import { useTrialStatus } from '../dashboard/useTrialStatus'
 import { useAuthUser } from '../dashboard/useAuthUser'
 import { CloseButton } from '../player/CloseButton'
 import { OverlayLayer } from '../player/OverlayLayer'
@@ -43,6 +44,36 @@ const defaultSessionConfig: LastSessionConfig = {
   videoMode: DEFAULT_FREE_TRIAL_VIDEO_MODE,
   audioTrack: 'none',
   amplification: DEFAULT_AMPLIFICATION_LEVEL,
+}
+const UPGRADE_PATH = '/subscription?plan=regen'
+
+function isTrialBlockReason(value: string | null | undefined) {
+  return value === 'TRIAL_EXPIRED' || value === 'HOURS_EXCEEDED'
+}
+
+function getTrialBlockContent(reason: string) {
+  if (reason === 'HOURS_EXCEEDED') {
+    return {
+      description: "You've reached your 35-hour trial limit. Unlock full access to continue.",
+      title: "You've reached your 35-hour trial limit",
+    }
+  }
+
+  return {
+    description: 'Your 30-day free trial has ended. Continue your experience instantly with REGEN.',
+    title: 'Your free trial has ended',
+  }
+}
+
+function formatTrialStatusMeta(input: { daysRemaining?: number; hoursRemaining?: number }) {
+  const parts = [
+    typeof input.daysRemaining === 'number'
+      ? `${input.daysRemaining} day${input.daysRemaining === 1 ? '' : 's'} left`
+      : null,
+    typeof input.hoursRemaining === 'number' ? `${input.hoursRemaining.toFixed(1)}h left` : null,
+  ].filter(Boolean)
+
+  return parts.join(' • ')
 }
 
 function readLastSessionConfig(): LastSessionConfig {
@@ -421,6 +452,7 @@ export function Rayd8PlayerEngine({
 }: Rayd8PlayerEngineProps) {
   const getAuthToken = useAuthToken()
   const user = useAuthUser()
+  const trialStatus = useTrialStatus()
   const {
     audioError,
     audioMuted,
@@ -499,6 +531,45 @@ export function Rayd8PlayerEngine({
     () => getUsagePillContent(currentExperienceAccess),
     [currentExperienceAccess],
   )
+  const isFreeTrialUser = user.plan === 'free' && !isAdminPreview
+  const trialMetaLabel = useMemo(
+    () =>
+      formatTrialStatusMeta({
+        daysRemaining: trialStatus?.days_remaining,
+        hoursRemaining: trialStatus?.hours_remaining,
+      }),
+    [trialStatus?.days_remaining, trialStatus?.hours_remaining],
+  )
+  const trialErrorState = useMemo(() => {
+    if (!isTrialBlockReason(videoError)) {
+      return null
+    }
+
+    return getTrialBlockContent(videoError)
+  }, [videoError])
+  const trialOverlayState = useMemo(() => {
+    if (trialErrorState) {
+      return trialErrorState
+    }
+
+    if (isFreeTrialUser && trialStatus?.allowed === false && trialStatus.reason) {
+      return getTrialBlockContent(trialStatus.reason)
+    }
+
+    return null
+  }, [isFreeTrialUser, trialErrorState, trialStatus])
+  const activeSoftDenialState = useMemo(
+    () =>
+      trialOverlayState
+        ? {
+            ...trialOverlayState,
+            ctaLabel: 'Upgrade Now',
+            ctaTo: UPGRADE_PATH,
+          }
+        : softDenialState,
+    [softDenialState, trialOverlayState],
+  )
+  const shouldBlurForTrialBlock = Boolean(trialOverlayState || softDenialState?.ctaTo)
   const playbackStabilityProfile = useMemo(
     () => getPlaybackStabilityProfile(shouldUsePlaybackStability),
     [shouldUsePlaybackStability],
@@ -637,6 +708,11 @@ export function Rayd8PlayerEngine({
       await document.exitFullscreen()
     }
   }, [pseudoFullscreenViewport])
+
+  const handleUpgradeNavigation = useCallback(async () => {
+    await exitFullscreen()
+    window.location.assign(UPGRADE_PATH)
+  }, [exitFullscreen])
 
   const toggleFullscreen = useCallback(async () => {
     const playerRoot = playerRootRef.current
@@ -1424,7 +1500,10 @@ export function Rayd8PlayerEngine({
         ref={playerRootRef}
       >
         <div
-          className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black"
+          className={[
+            'absolute inset-0 flex items-center justify-center overflow-hidden bg-black transition-[filter,transform] duration-300',
+            shouldBlurForTrialBlock ? 'scale-[1.02] blur-[6px]' : '',
+          ].join(' ')}
           onPointerUp={handlePseudoFullscreenSurfacePointerUp}
         >
           <video
@@ -1496,6 +1575,26 @@ export function Rayd8PlayerEngine({
           </div>
         </div>
 
+        {isFreeTrialUser ? (
+          <div
+            className="absolute bottom-0 right-0 z-30 p-4 sm:p-5"
+            style={{
+              paddingBottom: `calc(env(safe-area-inset-bottom) + ${bottomChromeInset + 74}px)`,
+              paddingRight: `calc(env(safe-area-inset-right) + ${smallScreenViewport ? 12 : 18}px)`,
+            }}
+          >
+            <button
+              className="flex flex-col items-start gap-1 rounded-[1.35rem] border border-emerald-200/25 bg-[linear-gradient(135deg,rgba(16,185,129,0.18),rgba(59,130,246,0.2))] px-4 py-3 text-left text-white shadow-[0_14px_40px_rgba(0,0,0,0.3)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-emerald-200/35"
+              onClick={() => void handleUpgradeNavigation()}
+              type="button"
+            >
+              <span className="text-[10px] uppercase tracking-[0.28em] text-emerald-100/80">Upgrade</span>
+              <span className="text-sm font-medium">Upgrade to REGEN</span>
+              {trialMetaLabel ? <span className="text-xs text-slate-200/85">{trialMetaLabel}</span> : null}
+            </button>
+          </div>
+        ) : null}
+
         {isPreloading ? (
           <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-black/42 p-6 text-center">
             <div className="max-w-sm rounded-[2rem] border border-white/10 bg-slate-950/84 px-6 py-5 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl">
@@ -1543,17 +1642,37 @@ export function Rayd8PlayerEngine({
           </div>
         ) : null}
 
-        {softDenialState ? (
+        {activeSoftDenialState ? (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 p-6 text-center">
             <div className="max-w-lg rounded-[2rem] border border-rose-200/20 bg-slate-950/92 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-              <p className="text-xs uppercase tracking-[0.32em] text-rose-200/70">Session limit reached</p>
-              <h3 className="mt-3 text-2xl font-semibold text-white">{softDenialState.title}</h3>
-              <p className="mt-3 text-sm leading-6 text-slate-300">{softDenialState.description}</p>
+              <p className="text-xs uppercase tracking-[0.32em] text-rose-200/70">
+                {activeSoftDenialState.ctaTo ? 'Trial access locked' : 'Session limit reached'}
+              </p>
+              <h3 className="mt-3 text-2xl font-semibold text-white">{activeSoftDenialState.title}</h3>
+              <p className="mt-3 text-sm leading-6 text-slate-300">{activeSoftDenialState.description}</p>
+              {activeSoftDenialState.ctaTo ? (
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                  <button
+                    className="rounded-2xl bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-5 py-3 text-sm font-medium text-white transition hover:-translate-y-0.5"
+                    onClick={() => void handleUpgradeNavigation()}
+                    type="button"
+                  >
+                    {activeSoftDenialState.ctaLabel ?? 'Upgrade Now'}
+                  </button>
+                  <button
+                    className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/5"
+                    onClick={onClose}
+                    type="button"
+                  >
+                    Return to Dashboard
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
 
-        {usageWarningState && !softDenialState ? (
+        {usageWarningState && !activeSoftDenialState ? (
           <div
             className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-4"
             style={{ top: `calc(env(safe-area-inset-top) + ${smallScreenViewport ? 72 : 80}px)` }}
@@ -1838,7 +1957,7 @@ export function Rayd8PlayerEngine({
               </div>
             </div>
 
-            {videoError || audioError ? (
+            {(videoError || audioError) && !isTrialBlockReason(videoError) ? (
               <div className="w-full max-w-[23rem] rounded-[1.4rem] border border-amber-300/20 bg-slate-950/90 px-4 py-3 text-sm leading-6 text-amber-100">
                 {videoError ?? audioError}
               </div>

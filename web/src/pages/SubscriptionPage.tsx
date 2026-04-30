@@ -24,9 +24,10 @@ const planCards: Array<{
     plan: 'free',
     name: 'Free Trial',
     bullets: [
-      '33 hours of RAYD8 Expansion Version',
-      '1 hour of RAYD8 Premium Version',
-      '1 hour of RAYD8 REGEN Version',
+      '35 hours of watch time per month',
+      '30-day free trial',
+      'Expansion version + 1 hour access to Premium & REGEN versions each',
+      'Works on any device',
     ],
     supportingLine: 'Instant access after sign-in.',
     ctaLabel: 'Start Free Trial',
