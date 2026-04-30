@@ -32,6 +32,9 @@ export const notificationStatusEnum = pgEnum('notification_status', [
   'skipped_duplicate',
   'dry_run',
 ])
+export const seoRouteTypeEnum = pgEnum('seo_route_type', ['landing', 'conversion', 'support'])
+export const seoActionTypeEnum = pgEnum('seo_action_type', ['apply', 'rollback'])
+export const seoReportStatusEnum = pgEnum('seo_report_status', ['pending', 'complete', 'failed'])
 export const cancellationReasonEnum = pgEnum('cancellation_reason', [
   'too_expensive',
   'not_using_enough',
@@ -261,5 +264,92 @@ export const notificationsLog = pgTable(
       table.recipient,
       table.type,
     ),
+  ],
+)
+
+export const seoRouteMetadata = pgTable(
+  'seo_route_metadata',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    path: text('path').notNull(),
+    routeType: seoRouteTypeEnum('route_type').notNull().default('landing'),
+    priority: integer('priority').notNull().default(50),
+    title: text('title').notNull().default(''),
+    description: text('description').notNull().default(''),
+    keywords: jsonb('keywords').$type<string[]>().notNull().default([]),
+    openGraph: jsonb('open_graph')
+      .$type<{
+        description?: string
+        image?: string
+        title?: string
+        type?: string
+        url?: string
+      }>()
+      .notNull()
+      .default({}),
+    index: boolean('index').notNull().default(true),
+    follow: boolean('follow').notNull().default(true),
+    canonicalUrl: text('canonical_url'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('seo_route_metadata_path_idx').on(table.path),
+    index('seo_route_metadata_route_type_idx').on(table.routeType),
+    index('seo_route_metadata_priority_idx').on(table.priority),
+  ],
+)
+
+export const seoActions = pgTable(
+  'seo_actions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    pageUrl: text('page_url').notNull(),
+    actionType: seoActionTypeEnum('action_type').notNull(),
+    beforeSnapshot: jsonb('before_snapshot').$type<Record<string, unknown>>().notNull().default({}),
+    afterSnapshot: jsonb('after_snapshot').$type<Record<string, unknown>>().notNull().default({}),
+    reasoning: text('reasoning').notNull().default(''),
+    initiatedBy: text('initiated_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('seo_actions_page_url_idx').on(table.pageUrl),
+    index('seo_actions_action_type_idx').on(table.actionType),
+    index('seo_actions_created_at_idx').on(table.createdAt),
+  ],
+)
+
+export const seoReports = pgTable(
+  'seo_reports',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    status: seoReportStatusEnum('status').notNull().default('pending'),
+    summary: text('summary').notNull().default(''),
+    fullReportJson: jsonb('full_report_json').$type<Record<string, unknown>>().notNull().default({}),
+    relatedActionIds: jsonb('related_action_ids').$type<string[]>().notNull().default([]),
+    error: text('error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('seo_reports_status_idx').on(table.status),
+    index('seo_reports_created_at_idx').on(table.createdAt),
+  ],
+)
+
+export const seoAudits = pgTable(
+  'seo_audits',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    targetScope: text('target_scope').notNull().default('full_site'),
+    score: integer('score').notNull().default(0),
+    paths: jsonb('paths').$type<string[]>().notNull().default([]),
+    issues: jsonb('issues').$type<Record<string, unknown>>().notNull().default({}),
+    initiatedBy: text('initiated_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('seo_audits_created_at_idx').on(table.createdAt),
+    index('seo_audits_score_idx').on(table.score),
   ],
 )

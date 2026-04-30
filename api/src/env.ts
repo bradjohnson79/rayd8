@@ -26,6 +26,7 @@ const envSchema = z.object({
   MUX_SIGNING_KEY_ID: z.string().optional(),
   MUX_SIGNING_KEY_PRIVATE: z.string().optional(),
   MUX_ENV_KEY: z.string().optional(),
+  OPEN_AI_API_KEY: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   CONTACT_FROM_EMAIL: z.string().email().optional(),
   SOURCE_OF_TRUTH_ADMIN_EMAILS: z.string().optional(),

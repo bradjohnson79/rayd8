@@ -1,4 +1,4 @@
-import { apiRequest } from './api'
+import { apiBaseUrl, apiRequest } from './api'
 
 export interface AdminOverview {
   totalUsers: number
@@ -294,4 +294,203 @@ export async function createContactMessage(
     },
     token,
   )
+}
+
+export interface SeoMetadataPayload {
+  canonicalUrl: string | null
+  description: string
+  follow: boolean
+  index: boolean
+  keywords: string[]
+  og: {
+    description?: string
+    image?: string
+    title?: string
+    type?: string
+    url?: string
+  }
+  path: string
+  priority: number
+  routeType: 'landing' | 'conversion' | 'support'
+  title: string
+}
+
+export interface SeoAuditIssue {
+  code: string
+  currentValue?: string | null
+  message: string
+  severity: 'critical' | 'improve' | 'good'
+}
+
+export interface SeoAuditPageResult {
+  description: string
+  h1: string | null
+  h2: string | null
+  issues: SeoAuditIssue[]
+  openGraph: SeoMetadataPayload['og']
+  path: string
+  score: number
+  title: string
+}
+
+export interface SeoAuditResult {
+  createdAt: string
+  id: string
+  issuesBySeverity: Record<'critical' | 'improve' | 'good', SeoAuditIssue[]>
+  pages: SeoAuditPageResult[]
+  score: number
+  targetScope: string
+}
+
+export interface SeoOptimizationSuggestion extends Omit<SeoMetadataPayload, 'og'> {
+  og: SeoMetadataPayload['og']
+  reason: string
+}
+
+export interface SeoOptimizationResponse {
+  actions: SeoOptimizationSuggestion[]
+  confidence: number
+  summary: string
+}
+
+export interface SeoActionRecord {
+  actionType: 'apply' | 'rollback'
+  afterSnapshot: SeoMetadataPayload
+  beforeSnapshot: SeoMetadataPayload
+  createdAt: string
+  id: string
+  initiatedBy: string | null
+  pageUrl: string
+  reasoning: string
+}
+
+export interface SeoReportRecord {
+  createdAt: string
+  error: string | null
+  fullReportJson: {
+    actions: Array<{
+      after: SeoMetadataPayload
+      before: SeoMetadataPayload
+      page: string
+      reason: string
+    }>
+    confidence: number
+    impact: string
+    keywordAlignment: string
+    reasoning: string
+    summary: string
+  }
+  id: string
+  relatedActionIds: string[]
+  status: 'pending' | 'complete' | 'failed'
+  summary: string
+  updatedAt: string
+}
+
+export interface SeoOverviewResponse {
+  latestAudit: SeoAuditResult | null
+  managedRoutes: number
+  recentReports: SeoReportRecord[]
+  seoScore: number
+}
+
+export async function getAdminSeoOverview(token: string) {
+  return apiRequest<SeoOverviewResponse>('/api/admin/seo/overview', undefined, token)
+}
+
+export async function getAdminSeoAudits(token: string) {
+  return apiRequest<{ audits: SeoAuditResult[] }>('/api/admin/seo/audits', undefined, token)
+}
+
+export async function getAdminSeoLatestAudit(token: string) {
+  return apiRequest<{ audit: SeoAuditResult | null }>('/api/admin/seo/audits/latest', undefined, token)
+}
+
+export async function runAdminSeoAudit(
+  payload: {
+    fullSite?: boolean
+    paths?: string[]
+  },
+  token: string,
+) {
+  return apiRequest<{ audit: SeoAuditResult }>(
+    '/api/admin/seo/audit',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+}
+
+export async function optimizeAdminSeo(
+  payload: {
+    fullSite?: boolean
+    paths?: string[]
+  },
+  token: string,
+) {
+  return apiRequest<SeoOptimizationResponse>(
+    '/api/admin/seo/optimize',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+}
+
+export async function applyAdminSeoChanges(
+  payload: {
+    changes: SeoOptimizationSuggestion[]
+  },
+  token: string,
+) {
+  return apiRequest<{
+    actions: SeoActionRecord[]
+    report: SeoReportRecord | null
+    reportError: string | null
+  }>(
+    '/api/admin/seo/apply',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+}
+
+export async function rollbackAdminSeoAction(actionId: string, token: string) {
+  return apiRequest<{
+    action: SeoActionRecord
+    report: SeoReportRecord | null
+    reportError: string | null
+  }>(`/api/admin/seo/rollback/${encodeURIComponent(actionId)}`, { method: 'POST' }, token)
+}
+
+export async function getAdminSeoReports(token: string) {
+  return apiRequest<{ reports: SeoReportRecord[] }>('/api/admin/seo/reports', undefined, token)
+}
+
+export async function getAdminSeoReport(reportId: string, token: string) {
+  return apiRequest<{ report: SeoReportRecord }>(
+    `/api/admin/seo/reports/${encodeURIComponent(reportId)}`,
+    undefined,
+    token,
+  )
+}
+
+export async function downloadAdminSeoReportPdf(reportId: string, token: string) {
+  const response = await fetch(`${apiBaseUrl}/api/admin/seo/reports/${encodeURIComponent(reportId)}/pdf`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string }
+    throw new Error(payload.error ?? 'Unable to download SEO report PDF.')
+  }
+
+  return response.blob()
 }

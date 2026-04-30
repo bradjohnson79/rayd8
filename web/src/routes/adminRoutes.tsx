@@ -70,6 +70,31 @@ const AdminSettingsToolPage = lazy(() =>
     default: module.AdminSettingsToolPage,
   })),
 )
+const AdminSeoOverviewPage = lazy(() =>
+  import('../pages/admin/admin-tools/SeoOverview').then((module) => ({
+    default: module.AdminSeoOverviewPage,
+  })),
+)
+const AdminSeoAuditResultsPage = lazy(() =>
+  import('../pages/admin/admin-tools/SeoAuditResults').then((module) => ({
+    default: module.AdminSeoAuditResultsPage,
+  })),
+)
+const AdminSeoOptimizationPreviewPage = lazy(() =>
+  import('../pages/admin/admin-tools/SeoOptimizationPreview').then((module) => ({
+    default: module.AdminSeoOptimizationPreviewPage,
+  })),
+)
+const AdminSeoReportsPage = lazy(() =>
+  import('../pages/admin/admin-tools/SeoReports').then((module) => ({
+    default: module.AdminSeoReportsPage,
+  })),
+)
+const AdminSeoReportViewerPage = lazy(() =>
+  import('../pages/admin/admin-tools/SeoReportViewer').then((module) => ({
+    default: module.AdminSeoReportViewerPage,
+  })),
+)
 
 function RouteFallback() {
   return <div className="min-h-[40svh] rounded-[2rem] border border-white/10 bg-white/[0.03]" />
@@ -106,6 +131,11 @@ export const adminRoutes: RouteObject = {
             { path: 'messages', element: lazyElement(<AdminMessagesPage />) },
             { path: 'notifications', element: lazyElement(<AdminNotificationsPage />) },
             { path: 'admin-settings', element: lazyElement(<AdminSettingsToolPage />) },
+            { path: 'seo', element: lazyElement(<AdminSeoOverviewPage />) },
+            { path: 'seo/audits', element: lazyElement(<AdminSeoAuditResultsPage />) },
+            { path: 'seo/preview', element: lazyElement(<AdminSeoOptimizationPreviewPage />) },
+            { path: 'seo/reports', element: lazyElement(<AdminSeoReportsPage />) },
+            { path: 'seo/reports/:id', element: lazyElement(<AdminSeoReportViewerPage />) },
           ],
         },
       ],

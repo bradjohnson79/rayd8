@@ -1,5 +1,6 @@
 import { Suspense, lazy, type ReactNode } from 'react'
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
+import { AppShell } from '../components/AppShell'
 import { AppRouteErrorBoundary } from '../components/AppRouteErrorBoundary'
 import { adminRoutes } from '../routes/adminRoutes'
 
@@ -57,46 +58,52 @@ function lazyElement(element: ReactNode) {
 export const router = createBrowserRouter([
   {
     path: '/',
-    errorElement: <AppRouteErrorBoundary scope="public" />,
-    element: lazyElement(<LandingPage />),
-  },
-  {
-    path: '/subscription',
-    errorElement: <AppRouteErrorBoundary scope="public" />,
-    element: lazyElement(<SubscriptionPage />),
-  },
-  {
-    path: '/success',
-    errorElement: <AppRouteErrorBoundary scope="public" />,
-    element: lazyElement(<SuccessPage />),
-  },
-  {
-    path: '/',
-    errorElement: <AppRouteErrorBoundary scope="member" />,
-    element: lazyElement(<SessionAppShell />),
+    element: <AppShell />,
     children: [
       {
+        index: true,
+        errorElement: <AppRouteErrorBoundary scope="public" />,
+        element: lazyElement(<LandingPage />),
+      },
+      {
+        path: 'subscription',
+        errorElement: <AppRouteErrorBoundary scope="public" />,
+        element: lazyElement(<SubscriptionPage />),
+      },
+      {
+        path: 'success',
+        errorElement: <AppRouteErrorBoundary scope="public" />,
+        element: lazyElement(<SuccessPage />),
+      },
+      {
+        path: '/',
         errorElement: <AppRouteErrorBoundary scope="member" />,
-        element: lazyElement(<DashboardLayout />),
+        element: lazyElement(<SessionAppShell />),
         children: [
           {
             errorElement: <AppRouteErrorBoundary scope="member" />,
-            path: 'dashboard',
-            element: <Outlet />,
+            element: lazyElement(<DashboardLayout />),
             children: [
-              { index: true, element: lazyElement(<DashboardPage />) },
-              { path: 'instructions', element: lazyElement(<InstructionsPage />) },
-              { path: 'settings', element: lazyElement(<SettingsPage />) },
-              { path: 'upgrade', element: lazyElement(<RegenUpgradePage />) },
+              {
+                errorElement: <AppRouteErrorBoundary scope="member" />,
+                path: 'dashboard',
+                element: <Outlet />,
+                children: [
+                  { index: true, element: lazyElement(<DashboardPage />) },
+                  { path: 'instructions', element: lazyElement(<InstructionsPage />) },
+                  { path: 'settings', element: lazyElement(<SettingsPage />) },
+                  { path: 'upgrade', element: lazyElement(<RegenUpgradePage />) },
+                ],
+              },
+              { path: 'player', element: <Navigate replace to="/dashboard" /> },
+              { path: 'contact', element: lazyElement(<ContactPage />) },
+              { path: 'instructions', element: <Navigate replace to="/dashboard/instructions" /> },
+              { path: 'settings', element: <Navigate replace to="/dashboard/settings" /> },
             ],
           },
-          { path: 'player', element: <Navigate replace to="/dashboard" /> },
-          { path: 'contact', element: lazyElement(<ContactPage />) },
-          { path: 'instructions', element: <Navigate replace to="/dashboard/instructions" /> },
-          { path: 'settings', element: <Navigate replace to="/dashboard/settings" /> },
         ],
       },
+      adminRoutes,
     ],
   },
-  adminRoutes,
 ])

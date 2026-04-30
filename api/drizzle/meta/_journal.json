@@ -71,6 +71,13 @@
       "when": 1777440385332,
       "tag": "0009_modern_darkstar",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1777500672123,
+      "tag": "0010_fuzzy_franklin_richards",
+      "breakpoints": true
     }
   ]
 }

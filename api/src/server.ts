@@ -8,6 +8,7 @@ import { registerAuth } from './plugins/auth.js'
 import { adminMessageRoutes } from './routes/admin/messages.js'
 import { adminMuxRoutes } from './routes/admin/mux.js'
 import { adminNotificationRoutes } from './routes/admin/notifications.js'
+import { adminSeoRoutes } from './routes/admin/seo.js'
 import { adminStripeRoutes } from './routes/admin/stripe.js'
 import { adminUserRoutes } from './routes/admin/users.js'
 import { billingRoutes } from './routes/billing.js'
@@ -15,6 +16,7 @@ import { contactRoutes } from './routes/contact.js'
 import { healthRoutes } from './routes/health.js'
 import { meRoutes } from './routes/me.js'
 import { playerRoutes } from './routes/player.js'
+import { seoRoutes } from './routes/seo.js'
 import { settingsRoutes } from './routes/settings.js'
 import { stripeWebhookRoutes } from './routes/stripeWebhook.js'
 import { usageRoutes } from './routes/usage.js'
@@ -68,12 +70,14 @@ export function buildServer() {
   void app.register(usageRoutes)
   void app.register(settingsRoutes)
   void app.register(stripeWebhookRoutes)
+  void app.register(seoRoutes, { prefix: '/api/seo' })
   void app.register(contactRoutes, { prefix: '/api/contact' })
   void app.register(billingRoutes)
   void app.register(adminMessageRoutes, { prefix: '/api/admin/messages' })
   void app.register(adminStripeRoutes, { prefix: '/api/admin/stripe' })
   void app.register(adminMuxRoutes, { prefix: '/api/admin/mux' })
   void app.register(adminNotificationRoutes, { prefix: '/api/admin/notifications' })
+  void app.register(adminSeoRoutes, { prefix: '/api/admin/seo' })
   void app.register(adminUserRoutes, { prefix: '/api/admin/users' })
 
   return app
