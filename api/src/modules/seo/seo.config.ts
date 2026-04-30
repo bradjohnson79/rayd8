@@ -9,21 +9,21 @@ export const seoRouteManifest: SeoRouteManifestEntry[] = [
   {
     canonicalUrl: buildAbsoluteUrl('/'),
     description:
-      "RAYD8® is a living digital scalar-inspired visual resonance system designed to support focus, calmness, and regenerative states from any screen.",
+      "RAYD8® is the world's first digital scalar-inspired visual resonance system designed to elevate your state physically, mentally, and energetically in minutes.",
     follow: true,
     index: true,
     keywords: ['RAYD8', 'scalar resonance', 'visual regeneration', 'biofield technology'],
     openGraph: {
       description:
-        "Turn your space into a living field of regeneration with RAYD8® visual resonance technology.",
-      title: 'RAYD8® Amrita | Living Visual Resonance',
+        "RAYD8® is the world's first digital scalar-inspired visual resonance system designed to elevate your state physically, mentally, and energetically in minutes.",
+      title: 'RAYD8® - The Med Bed Alternative System for Your Home.',
       type: 'website',
       url: buildAbsoluteUrl('/'),
     },
     path: '/',
     priority: 100,
     routeType: 'landing',
-    title: 'RAYD8® Amrita | Living Visual Resonance',
+    title: 'RAYD8® - The Med Bed Alternative System for Your Home.',
   },
   {
     canonicalUrl: buildAbsoluteUrl('/subscription'),
