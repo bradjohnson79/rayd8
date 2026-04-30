@@ -170,7 +170,7 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
                 '-1px 0 0 rgba(0,0,0,0.7), 1px 0 0 rgba(0,0,0,0.7), 0 -1px 0 rgba(0,0,0,0.7), 0 1px 0 rgba(0,0,0,0.7), 0 10px 30px rgba(0,0,0,0.28)',
             }}
           >
-            The Med Bed Alternative that turns your space into a rejuvenating field!
+            The Med Bed Alternative for Your Home
           </h1>
           <p
             className="mt-5 max-w-2xl text-base leading-8 text-slate-200/90 sm:mt-6 sm:text-lg"
@@ -179,8 +179,7 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
                 '-1px 0 0 rgba(0,0,0,0.68), 1px 0 0 rgba(0,0,0,0.68), 0 -1px 0 rgba(0,0,0,0.68), 0 1px 0 rgba(0,0,0,0.68), 0 8px 24px rgba(0,0,0,0.24)',
             }}
           >
-            RAYD8® is the world&apos;s first digital scalar-inspired visual resonance system designed to
-            elevate your state physically, mentally, and energetically in minutes.
+            A living visual resonance system designed to influence your state within minutes.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3 sm:mt-10">
