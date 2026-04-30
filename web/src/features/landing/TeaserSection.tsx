@@ -50,6 +50,10 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
               </li>
               <li className={featureLi}>
                 <span className={featureBullet} aria-hidden />
+                <span>30 day free trial</span>
+              </li>
+              <li className={featureLi}>
+                <span className={featureBullet} aria-hidden />
                 <span>720p quality</span>
               </li>
               <li className={featureLi}>
