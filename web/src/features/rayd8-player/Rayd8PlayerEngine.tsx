@@ -1577,7 +1577,10 @@ export function Rayd8PlayerEngine({
 
         {isFreeTrialUser ? (
           <div
-            className="absolute bottom-0 right-0 z-30 p-4 sm:p-5"
+            className={[
+              'absolute bottom-0 right-0 z-30 p-4 transition-opacity duration-500 sm:p-5',
+              shouldShowChrome ? 'opacity-100' : 'pointer-events-none opacity-0',
+            ].join(' ')}
             style={{
               paddingBottom: `calc(env(safe-area-inset-bottom) + ${bottomChromeInset + 74}px)`,
               paddingRight: `calc(env(safe-area-inset-right) + ${smallScreenViewport ? 12 : 18}px)`,
