@@ -145,7 +145,7 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
 
       <div
         className={[
-          'absolute inset-0 z-[1] bg-black/55',
+          'absolute inset-0 z-[1] bg-black/65',
           reducedEffects ? '' : 'backdrop-blur-[2px]',
         ]
           .filter(Boolean)
