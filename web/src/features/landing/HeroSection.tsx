@@ -191,7 +191,7 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
             />
             <ConversionButton
               guestMode="signIn"
-              label="Experience REGEN Subscription"
+              label="Experience REGEN"
               to="/subscription?plan=regen"
             />
           </div>
