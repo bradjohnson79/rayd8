@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react'
 import { getTrialStatus, type TrialStatusResponse } from '../../services/trial'
-import { useAuthUser } from './useAuthUser'
-import { useAuthToken } from './useAuthToken'
+import { useAuthReadiness } from '../auth/useAuthReadiness'
 
 const DEFAULT_REFRESH_MS = 60_000
 
 export function useTrialStatus(refreshMs = DEFAULT_REFRESH_MS) {
-  const user = useAuthUser()
-  const getAuthToken = useAuthToken()
+  const { authUser, getTokenSafe, status } = useAuthReadiness()
   const [trialStatus, setTrialStatus] = useState<TrialStatusResponse | null>(null)
 
   useEffect(() => {
-    if (!user.isAuthenticated || user.plan !== 'free') {
+    if (status !== 'signed-in' || authUser?.plan !== 'free') {
       setTrialStatus(null)
       return
     }
@@ -20,13 +18,13 @@ export function useTrialStatus(refreshMs = DEFAULT_REFRESH_MS) {
 
     const hydrateTrialStatus = async () => {
       try {
-        const token = await getAuthToken()
+        const tokenResult = await getTokenSafe()
 
-        if (!token || cancelled) {
+        if (!tokenResult.token || cancelled) {
           return
         }
 
-        const response = await getTrialStatus(token)
+        const response = await getTrialStatus(tokenResult.token)
 
         if (!cancelled) {
           setTrialStatus(response)
@@ -47,7 +45,7 @@ export function useTrialStatus(refreshMs = DEFAULT_REFRESH_MS) {
       cancelled = true
       window.clearInterval(intervalId)
     }
-  }, [getAuthToken, refreshMs, user.isAuthenticated, user.plan])
+  }, [authUser?.plan, getTokenSafe, refreshMs, status])
 
   return trialStatus
 }

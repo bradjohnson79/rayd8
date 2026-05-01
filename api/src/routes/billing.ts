@@ -45,22 +45,76 @@ const cancelSubscriptionBodySchema = z
   })
 
 export const billingRoutes: FastifyPluginAsync = async (app) => {
+  const getBillingErrorResponse = (message: string) => {
+    if (message.includes('Stripe is not configured')) {
+      return {
+        code: 'BILLING_UNAVAILABLE',
+        error: message,
+        statusCode: 503,
+      }
+    }
+
+    if (message.includes('does not belong to the authenticated user')) {
+      return {
+        code: 'CHECKOUT_SESSION_MISMATCH',
+        error: message,
+        statusCode: 403,
+      }
+    }
+
+    if (message.includes('not complete yet')) {
+      return {
+        code: 'CHECKOUT_INCOMPLETE',
+        error: 'Checkout is still processing. Please wait a moment and try again.',
+        statusCode: 409,
+      }
+    }
+
+    if (message.includes('missing subscription details')) {
+      return {
+        code: 'CHECKOUT_INVALID',
+        error: 'We could not verify this checkout session.',
+        statusCode: 400,
+      }
+    }
+
+    if (message.includes('No active REGEN subscription')) {
+      return {
+        code: 'SUBSCRIPTION_NOT_FOUND',
+        error: message,
+        statusCode: 404,
+      }
+    }
+
+    return {
+      code: 'BILLING_ERROR',
+      error: message,
+      statusCode: 400,
+    }
+  }
+
   const respondWithBillingError = (reply: FastifyReply, error: unknown) => {
     const message = error instanceof Error ? error.message : 'Billing request failed.'
-    const statusCode = message.includes('Stripe is not configured') ? 503 : 400
-    return reply.code(statusCode).send({ error: message })
+    const response = getBillingErrorResponse(message)
+    return reply.code(response.statusCode).send({
+      code: response.code,
+      error: response.error,
+    })
   }
 
   const handleCheckout = async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ error: 'Authentication required.' })
+      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
     }
 
     const { plan } = checkoutBodySchema.parse(request.body)
     const user = await syncUserFromClerk(request.auth.userId)
 
     if (!user) {
-      return reply.code(503).send({ error: 'Clerk is not configured on the server.' })
+      return reply.code(503).send({
+        code: 'USER_SYNC_UNAVAILABLE',
+        error: 'We could not verify your account right now. Please try again.',
+      })
     }
 
     const session = await createCheckoutSession({
@@ -83,7 +137,7 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/v1/billing/subscription', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ error: 'Authentication required.' })
+      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
     }
 
     await syncUserFromClerk(request.auth.userId)
@@ -92,7 +146,7 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/v1/billing/portal', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ error: 'Authentication required.' })
+      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
     }
 
     try {
@@ -106,7 +160,7 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/v1/billing/cancel', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ error: 'Authentication required.' })
+      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
     }
 
     const payload = cancelSubscriptionBodySchema.parse(request.body)
@@ -131,22 +185,29 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/v1/billing/verify-session', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ error: 'Authentication required.' })
+      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
     }
 
     const { sessionId } = verifySessionBodySchema.parse(request.body)
     const user = await syncUserFromClerk(request.auth.userId)
 
     if (!user) {
-      return reply.code(503).send({ error: 'Clerk is not configured on the server.' })
+      return reply.code(503).send({
+        code: 'USER_SYNC_UNAVAILABLE',
+        error: 'We could not verify your account right now. Please try again.',
+      })
     }
 
-    const result = await verifyCheckoutSession({
-      sessionId,
-      userId: request.auth.userId,
-    })
+    try {
+      const result = await verifyCheckoutSession({
+        sessionId,
+        userId: request.auth.userId,
+      })
 
-    return result
+      return result
+    } catch (error) {
+      return respondWithBillingError(reply, error)
+    }
   })
 
   app.get('/v1/billing/config', async () => {

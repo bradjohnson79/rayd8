@@ -1,0 +1,1 @@
+ALTER TABLE "user_settings" ADD COLUMN "has_seen_rayd8_guide_at" timestamp with time zone;

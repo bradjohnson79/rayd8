@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { AuthUser } from '../../app/types'
+import { useUpgradeNavigation } from '../auth/useUpgradeNavigation'
 import { dashboardSectionIds, type DashboardSectionId } from './dashboardSections'
 import { getSidebarItems } from './sidebarItems'
 
@@ -13,6 +14,7 @@ interface SidebarProps {
 export function Sidebar({ user, open, onClose }: SidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const navigateToUpgrade = useUpgradeNavigation()
   const items = getSidebarItems(user.plan)
   const [activeSection, setActiveSection] = useState<DashboardSectionId>('expansion')
 
@@ -99,6 +101,12 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
   }
 
   function handleNavigation(item: (typeof items)[number]) {
+    if (item.emphasis === 'upgrade') {
+      void navigateToUpgrade()
+      onClose()
+      return
+    }
+
     if (item.kind === 'route') {
       navigate(item.to)
       onClose()

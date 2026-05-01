@@ -2,8 +2,12 @@ import { useClerk } from '@clerk/react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Rayd8Background } from '../components/Rayd8Background'
-import { useAuthToken } from '../features/dashboard/useAuthToken'
-import { useAuthUser } from '../features/dashboard/useAuthUser'
+import {
+  AUTH_LOADING_MESSAGE,
+  CHECKOUT_FAILURE_MESSAGE,
+  SESSION_EXPIRED_MESSAGE,
+  useAuthReadiness,
+} from '../features/auth/useAuthReadiness'
 import { MarketingButton } from '../features/landing/components/MarketingButton'
 import { createBillingCheckout } from '../services/billing'
 import { trackUmamiEvent } from '../services/umami'
@@ -71,8 +75,7 @@ export function SubscriptionPage() {
   const { openSignIn, openSignUp } = useClerk()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const user = useAuthUser()
-  const getAuthToken = useAuthToken()
+  const { getTokenSafe, status } = useAuthReadiness()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const selectedPlan = normalizePlan(searchParams.get('plan'))
@@ -84,7 +87,7 @@ export function SubscriptionPage() {
   )
 
   useEffect(() => {
-    if (!user.isAuthenticated) {
+    if (status !== 'signed-in') {
       return
     }
 
@@ -98,12 +101,17 @@ export function SubscriptionPage() {
     window.localStorage.removeItem(RESUME_STORAGE_KEY)
     window.localStorage.removeItem(PLAN_STORAGE_KEY)
     void handlePlanAction(storedPlan)
-  }, [user.isAuthenticated])
+  }, [status])
 
   async function handlePlanAction(plan: SubscriptionPlan) {
     setStatusMessage('')
 
-    if (!user.isAuthenticated) {
+    if (status === 'loading') {
+      setStatusMessage(AUTH_LOADING_MESSAGE)
+      return
+    }
+
+    if (status !== 'signed-in') {
       window.localStorage.setItem(PLAN_STORAGE_KEY, plan)
       window.localStorage.setItem(RESUME_STORAGE_KEY, 'pending')
 
@@ -124,10 +132,12 @@ export function SubscriptionPage() {
     setIsSubmitting(true)
 
     try {
-      const token = await getAuthToken()
+      const tokenResult = await getTokenSafe()
 
-      if (!token) {
-        setStatusMessage('Sign in through Clerk before starting checkout.')
+      if (!tokenResult.token) {
+        setStatusMessage(
+          tokenResult.error === 'loading' ? AUTH_LOADING_MESSAGE : SESSION_EXPIRED_MESSAGE,
+        )
         return
       }
 
@@ -135,11 +145,11 @@ export function SubscriptionPage() {
         location: 'subscription_page',
         plan: 'regen',
       })
-      const response = await createBillingCheckout('regen', token)
+      const response = await createBillingCheckout('regen', tokenResult.token)
       window.location.assign(response.checkoutUrl)
     } catch (error) {
       setStatusMessage(
-        error instanceof Error ? error.message : 'Unable to start REGEN checkout right now.',
+        error instanceof Error ? error.message : CHECKOUT_FAILURE_MESSAGE,
       )
     } finally {
       setIsSubmitting(false)

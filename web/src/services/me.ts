@@ -12,6 +12,7 @@ export interface MeResponse {
   user: {
     createdAt: string | Date
     email: string
+    hasSeenRayd8GuideAt: string | Date | null
     id: string
     plan: PlanTier
     role: 'member' | 'admin'

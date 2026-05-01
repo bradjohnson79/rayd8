@@ -118,6 +118,7 @@ export const userSettings = pgTable(
     amplifierMode: amplifierModeEnum('amplifier_mode').notNull().default('off'),
     blueLightEnabled: boolean('blue_light_enabled').notNull().default(false),
     circadianEnabled: boolean('circadian_enabled').notNull().default(false),
+    hasSeenRayd8GuideAt: timestamp('has_seen_rayd8_guide_at', { withTimezone: true }),
     lastSpeedMode: speedModeEnum('last_speed_mode').notNull().default('standard'),
   },
   (table) => [uniqueIndex('user_settings_user_idx').on(table.userId)],

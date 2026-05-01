@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuthToken } from '../features/dashboard/useAuthToken'
+import { CHECKOUT_FAILURE_MESSAGE } from '../features/auth/useAuthReadiness'
+import { useUpgradeNavigation } from '../features/auth/useUpgradeNavigation'
 import { useAuthUser } from '../features/dashboard/useAuthUser'
-import { createBillingCheckout } from '../services/billing'
-import { trackUmamiEvent } from '../services/umami'
 
 export function RegenUpgradePage() {
   const user = useAuthUser()
-  const getAuthToken = useAuthToken()
+  const navigateToUpgrade = useUpgradeNavigation()
   const [statusMessage, setStatusMessage] = useState(
     'Upgrade opens in secure Stripe Checkout and activates REGEN access on your dashboard after payment completes.',
   )
@@ -23,22 +22,13 @@ export function RegenUpgradePage() {
     setIsCheckingOut(true)
 
     try {
-      const token = await getAuthToken()
-
-      if (!token) {
-        setStatusMessage('Sign in through Clerk before starting a subscription checkout.')
-        return
-      }
-
-      trackUmamiEvent('upgrade_click', {
-        location: 'regen_upgrade_page',
-        plan: 'regen',
+      await navigateToUpgrade({
+        onError: setStatusMessage,
+        onLoading: setStatusMessage,
       })
-      const response = await createBillingCheckout('regen', token)
-      window.location.assign(response.checkoutUrl)
     } catch (error) {
       setStatusMessage(
-        error instanceof Error ? error.message : 'Unable to start REGEN upgrade checkout right now.',
+        error instanceof Error ? error.message : CHECKOUT_FAILURE_MESSAGE,
       )
     } finally {
       setIsCheckingOut(false)

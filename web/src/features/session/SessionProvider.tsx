@@ -26,9 +26,10 @@ import {
   startPlaybackSession,
   type ExperienceAccessSummary,
 } from '../../services/player'
+import { ApiRequestError } from '../../services/api'
 import { loadHls, type HlsController } from '../../lib/loadHls'
 import { trackUmamiEvent } from '../../services/umami'
-import { useAuthToken } from '../dashboard/useAuthToken'
+import { SESSION_RESUME_MESSAGE, useAuthReadiness } from '../auth/useAuthReadiness'
 
 type SessionSource = 'member' | 'admin'
 
@@ -48,6 +49,7 @@ interface SoftDenialState {
   ctaLabel?: string
   ctaTo?: string
   description: string
+  eyebrow?: string
   title: string
 }
 
@@ -266,6 +268,18 @@ function toTrialSoftDenialState(errorMessage: string): SoftDenialState | null {
   return null
 }
 
+function getApiErrorCode(error: unknown) {
+  return error instanceof ApiRequestError ? error.code : null
+}
+
+function toAuthSoftDenialState(): SoftDenialState {
+  return {
+    description: 'Your session ended because we could not confirm that you are still signed in.',
+    eyebrow: 'Session expired',
+    title: SESSION_RESUME_MESSAGE,
+  }
+}
+
 function toUsageWarningState(access: ExperienceAccessSummary): UsageWarningState | null {
   if (access.warningState !== 'approaching_limit') {
     return null
@@ -291,7 +305,7 @@ function toUsageWarningState(access: ExperienceAccessSummary): UsageWarningState
 }
 
 export function SessionProvider({ children }: PropsWithChildren) {
-  const getAuthToken = useAuthToken()
+  const { getTokenSafe, status: authStatus } = useAuthReadiness()
   const [state, setState] = useState<SessionState>({
     isActive: false,
     sessionSource: 'member',
@@ -335,20 +349,20 @@ export function SessionProvider({ children }: PropsWithChildren) {
         return
       }
 
-      const token = await getAuthToken()
+      const tokenResult = await getTokenSafe()
 
-      if (!token) {
+      if (!tokenResult.token) {
         return
       }
 
       try {
-        const response = await endPlaybackSession(sessionId, token)
+        const response = await endPlaybackSession(sessionId, tokenResult.token)
         updateExperienceAccess(response.access)
       } catch {
         // Keep end-session cleanup best-effort so the UI can close immediately.
       }
     },
-    [getAuthToken, updateExperienceAccess],
+    [getTokenSafe, updateExperienceAccess],
   )
 
   const endSession = useCallback(() => {
@@ -403,18 +417,34 @@ export function SessionProvider({ children }: PropsWithChildren) {
       return
     }
 
+    if (authStatus === 'loading') {
+      return
+    }
+
     let cancelled = false
     const experience = getExperienceFromSessionType(state.sessionType)
 
     async function beginTracking() {
-      const token = await getAuthToken()
+      const tokenResult = await getTokenSafe()
 
-      if (!token || cancelled) {
+      if (cancelled) {
+        return
+      }
+
+      if (!tokenResult.token) {
+        if (tokenResult.error === 'loading') {
+          return
+        }
+
+        clearTimer(softDenialTimerRef)
+        setTrackingSessionId(null)
+        setUsageWarningState(null)
+        scheduleSoftDenialExit(toAuthSoftDenialState())
         return
       }
 
       try {
-        const response = await startPlaybackSession(experience, token)
+        const response = await startPlaybackSession(experience, tokenResult.token)
 
         if (cancelled) {
           return
@@ -429,14 +459,23 @@ export function SessionProvider({ children }: PropsWithChildren) {
         setTrackingSessionId(response.session.id)
       } catch (error) {
         if (!cancelled) {
-          const trialSoftDenial =
-            error instanceof Error ? toTrialSoftDenialState(error.message) : null
+          const trialSoftDenial = toTrialSoftDenialState(
+            getApiErrorCode(error) ?? (error instanceof Error ? error.message : ''),
+          )
 
           if (trialSoftDenial) {
             clearTimer(softDenialTimerRef)
             setSoftDenialState(trialSoftDenial)
             setUsageWarningState(null)
             setAudioError(null)
+            return
+          }
+
+          if (error instanceof ApiRequestError && error.status === 401) {
+            clearTimer(softDenialTimerRef)
+            setTrackingSessionId(null)
+            setUsageWarningState(null)
+            scheduleSoftDenialExit(toAuthSoftDenialState())
             return
           }
 
@@ -457,24 +496,48 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return () => {
       cancelled = true
     }
-  }, [getAuthToken, state.isActive, state.sessionSource, state.sessionType, updateExperienceAccess])
+  }, [
+    authStatus,
+    getTokenSafe,
+    scheduleSoftDenialExit,
+    state.isActive,
+    state.sessionSource,
+    state.sessionType,
+    updateExperienceAccess,
+  ])
 
   useEffect(() => {
     if (!trackingSessionId || !state.isActive || state.sessionSource !== 'member') {
       return
     }
 
+    if (authStatus === 'loading') {
+      return
+    }
+
     let cancelled = false
 
     const heartbeat = async () => {
-      const token = await getAuthToken()
+      const tokenResult = await getTokenSafe()
 
-      if (!token || cancelled) {
+      if (cancelled) {
+        return
+      }
+
+      if (!tokenResult.token) {
+        if (tokenResult.error === 'loading') {
+          return
+        }
+
+        clearTimer(softDenialTimerRef)
+        setTrackingSessionId(null)
+        setUsageWarningState(null)
+        scheduleSoftDenialExit(toAuthSoftDenialState())
         return
       }
 
       try {
-        const response = await heartbeatPlaybackSession(trackingSessionId, token)
+        const response = await heartbeatPlaybackSession(trackingSessionId, tokenResult.token)
 
         if (cancelled) {
           return
@@ -484,7 +547,17 @@ export function SessionProvider({ children }: PropsWithChildren) {
         setUsageWarningState(toUsageWarningState(response.access))
         scheduleSoftDenialExit(toSoftDenialState(response.access))
       } catch (error) {
-        const trialSoftDenial = error instanceof Error ? toTrialSoftDenialState(error.message) : null
+        if (error instanceof ApiRequestError && error.status === 401) {
+          clearTimer(softDenialTimerRef)
+          setTrackingSessionId(null)
+          setUsageWarningState(null)
+          scheduleSoftDenialExit(toAuthSoftDenialState())
+          return
+        }
+
+        const trialSoftDenial = toTrialSoftDenialState(
+          getApiErrorCode(error) ?? (error instanceof Error ? error.message : ''),
+        )
 
         if (trialSoftDenial) {
           clearTimer(softDenialTimerRef)
@@ -505,7 +578,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
       window.clearInterval(intervalId)
     }
   }, [
-    getAuthToken,
+    authStatus,
+    getTokenSafe,
     scheduleSoftDenialExit,
     state.isActive,
     state.sessionSource,
@@ -607,7 +681,7 @@ function GlobalAudioRail({
   sessionSource: SessionSource
   sessionType: SessionType | null
 }) {
-  const getAuthToken = useAuthToken()
+  const { getTokenSafe } = useAuthReadiness()
   const audioControllerRef = useRef<HlsController | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const audioRequestRef = useRef(0)
@@ -673,16 +747,16 @@ function GlobalAudioRail({
           return
         }
 
-        const token = await getAuthToken()
+        const tokenResult = await getTokenSafe()
 
-        if (!token || cancelled || audioRequestRef.current !== requestId) {
+        if (!tokenResult.token || cancelled || audioRequestRef.current !== requestId) {
           return
         }
 
         const playback =
           sessionSource === 'admin'
-            ? await getAdminMuxPlaybackToken(trackAssetId, token)
-            : await getMemberPlaybackToken(trackAssetId, experience, token)
+            ? await getAdminMuxPlaybackToken(trackAssetId, tokenResult.token)
+            : await getMemberPlaybackToken(trackAssetId, experience, tokenResult.token)
 
         if (cancelled || audioRequestRef.current !== requestId) {
           return
@@ -728,7 +802,7 @@ function GlobalAudioRail({
     audioTrack,
     audioVolume,
     currentExperience,
-    getAuthToken,
+    getTokenSafe,
     isActive,
     onAudioErrorChange,
     onAudioLoadingChange,

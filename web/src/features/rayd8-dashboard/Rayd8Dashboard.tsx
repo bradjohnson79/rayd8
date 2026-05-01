@@ -1,12 +1,22 @@
 import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
 import {
+  useCallback,
   useEffect,
+  useRef,
   useState,
   type ReactNode
 } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import type { Experience } from '../../app/types'
 import { ConfirmModal } from '../../components/ConfirmModal'
+import { GuideModal } from '../rayd8-player/GuideModal'
+import { ApiRequestError } from '../../services/api'
+import {
+  AUTH_LOADING_MESSAGE,
+  SESSION_RESUME_MESSAGE,
+  useAuthReadiness,
+} from '../auth/useAuthReadiness'
+import { useUpgradeNavigation } from '../auth/useUpgradeNavigation'
 import {
   normalizePlaybackPlan,
   type PlaybackPlan,
@@ -22,11 +32,11 @@ import {
   getPlaybackAccess,
   type ExperienceAccessSummary,
 } from '../../services/player'
+import { markRayd8GuideSeen } from '../../services/settings'
 import type { TrialBlockReason, TrialNotificationLevel } from '../../services/trial'
+import { trackUmamiEvent } from '../../services/umami'
 import { getUsage, type UsageResponse } from '../../services/usage'
-import { useAuthToken } from '../dashboard/useAuthToken'
 import { useTrialStatus } from '../dashboard/useTrialStatus'
-import { useAuthUser } from '../dashboard/useAuthUser'
 import { useSession } from '../session/SessionProvider'
 
 interface Rayd8DashboardProps {
@@ -36,7 +46,8 @@ interface Rayd8DashboardProps {
 type SectionTone = 'amrita' | 'expansion' | 'premium' | 'regen'
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
 const DASHBOARD_EXPERIENCES: Experience[] = ['expansion', 'premium', 'regen']
-const UPGRADE_PATH = '/subscription?plan=regen'
+const GUIDE_MODAL_TRANSITION_MS = 220
+const RAYD8_GUIDE_STORAGE_KEY = 'rayd8_guide_seen'
 
 function isTrialBlockReason(value: string): value is TrialBlockReason {
   return value === 'TRIAL_EXPIRED' || value === 'HOURS_EXCEEDED'
@@ -77,55 +88,120 @@ function getTrialBannerTone(level: TrialNotificationLevel | undefined) {
   }
 }
 
+function getAuthPromptMessage(status: ReturnType<typeof useAuthReadiness>['status']) {
+  return status === 'loading' ? AUTH_LOADING_MESSAGE : SESSION_RESUME_MESSAGE
+}
+
+function hasSeenGuideLocally() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.localStorage.getItem(RAYD8_GUIDE_STORAGE_KEY) === 'true'
+}
+
+function markGuideSeenLocally() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(RAYD8_GUIDE_STORAGE_KEY, 'true')
+}
+
+function getTrialBlockReasonFromError(error: unknown): TrialBlockReason | null {
+  if (error instanceof ApiRequestError && isTrialBlockReason(error.code ?? '')) {
+    return error.code as TrialBlockReason
+  }
+
+  if (error instanceof Error && isTrialBlockReason(error.message)) {
+    return error.message
+  }
+
+  return null
+}
+
 export function Rayd8Dashboard({
   forcedPlan = null,
 }: Rayd8DashboardProps) {
-  const user = useAuthUser()
-  const effectivePlan = normalizePlaybackPlan(forcedPlan ?? user.plan)
+  const { authUser, getTokenSafe, status } = useAuthReadiness()
+  const navigateToUpgrade = useUpgradeNavigation()
+  const effectivePlan = normalizePlaybackPlan(forcedPlan ?? authUser?.plan ?? 'free')
   const isPreviewMode = forcedPlan !== null
 
   return (
     <MemberDashboardLaunchpad
       effectivePlan={effectivePlan}
+      authStatus={status}
+      getTokenSafe={getTokenSafe}
       isPreviewMode={isPreviewMode}
+      navigateToUpgrade={navigateToUpgrade}
+      user={authUser}
     />
   )
 }
 
 function MemberDashboardLaunchpad({
+  authStatus,
   effectivePlan,
+  getTokenSafe,
   isPreviewMode = false,
+  navigateToUpgrade,
+  user,
 }: {
+  authStatus: ReturnType<typeof useAuthReadiness>['status']
   effectivePlan: PlaybackPlan
+  getTokenSafe: ReturnType<typeof useAuthReadiness>['getTokenSafe']
   isPreviewMode?: boolean
+  navigateToUpgrade: ReturnType<typeof useUpgradeNavigation>
+  user: ReturnType<typeof useAuthReadiness>['authUser']
 }) {
-  const getAuthToken = useAuthToken()
-  const navigate = useNavigate()
-  const user = useAuthUser()
   const trialStatus = useTrialStatus()
   const { experienceAccess, startSession, updateExperienceAccess } = useSession()
   const [checkingExperience, setCheckingExperience] = useState<Experience | null>(null)
   const [experiencePrompts, setExperiencePrompts] = useState<Partial<Record<Experience, string>>>({})
+  const [guidePendingExperience, setGuidePendingExperience] = useState<Experience | null>(null)
+  const [guideSeenLocally, setGuideSeenLocally] = useState(() => hasSeenGuideLocally())
+  const [isGuideClosing, setIsGuideClosing] = useState(false)
+  const [isSubmittingGuide, setIsSubmittingGuide] = useState(false)
+  const [memberGuideSeenAt, setMemberGuideSeenAt] = useState<string | Date | null | undefined>(() =>
+    hasSeenGuideLocally() ? new Date().toISOString() : undefined,
+  )
   const [usageSnapshot, setUsageSnapshot] = useState<UsageResponse | null>(null)
   const [trialBlockReason, setTrialBlockReason] = useState<TrialBlockReason | null>(null)
+  const guideConfirmedRef = useRef(false)
 
   useEffect(() => {
+    if (authStatus !== 'signed-in') {
+      setCheckingExperience(null)
+      setGuidePendingExperience(null)
+      setGuideSeenLocally(hasSeenGuideLocally())
+      setIsGuideClosing(false)
+      setIsSubmittingGuide(false)
+      setMemberGuideSeenAt(hasSeenGuideLocally() ? new Date().toISOString() : undefined)
+      setUsageSnapshot(null)
+      return
+    }
+
     let cancelled = false
 
     async function hydrateAccess() {
       try {
-        const token = await getAuthToken()
+        const tokenResult = await getTokenSafe()
 
-        if (!token) {
+        if (!tokenResult.token) {
           return
         }
 
-        const response = await getMe(token)
+        const response = await getMe(tokenResult.token)
 
         if (!cancelled) {
           updateExperienceAccess(response.access.expansion)
           updateExperienceAccess(response.access.premium)
           updateExperienceAccess(response.access.regen)
+          setMemberGuideSeenAt(
+            response.user?.hasSeenRayd8GuideAt ??
+              (hasSeenGuideLocally() ? new Date().toISOString() : null),
+          )
           setUsageSnapshot({
             access: response.access,
             plan: response.user?.plan ?? effectivePlan,
@@ -145,24 +221,52 @@ function MemberDashboardLaunchpad({
     return () => {
       cancelled = true
     }
-  }, [effectivePlan, getAuthToken, updateExperienceAccess])
+  }, [authStatus, effectivePlan, getTokenSafe, updateExperienceAccess])
 
   useEffect(() => {
-    if (isPreviewMode) {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== RAYD8_GUIDE_STORAGE_KEY) {
+        return
+      }
+
+      const localSeen = event.newValue === 'true'
+      setGuideSeenLocally(localSeen)
+
+      if (localSeen) {
+        setMemberGuideSeenAt((currentValue) => currentValue ?? new Date().toISOString())
+      }
+    }
+
+    window.addEventListener('storage', handleStorage)
+
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isPreviewMode || authStatus !== 'signed-in') {
+      if (authStatus !== 'signed-in') {
+        setUsageSnapshot(null)
+      }
       return
     }
 
     let cancelled = false
 
     const hydrateUsage = async () => {
-      const token = await getAuthToken()
+      const tokenResult = await getTokenSafe()
 
-      if (!token || cancelled) {
+      if (!tokenResult.token || cancelled) {
         return
       }
 
       try {
-        const response = await getUsage(token)
+        const response = await getUsage(tokenResult.token)
 
         if (cancelled) {
           return
@@ -186,7 +290,7 @@ function MemberDashboardLaunchpad({
       cancelled = true
       window.clearInterval(intervalId)
     }
-  }, [getAuthToken, isPreviewMode, updateExperienceAccess])
+  }, [authStatus, getTokenSafe, isPreviewMode, updateExperienceAccess])
 
   useEffect(() => {
     setCheckingExperience(null)
@@ -229,7 +333,117 @@ function MemberDashboardLaunchpad({
         : regenAllowed
         ? 'Start Session'
         : 'Upgrade to REGEN'
-  const sessionStartOptions = isPreviewMode && user.role === 'admin' ? { source: 'admin' as const } : undefined
+  const sessionStartOptions =
+    isPreviewMode && user?.role === 'admin' ? { source: 'admin' as const } : undefined
+
+  const openGuideModal = useCallback((experience: Experience) => {
+    guideConfirmedRef.current = false
+    setGuidePendingExperience(experience)
+    setIsGuideClosing(false)
+    setIsSubmittingGuide(false)
+    trackUmamiEvent('guide_shown', { experience })
+  }, [])
+
+  useEffect(() => {
+    if (!guidePendingExperience) {
+      return
+    }
+
+    const trackGuideAbandoned = () => {
+      if (guideConfirmedRef.current) {
+        return
+      }
+
+      trackUmamiEvent('guide_abandoned', { experience: guidePendingExperience })
+      guideConfirmedRef.current = true
+    }
+
+    window.addEventListener('beforeunload', trackGuideAbandoned)
+    window.addEventListener('pagehide', trackGuideAbandoned)
+
+    return () => {
+      window.removeEventListener('beforeunload', trackGuideAbandoned)
+      window.removeEventListener('pagehide', trackGuideAbandoned)
+      trackGuideAbandoned()
+    }
+  }, [guidePendingExperience])
+
+  const startGuideApprovedSession = useCallback(
+    (experience: Experience) => {
+      startSession(experience, sessionStartOptions)
+    },
+    [sessionStartOptions, startSession],
+  )
+
+  const maybeStartGuideCheckedSession = useCallback(
+    async (experience: Experience, token: string) => {
+      if (user?.role === 'admin') {
+        startGuideApprovedSession(experience)
+        return
+      }
+
+      let resolvedGuideSeenAt = memberGuideSeenAt
+
+      if (!guideSeenLocally && resolvedGuideSeenAt === undefined) {
+        try {
+          const response = await getMe(token)
+          resolvedGuideSeenAt =
+            response.user?.hasSeenRayd8GuideAt ??
+            (hasSeenGuideLocally() ? new Date().toISOString() : null)
+          setMemberGuideSeenAt(resolvedGuideSeenAt)
+        } catch {
+          resolvedGuideSeenAt = hasSeenGuideLocally() ? new Date().toISOString() : null
+        }
+      }
+
+      if (!guideSeenLocally && !resolvedGuideSeenAt) {
+        openGuideModal(experience)
+        return
+      }
+
+      startGuideApprovedSession(experience)
+    },
+    [guideSeenLocally, memberGuideSeenAt, openGuideModal, startGuideApprovedSession, user?.role],
+  )
+
+  const handleGuidePrimary = useCallback(() => {
+    if (!guidePendingExperience || isSubmittingGuide) {
+      return
+    }
+
+    guideConfirmedRef.current = true
+    setIsSubmittingGuide(true)
+    setGuideSeenLocally(true)
+    markGuideSeenLocally()
+    setMemberGuideSeenAt((currentValue) => currentValue ?? new Date().toISOString())
+    trackUmamiEvent('guide_started_session', { experience: guidePendingExperience })
+
+    void getTokenSafe().then((tokenResult) => {
+      if (!tokenResult.token) {
+        return
+      }
+
+      void markRayd8GuideSeen(tokenResult.token)
+        .then((response) => {
+          setMemberGuideSeenAt(response.settings.hasSeenRayd8GuideAt ?? new Date().toISOString())
+        })
+        .catch((error) => {
+          if (import.meta.env.DEV) {
+            console.warn('[guide] unable to persist seen state', error)
+          }
+        })
+    })
+
+    setIsGuideClosing(true)
+
+    const pendingExperience = guidePendingExperience
+    window.setTimeout(() => {
+      setGuidePendingExperience(null)
+      setIsGuideClosing(false)
+      setIsSubmittingGuide(false)
+      startGuideApprovedSession(pendingExperience)
+    }, GUIDE_MODAL_TRANSITION_MS)
+  }, [getTokenSafe, guidePendingExperience, isSubmittingGuide, startGuideApprovedSession])
 
   return (
     <div
@@ -265,7 +479,7 @@ function MemberDashboardLaunchpad({
 
               <button
                 className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-5 py-3 text-sm font-medium text-white shadow-[0_16px_45px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
-                onClick={() => navigate(UPGRADE_PATH)}
+                onClick={() => void navigateToUpgrade()}
                 type="button"
               >
                 Upgrade Now
@@ -296,17 +510,25 @@ function MemberDashboardLaunchpad({
                 }))
 
                 try {
-                  const token = await getAuthToken()
-
-                  if (!token) {
+                  if (authStatus !== 'signed-in') {
                     setExperiencePrompts((currentValue) => ({
                       ...currentValue,
-                      expansion: 'Sign in before launching Expansion.',
+                      expansion: getAuthPromptMessage(authStatus),
                     }))
                     return
                   }
 
-                  const response = await getPlaybackAccess('expansion', token)
+                  const tokenResult = await getTokenSafe()
+
+                  if (!tokenResult.token) {
+                    setExperiencePrompts((currentValue) => ({
+                      ...currentValue,
+                      expansion: getAuthPromptMessage(authStatus),
+                    }))
+                    return
+                  }
+
+                  const response = await getPlaybackAccess('expansion', tokenResult.token)
                   updateExperienceAccess(response.access)
 
                   if (!response.access.allowed) {
@@ -320,10 +542,20 @@ function MemberDashboardLaunchpad({
                     return
                   }
 
-                  startSession('expansion', sessionStartOptions)
+                  await maybeStartGuideCheckedSession('expansion', tokenResult.token)
                 } catch (error) {
-                  if (error instanceof Error && isTrialBlockReason(error.message)) {
-                    setTrialBlockReason(error.message)
+                  const trialReason = getTrialBlockReasonFromError(error)
+
+                  if (trialReason) {
+                    setTrialBlockReason(trialReason)
+                    return
+                  }
+
+                  if (error instanceof ApiRequestError && error.status === 401) {
+                    setExperiencePrompts((currentValue) => ({
+                      ...currentValue,
+                      expansion: SESSION_RESUME_MESSAGE,
+                    }))
                     return
                   }
 
@@ -358,17 +590,25 @@ function MemberDashboardLaunchpad({
                 }))
 
                 try {
-                  const token = await getAuthToken()
-
-                  if (!token) {
+                  if (authStatus !== 'signed-in') {
                     setExperiencePrompts((currentValue) => ({
                       ...currentValue,
-                      premium: 'Sign in before launching Premium.',
+                      premium: getAuthPromptMessage(authStatus),
                     }))
                     return
                   }
 
-                  const response = await getPlaybackAccess('premium', token)
+                  const tokenResult = await getTokenSafe()
+
+                  if (!tokenResult.token) {
+                    setExperiencePrompts((currentValue) => ({
+                      ...currentValue,
+                      premium: getAuthPromptMessage(authStatus),
+                    }))
+                    return
+                  }
+
+                  const response = await getPlaybackAccess('premium', tokenResult.token)
                   updateExperienceAccess(response.access)
 
                   if (isPreviewMode && !previewPremiumAllowed && !premiumTrialAvailable) {
@@ -387,10 +627,20 @@ function MemberDashboardLaunchpad({
                     return
                   }
 
-                  startSession('premium', sessionStartOptions)
+                  await maybeStartGuideCheckedSession('premium', tokenResult.token)
                 } catch (error) {
-                  if (error instanceof Error && isTrialBlockReason(error.message)) {
-                    setTrialBlockReason(error.message)
+                  const trialReason = getTrialBlockReasonFromError(error)
+
+                  if (trialReason) {
+                    setTrialBlockReason(trialReason)
+                    return
+                  }
+
+                  if (error instanceof ApiRequestError && error.status === 401) {
+                    setExperiencePrompts((currentValue) => ({
+                      ...currentValue,
+                      premium: SESSION_RESUME_MESSAGE,
+                    }))
                     return
                   }
 
@@ -426,17 +676,25 @@ function MemberDashboardLaunchpad({
               }))
 
               try {
-                const token = await getAuthToken()
-
-                if (!token) {
+                if (authStatus !== 'signed-in') {
                   setExperiencePrompts((currentValue) => ({
                     ...currentValue,
-                    regen: 'Sign in before launching REGEN.',
+                    regen: getAuthPromptMessage(authStatus),
                   }))
                   return
                 }
 
-                const response = await getPlaybackAccess('regen', token)
+                const tokenResult = await getTokenSafe()
+
+                if (!tokenResult.token) {
+                  setExperiencePrompts((currentValue) => ({
+                    ...currentValue,
+                    regen: getAuthPromptMessage(authStatus),
+                  }))
+                  return
+                }
+
+                const response = await getPlaybackAccess('regen', tokenResult.token)
                 updateExperienceAccess(response.access)
 
                 if (isPreviewMode && !previewRegenAllowed && !regenTrialAvailable) {
@@ -455,10 +713,20 @@ function MemberDashboardLaunchpad({
                   return
                 }
 
-                startSession('regen', sessionStartOptions)
+                await maybeStartGuideCheckedSession('regen', tokenResult.token)
               } catch (error) {
-                if (error instanceof Error && isTrialBlockReason(error.message)) {
-                  setTrialBlockReason(error.message)
+                const trialReason = getTrialBlockReasonFromError(error)
+
+                if (trialReason) {
+                  setTrialBlockReason(trialReason)
+                  return
+                }
+
+                if (error instanceof ApiRequestError && error.status === 401) {
+                  setExperiencePrompts((currentValue) => ({
+                    ...currentValue,
+                    regen: SESSION_RESUME_MESSAGE,
+                  }))
                   return
                 }
 
@@ -477,13 +745,21 @@ function MemberDashboardLaunchpad({
       <AmritaComingSoonSection />
       <ConfirmModal
         description={trialBlockReason ? getTrialBlockContent(trialBlockReason).description : ''}
-        onPrimary={() => navigate(UPGRADE_PATH)}
+        onPrimary={() => void navigateToUpgrade()}
         onSecondary={() => setTrialBlockReason(null)}
         open={trialBlockReason !== null}
         primaryLabel="Upgrade Now"
         secondaryLabel="Not Now"
         title={trialBlockReason ? getTrialBlockContent(trialBlockReason).title : 'Trial limit reached'}
       />
+      {guidePendingExperience ? (
+        <GuideModal
+          isClosing={isGuideClosing}
+          isSubmitting={isSubmittingGuide}
+          mode="first_time"
+          onPrimary={handleGuidePrimary}
+        />
+      ) : null}
     </div>
   )
 }
@@ -510,7 +786,7 @@ function MemberAccountCluster({
   user,
 }: {
   effectivePlan: PlaybackPlan
-  user: ReturnType<typeof useAuthUser>
+  user: ReturnType<typeof useAuthReadiness>['authUser']
 }) {
   const planLabel = effectivePlan === 'free' ? 'FREE TRIAL' : effectivePlan.toUpperCase()
 
@@ -518,13 +794,13 @@ function MemberAccountCluster({
     <div className="absolute right-4 top-4 z-30 flex items-center gap-3 pointer-events-auto sm:right-6 sm:top-6">
       <div className="hidden rounded-[1.4rem] bg-[rgba(5,7,12,0.42)] px-4 py-3 text-right shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-2xl sm:block">
         <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/60">RAYD8® USER ACCOUNT</p>
-        <p className="mt-2 text-sm font-medium text-white">{user.email}</p>
+        <p className="mt-2 text-sm font-medium text-white">{user?.email ?? 'Checking your session...'}</p>
         <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">
-          {planLabel} {user.role === 'admin' ? '• admin' : ''}
+          {planLabel} {user?.role === 'admin' ? '• admin' : ''}
         </p>
       </div>
 
-      {user.role === 'admin' ? (
+      {user?.role === 'admin' ? (
         <Link
           className="hidden rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-sm font-medium text-white shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-emerald-300/20 md:inline-flex"
           to="/admin"

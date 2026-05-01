@@ -2,7 +2,10 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { maybeDispatchStreamLimitReached } from '../services/notifications/streamLimitNotifications.js'
 import { toAppPlan } from '../services/player/accessPolicy.js'
-import { getTrialStatusForUser } from '../services/player/trialStatus.js'
+import {
+  getTrialStatusForUser,
+  type TrialBlockReason,
+} from '../services/player/trialStatus.js'
 import { addTrackedUsageSeconds } from '../services/player/usagePeriods.js'
 import { getUsageSnapshotForUser } from '../services/player/usageSummary.js'
 import { syncUserFromClerk } from '../services/users.js'
@@ -14,10 +17,24 @@ const usageTrackSchema = z.object({
   version: experienceSchema,
 })
 
+function getTrialAccessError(reason: TrialBlockReason) {
+  if (reason === 'TRIAL_EXPIRED') {
+    return {
+      code: reason,
+      error: 'Your free trial has ended.',
+    }
+  }
+
+  return {
+    code: reason,
+    error: 'You have used your available trial hours.',
+  }
+}
+
 export const usageRoutes: FastifyPluginAsync = async (app) => {
   app.get('/v1/usage', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ error: 'Authentication required.' })
+      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
     }
 
     const user = await syncUserFromClerk(request.auth.userId)
@@ -55,7 +72,7 @@ export const usageRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/v1/usage/track', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ error: 'Authentication required.' })
+      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
     }
 
     const { seconds, version } = usageTrackSchema.parse(request.body)
@@ -68,7 +85,7 @@ export const usageRoutes: FastifyPluginAsync = async (app) => {
     })
 
     if (!trialStatus.allowed && trialStatus.reason) {
-      return reply.code(403).send({ error: trialStatus.reason })
+      return reply.code(403).send(getTrialAccessError(trialStatus.reason))
     }
 
     await addTrackedUsageSeconds({

@@ -6,6 +6,7 @@ export interface SettingsPayload {
   amplifierMode: 'off' | '5x' | '10x' | '20x'
   blueLightEnabled: boolean
   circadianEnabled: boolean
+  hasSeenRayd8GuideAt: Date | null
   lastSpeedMode: 'standard' | 'fast' | 'superFast' | 'slow' | 'superSlow'
 }
 
@@ -13,6 +14,7 @@ export const defaultSettings: SettingsPayload = {
   amplifierMode: 'off',
   blueLightEnabled: false,
   circadianEnabled: false,
+  hasSeenRayd8GuideAt: null,
   lastSpeedMode: 'standard',
 }
 
@@ -35,6 +37,7 @@ export async function getSettingsForUser(userId: string) {
     amplifierMode: settings.amplifierMode,
     blueLightEnabled: settings.blueLightEnabled,
     circadianEnabled: settings.circadianEnabled,
+    hasSeenRayd8GuideAt: settings.hasSeenRayd8GuideAt,
     lastSpeedMode: settings.lastSpeedMode,
   }
 }
@@ -54,6 +57,7 @@ export async function upsertSettingsForUser(
       amplifierMode: settings.amplifierMode,
       blueLightEnabled: settings.blueLightEnabled,
       circadianEnabled: settings.circadianEnabled,
+      hasSeenRayd8GuideAt: settings.hasSeenRayd8GuideAt,
       lastSpeedMode: settings.lastSpeedMode,
     })
     .onConflictDoUpdate({
@@ -62,6 +66,7 @@ export async function upsertSettingsForUser(
         amplifierMode: settings.amplifierMode,
         blueLightEnabled: settings.blueLightEnabled,
         circadianEnabled: settings.circadianEnabled,
+        hasSeenRayd8GuideAt: settings.hasSeenRayd8GuideAt,
         lastSpeedMode: settings.lastSpeedMode,
       },
     })

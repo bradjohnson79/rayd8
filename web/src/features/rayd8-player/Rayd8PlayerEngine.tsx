@@ -11,6 +11,7 @@ import {
 } from 'react'
 import type { SessionType } from '../../app/types'
 import { ConfirmModal } from '../../components/ConfirmModal'
+import { GuideModal } from './GuideModal'
 import {
   formatRuntimeClock,
   formatRuntimeLimit,
@@ -34,7 +35,12 @@ import { getMemberPlaybackToken } from '../../services/player'
 import type { ExperienceAccessSummary } from '../../services/player'
 import { trackUmamiEvent } from '../../services/umami'
 import { isMobileViewport, isSmallScreen, isTabletViewport } from '../../utils/device'
-import { useAuthToken } from '../dashboard/useAuthToken'
+import {
+  AUTH_LOADING_MESSAGE,
+  SESSION_RESUME_MESSAGE,
+  useAuthReadiness,
+} from '../auth/useAuthReadiness'
+import { useUpgradeNavigation } from '../auth/useUpgradeNavigation'
 import { useTrialStatus } from '../dashboard/useTrialStatus'
 import { useAuthUser } from '../dashboard/useAuthUser'
 import { CloseButton } from '../player/CloseButton'
@@ -46,6 +52,7 @@ const defaultSessionConfig: LastSessionConfig = {
   audioTrack: 'none',
   amplification: DEFAULT_AMPLIFICATION_LEVEL,
 }
+const GUIDE_MODAL_TRANSITION_MS = 220
 const UPGRADE_PATH = '/subscription?plan=regen'
 
 function isTrialBlockReason(value: string | null | undefined) {
@@ -451,7 +458,8 @@ export function Rayd8PlayerEngine({
   onClose,
   sessionType,
 }: Rayd8PlayerEngineProps) {
-  const getAuthToken = useAuthToken()
+  const { getTokenSafe } = useAuthReadiness()
+  const navigateToUpgrade = useUpgradeNavigation()
   const user = useAuthUser()
   const trialStatus = useTrialStatus()
   const {
@@ -504,6 +512,8 @@ export function Rayd8PlayerEngine({
   const [activeVideoLayer, setActiveVideoLayer] = useState<VideoLayer>(0)
   const [exitPromptOpen, setExitPromptOpen] = useState(false)
   const [activePanel, setActivePanel] = useState<ControlPanel>(null)
+  const [manualGuideOpen, setManualGuideOpen] = useState(false)
+  const [manualGuideClosing, setManualGuideClosing] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showExitHint, setShowExitHint] = useState(false)
   const [chromeVisible, setChromeVisible] = useState(true)
@@ -712,8 +722,25 @@ export function Rayd8PlayerEngine({
 
   const handleUpgradeNavigation = useCallback(async () => {
     await exitFullscreen()
-    window.location.assign(UPGRADE_PATH)
-  }, [exitFullscreen])
+    onClose()
+    await navigateToUpgrade()
+  }, [exitFullscreen, navigateToUpgrade, onClose])
+
+  const openManualGuide = useCallback(() => {
+    setActivePanel(null)
+    setManualGuideClosing(false)
+    setManualGuideOpen(true)
+    trackUmamiEvent('guide_opened_manual', { experience })
+  }, [experience])
+
+  const closeManualGuide = useCallback(() => {
+    setManualGuideClosing(true)
+    trackUmamiEvent('guide_closed_manual', { experience })
+    window.setTimeout(() => {
+      setManualGuideOpen(false)
+      setManualGuideClosing(false)
+    }, GUIDE_MODAL_TRANSITION_MS)
+  }, [experience])
 
   const toggleFullscreen = useCallback(async () => {
     const playerRoot = playerRootRef.current
@@ -882,20 +909,26 @@ export function Rayd8PlayerEngine({
 
   const fetchPlaybackUrl = useCallback(
     async (assetId: string) => {
-      const token = await getAuthToken()
+      const tokenResult = await getTokenSafe()
 
-      if (!token) {
-        throw new Error('Authentication token missing for RAYD8® playback.')
+      if (!tokenResult.token) {
+        throw new Error(
+          tokenResult.error === 'loading' ? AUTH_LOADING_MESSAGE : SESSION_RESUME_MESSAGE,
+        )
       }
 
       const response =
         playbackMode === 'admin'
-          ? await getAdminMuxPlaybackToken(assetId, token)
-          : await getMemberPlaybackToken(assetId, getExperienceFromSessionType(sessionType), token)
+          ? await getAdminMuxPlaybackToken(assetId, tokenResult.token)
+          : await getMemberPlaybackToken(
+              assetId,
+              getExperienceFromSessionType(sessionType),
+              tokenResult.token,
+            )
 
       return response.playback.signed_url
     },
-    [getAuthToken, playbackMode, sessionType],
+    [getTokenSafe, playbackMode, sessionType],
   )
 
   const getVideoElement = useCallback(
@@ -1656,7 +1689,8 @@ export function Rayd8PlayerEngine({
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 p-6 text-center">
             <div className="max-w-lg rounded-[2rem] border border-rose-200/20 bg-slate-950/92 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
               <p className="text-xs uppercase tracking-[0.32em] text-rose-200/70">
-                {activeSoftDenialState.ctaTo ? 'Trial access locked' : 'Session limit reached'}
+                {activeSoftDenialState.eyebrow ??
+                  (activeSoftDenialState.ctaTo ? 'Trial access locked' : 'Session limit reached')}
               </p>
               <h3 className="mt-3 text-2xl font-semibold text-white">{activeSoftDenialState.title}</h3>
               <p className="mt-3 text-sm leading-6 text-slate-300">{activeSoftDenialState.description}</p>
@@ -1930,6 +1964,7 @@ export function Rayd8PlayerEngine({
 
             <div className="rounded-[1.6rem] border border-white/10 bg-black/48 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
               <div className="flex items-center gap-2">
+                <GuideControlButton onClick={openManualGuide} />
                 <CompactIconButton
                   active={activePanel === 'mode'}
                   ariaLabel={`Select motion state. Current ${videoModeLabel}`}
@@ -1985,7 +2020,7 @@ export function Rayd8PlayerEngine({
               </div>
             </div>
 
-            {(videoError || audioError) && !isTrialBlockReason(videoError) ? (
+            {(videoError || audioError) && !trialOverlayState ? (
               <div className="w-full max-w-[23rem] rounded-[1.4rem] border border-amber-300/20 bg-slate-950/90 px-4 py-3 text-sm leading-6 text-amber-100">
                 {videoError ?? audioError}
               </div>
@@ -2003,6 +2038,14 @@ export function Rayd8PlayerEngine({
         secondaryLabel="Exit Session"
         title="Leave this session?"
       />
+      {manualGuideOpen ? (
+        <GuideModal
+          isClosing={manualGuideClosing}
+          mode="manual"
+          onClose={closeManualGuide}
+          onPrimary={closeManualGuide}
+        />
+      ) : null}
     </>
   )
 }
@@ -2060,6 +2103,19 @@ function StatusPill({ label }: { label: string }) {
   )
 }
 
+function GuideControlButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      className="inline-flex h-11 items-center gap-2 rounded-[1rem] border border-emerald-300/20 bg-[linear-gradient(135deg,rgba(16,185,129,0.14),rgba(59,130,246,0.14))] px-3 text-sm font-medium text-white transition hover:bg-[linear-gradient(135deg,rgba(16,185,129,0.2),rgba(59,130,246,0.2))]"
+      onClick={onClick}
+      type="button"
+    >
+      <GuideIcon />
+      <span>Guide</span>
+    </button>
+  )
+}
+
 function CompactIconButton({
   active = false,
   ariaLabel,
@@ -2088,6 +2144,21 @@ function CompactIconButton({
     >
       {children}
     </button>
+  )
+}
+
+function GuideIcon() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+      <path
+        d="M6.5 5.5h7A2.5 2.5 0 0 1 16 8v10.5a1 1 0 0 1-1.54.84L11 17.2l-3.46 2.14A1 1 0 0 1 6 18.5V6a.5.5 0 0 1 .5-.5Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path d="M9 9.25h4.5" opacity="0.75" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+      <path d="M9 12.5h4.5" opacity="0.45" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+    </svg>
   )
 }
 

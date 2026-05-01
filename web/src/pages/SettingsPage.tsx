@@ -1,5 +1,7 @@
 import { UserProfile } from '@clerk/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { SESSION_EXPIRED_MESSAGE } from '../features/auth/useAuthReadiness'
+import { useUpgradeNavigation } from '../features/auth/useUpgradeNavigation'
 import { useAuthToken } from '../features/dashboard/useAuthToken'
 import { useAuthUser } from '../features/dashboard/useAuthUser'
 import {
@@ -9,13 +11,11 @@ import {
 } from '../lib/languagePreferences'
 import {
   cancelBillingSubscription,
-  createBillingCheckout,
   createBillingPortal,
   getBillingSubscriptionStatus,
   type BillingSubscriptionStatus,
   type CancellationReason,
 } from '../services/billing'
-import { trackUmamiEvent } from '../services/umami'
 
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
 
@@ -107,6 +107,7 @@ function getSubscriptionStatusCopy(
 export function SettingsPage() {
   const user = useAuthUser()
   const getAuthToken = useAuthToken()
+  const navigateToUpgrade = useUpgradeNavigation()
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [language, setLanguage] = useState(() => readLanguagePreference())
   const [isLoadingSubscription, setIsLoadingSubscription] = useState(user.isAuthenticated)
@@ -147,7 +148,11 @@ export function SettingsPage() {
       try {
         const token = await getAuthToken()
 
-        if (!token || cancelled) {
+      if (!token || cancelled) {
+        if (!cancelled && !token) {
+          setStatusMessage(SESSION_EXPIRED_MESSAGE)
+          setSubscription(null)
+        }
           return
         }
 
@@ -231,21 +236,12 @@ export function SettingsPage() {
     setStatusMessage(null)
 
     try {
-      const token = await getAuthToken()
-
-      if (!token) {
-        setStatusMessage('Sign in through Clerk before starting a REGEN upgrade.')
-        return
-      }
-
-      trackUmamiEvent('upgrade_click', {
-        location: 'settings_page',
-        plan: 'regen',
+      await navigateToUpgrade({
+        onError: setStatusMessage,
+        onLoading: setStatusMessage,
       })
-      const response = await createBillingCheckout('regen', token)
-      window.location.assign(response.checkoutUrl)
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : 'Unable to create checkout.')
+      setStatusMessage(error instanceof Error ? error.message : 'Unable to open the upgrade page.')
     } finally {
       setActiveCheckout(false)
     }
@@ -259,7 +255,7 @@ export function SettingsPage() {
       const token = await getAuthToken()
 
       if (!token) {
-        setStatusMessage('Sign in through Clerk before opening billing management.')
+        setStatusMessage(SESSION_EXPIRED_MESSAGE)
         return
       }
 
@@ -282,7 +278,7 @@ export function SettingsPage() {
       const token = await getAuthToken()
 
       if (!token) {
-        setCancelValidationMessage('Sign in through Clerk before cancelling the subscription.')
+        setCancelValidationMessage(SESSION_EXPIRED_MESSAGE)
         return
       }
 
