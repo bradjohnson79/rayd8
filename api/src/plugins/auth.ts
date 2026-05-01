@@ -49,19 +49,59 @@ function getAuthorizedParties() {
   return Array.from(new Set(values))
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function getPostgresErrorCode(error: unknown) {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+
+    return typeof code === 'string' ? code : null
+  }
+
+  return null
+}
+
+function getUserSyncErrorCode(error: unknown) {
+  const postgresCode = getPostgresErrorCode(error)
+  const message = getErrorMessage(error).toLowerCase()
+
+  if (
+    postgresCode?.startsWith('42') ||
+    message.includes('column') ||
+    message.includes('relation') ||
+    message.includes('does not exist') ||
+    message.includes('schema')
+  ) {
+    return 'DB_SCHEMA_ERROR'
+  }
+
+  if (
+    postgresCode ||
+    message.includes('database') ||
+    message.includes('neon') ||
+    message.includes('sql')
+  ) {
+    return 'DATABASE_ERROR'
+  }
+
+  return 'USER_SYNC_ERROR'
+}
+
 const authPlugin: FastifyPluginAsync = async (app) => {
   app.decorateRequest('auth', null)
 
-  app.addHook('preHandler', async (request) => {
+  app.addHook('preHandler', async (request, reply) => {
     if (!env.CLERK_SECRET_KEY || !clerkClient) {
       request.auth = null
       return
     }
 
-    try {
-      const bearerToken = getBearerToken(request)
-      let userId: string | null = null
+    const bearerToken = getBearerToken(request)
+    let userId: string | null = null
 
+    try {
       if (bearerToken) {
         const payload = await verifyToken(bearerToken, {
           authorizedParties: getAuthorizedParties(),
@@ -91,7 +131,20 @@ const authPlugin: FastifyPluginAsync = async (app) => {
         request.auth = null
         return
       }
+    } catch (error) {
+      request.log.warn(
+        {
+          error: getErrorMessage(error),
+          hasAuthorizationHeader: Boolean(request.headers.authorization),
+          path: request.url,
+        },
+        'Clerk token verification failed',
+      )
+      request.auth = null
+      return
+    }
 
+    try {
       const user = await syncUserFromClerk(userId)
 
       request.auth = {
@@ -101,15 +154,21 @@ const authPlugin: FastifyPluginAsync = async (app) => {
         role: user?.role ?? 'member',
       }
     } catch (error) {
-      request.log.warn(
+      const code = getUserSyncErrorCode(error)
+
+      request.log.error(
         {
-          error: error instanceof Error ? error.message : String(error),
+          code,
+          error: getErrorMessage(error),
           hasAuthorizationHeader: Boolean(request.headers.authorization),
           path: request.url,
+          postgresCode: getPostgresErrorCode(error),
+          userId,
         },
-        'Clerk authentication failed',
+        'Authenticated user sync failed',
       )
-      request.auth = null
+
+      return reply.code(500).send({ code, error: code })
     }
   })
 }

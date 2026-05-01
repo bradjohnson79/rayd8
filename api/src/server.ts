@@ -4,6 +4,7 @@ import sensible from '@fastify/sensible'
 import rawBody from 'fastify-raw-body'
 import { ZodError } from 'zod'
 import { env } from './env.js'
+import { verifyDatabaseStartup } from './db/startupChecks.js'
 import { registerAuth } from './plugins/auth.js'
 import { adminAnalyticsRoutes } from './routes/admin/analytics.js'
 import { adminMessageRoutes } from './routes/admin/messages.js'
@@ -87,9 +88,12 @@ export function buildServer() {
 
 const app = buildServer()
 
-app
-  .listen({ port: env.PORT, host: '0.0.0.0' })
-  .catch((error) => {
-    app.log.error(error)
-    process.exit(1)
-  })
+async function start() {
+  await verifyDatabaseStartup(app.log)
+  await app.listen({ port: env.PORT, host: '0.0.0.0' })
+}
+
+start().catch((error) => {
+  app.log.error(error)
+  process.exit(1)
+})

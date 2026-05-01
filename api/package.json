@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
-    "postinstall": "npm run build",
+    "postinstall": "npm run build && node scripts/migrate-on-render.mjs",
     "start": "node dist/server.js",
     "test:smoke": "vitest run src/services/notifications/notifications.smoke.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
