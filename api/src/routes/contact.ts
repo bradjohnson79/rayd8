@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { sendAuthRequired } from '../http/errors.js'
 import { sendContactAdminEmail } from '../services/contactEmail.js'
 import { createContactMessage } from '../services/contactMessages.js'
 
@@ -28,7 +29,7 @@ const PUBLIC_CONTACT_WINDOW_MS = 60 * 1000
 export const contactRoutes: FastifyPluginAsync = async (app) => {
   app.post('/', async (request, reply) => {
     if (!request.auth?.userId || !request.auth.email) {
-      return reply.code(401).send({ error: 'Authentication required.' })
+      return sendAuthRequired(reply)
     }
 
     const payload = contactMessageSchema.parse(request.body)

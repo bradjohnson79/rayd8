@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { env } from '../env.js'
+import { sendAuthRequired } from '../http/errors.js'
 import {
   cancelSubscriptionAtPeriodEnd,
   createBillingPortalSession,
@@ -104,7 +105,7 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
 
   const handleCheckout = async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
+      return sendAuthRequired(reply)
     }
 
     const { plan } = checkoutBodySchema.parse(request.body)
@@ -137,7 +138,7 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/v1/billing/subscription', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
+      return sendAuthRequired(reply)
     }
 
     await syncUserFromClerk(request.auth.userId)
@@ -146,7 +147,7 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/v1/billing/portal', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
+      return sendAuthRequired(reply)
     }
 
     try {
@@ -160,7 +161,7 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/v1/billing/cancel', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
+      return sendAuthRequired(reply)
     }
 
     const payload = cancelSubscriptionBodySchema.parse(request.body)
@@ -185,7 +186,7 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/v1/billing/verify-session', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
+      return sendAuthRequired(reply)
     }
 
     const { sessionId } = verifySessionBodySchema.parse(request.body)

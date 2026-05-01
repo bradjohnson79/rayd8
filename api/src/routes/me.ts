@@ -4,11 +4,12 @@ import { toAppPlan } from '../services/player/accessPolicy.js'
 import { getSettingsForUser } from '../services/settings.js'
 import { getTrialStatusForUser } from '../services/player/trialStatus.js'
 import { getUsageSnapshotForUser } from '../services/player/usageSummary.js'
+import { sendAuthRequired } from '../http/errors.js'
 
 export const meRoutes: FastifyPluginAsync = async (app) => {
   app.get('/v1/me', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ error: 'Authentication required.' })
+      return sendAuthRequired(reply)
     }
 
     const user = await syncUserFromClerk(request.auth.userId)
@@ -39,7 +40,7 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/v1/me/trial-status', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ error: 'Authentication required.' })
+      return sendAuthRequired(reply)
     }
 
     const user = await syncUserFromClerk(request.auth.userId)

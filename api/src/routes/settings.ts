@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { getSettingsForUser, upsertSettingsForUser } from '../services/settings.js'
 import { syncUserFromClerk } from '../services/users.js'
+import { sendAuthRequired } from '../http/errors.js'
 
 const settingsSchema = z.object({
   amplifierMode: z.enum(['off', '5x', '10x', '20x']),
@@ -14,7 +15,7 @@ const settingsSchema = z.object({
 export const settingsRoutes: FastifyPluginAsync = async (app) => {
   app.get('/v1/settings', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ error: 'Authentication required.' })
+      return sendAuthRequired(reply)
     }
 
     await syncUserFromClerk(request.auth.userId)
@@ -25,7 +26,7 @@ export const settingsRoutes: FastifyPluginAsync = async (app) => {
 
   app.put('/v1/settings', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ error: 'Authentication required.' })
+      return sendAuthRequired(reply)
     }
 
     const settings = settingsSchema.parse(request.body)
@@ -42,7 +43,7 @@ export const settingsRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/v1/settings/rayd8-guide-seen', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ error: 'Authentication required.' })
+      return sendAuthRequired(reply)
     }
 
     await syncUserFromClerk(request.auth.userId)

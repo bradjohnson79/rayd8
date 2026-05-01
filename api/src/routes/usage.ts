@@ -9,6 +9,7 @@ import {
 import { addTrackedUsageSeconds } from '../services/player/usagePeriods.js'
 import { getUsageSnapshotForUser } from '../services/player/usageSummary.js'
 import { syncUserFromClerk } from '../services/users.js'
+import { sendAuthRequired } from '../http/errors.js'
 
 const experienceSchema = z.enum(['expansion', 'premium', 'regen'])
 
@@ -34,7 +35,7 @@ function getTrialAccessError(reason: TrialBlockReason) {
 export const usageRoutes: FastifyPluginAsync = async (app) => {
   app.get('/v1/usage', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
+      return sendAuthRequired(reply)
     }
 
     const user = await syncUserFromClerk(request.auth.userId)
@@ -72,7 +73,7 @@ export const usageRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/v1/usage/track', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
+      return sendAuthRequired(reply)
     }
 
     const { seconds, version } = usageTrackSchema.parse(request.body)
