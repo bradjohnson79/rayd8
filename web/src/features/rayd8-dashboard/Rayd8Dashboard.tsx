@@ -92,14 +92,6 @@ function getAuthPromptMessage(status: ReturnType<typeof useAuthReadiness>['statu
   return status === 'loading' ? AUTH_LOADING_MESSAGE : SESSION_RESUME_MESSAGE
 }
 
-function hasSeenGuideLocally() {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  return window.localStorage.getItem(RAYD8_GUIDE_STORAGE_KEY) === 'true'
-}
-
 function markGuideSeenLocally() {
   if (typeof window === 'undefined') {
     return
@@ -160,12 +152,9 @@ function MemberDashboardLaunchpad({
   const [checkingExperience, setCheckingExperience] = useState<Experience | null>(null)
   const [experiencePrompts, setExperiencePrompts] = useState<Partial<Record<Experience, string>>>({})
   const [guidePendingExperience, setGuidePendingExperience] = useState<Experience | null>(null)
-  const [guideSeenLocally, setGuideSeenLocally] = useState(() => hasSeenGuideLocally())
   const [isGuideClosing, setIsGuideClosing] = useState(false)
   const [isSubmittingGuide, setIsSubmittingGuide] = useState(false)
-  const [memberGuideSeenAt, setMemberGuideSeenAt] = useState<string | Date | null | undefined>(() =>
-    hasSeenGuideLocally() ? new Date().toISOString() : undefined,
-  )
+  const [memberGuideSeenAt, setMemberGuideSeenAt] = useState<string | Date | null | undefined>(undefined)
   const [usageSnapshot, setUsageSnapshot] = useState<UsageResponse | null>(null)
   const [trialBlockReason, setTrialBlockReason] = useState<TrialBlockReason | null>(null)
   const guideConfirmedRef = useRef(false)
@@ -174,10 +163,9 @@ function MemberDashboardLaunchpad({
     if (authStatus !== 'signed-in') {
       setCheckingExperience(null)
       setGuidePendingExperience(null)
-      setGuideSeenLocally(hasSeenGuideLocally())
       setIsGuideClosing(false)
       setIsSubmittingGuide(false)
-      setMemberGuideSeenAt(hasSeenGuideLocally() ? new Date().toISOString() : undefined)
+      setMemberGuideSeenAt(undefined)
       setUsageSnapshot(null)
       return
     }
@@ -198,10 +186,7 @@ function MemberDashboardLaunchpad({
           updateExperienceAccess(response.access.expansion)
           updateExperienceAccess(response.access.premium)
           updateExperienceAccess(response.access.regen)
-          setMemberGuideSeenAt(
-            response.user?.hasSeenRayd8GuideAt ??
-              (hasSeenGuideLocally() ? new Date().toISOString() : null),
-          )
+          setMemberGuideSeenAt(response.user?.hasSeenRayd8GuideAt ?? null)
           setUsageSnapshot({
             access: response.access,
             plan: response.user?.plan ?? effectivePlan,
@@ -222,31 +207,6 @@ function MemberDashboardLaunchpad({
       cancelled = true
     }
   }, [authStatus, effectivePlan, getTokenSafe, updateExperienceAccess])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key !== RAYD8_GUIDE_STORAGE_KEY) {
-        return
-      }
-
-      const localSeen = event.newValue === 'true'
-      setGuideSeenLocally(localSeen)
-
-      if (localSeen) {
-        setMemberGuideSeenAt((currentValue) => currentValue ?? new Date().toISOString())
-      }
-    }
-
-    window.addEventListener('storage', handleStorage)
-
-    return () => {
-      window.removeEventListener('storage', handleStorage)
-    }
-  }, [])
 
   useEffect(() => {
     if (isPreviewMode || authStatus !== 'signed-in') {
@@ -384,26 +344,24 @@ function MemberDashboardLaunchpad({
 
       let resolvedGuideSeenAt = memberGuideSeenAt
 
-      if (!guideSeenLocally && resolvedGuideSeenAt === undefined) {
+      if (resolvedGuideSeenAt === undefined) {
         try {
           const response = await getMe(token)
-          resolvedGuideSeenAt =
-            response.user?.hasSeenRayd8GuideAt ??
-            (hasSeenGuideLocally() ? new Date().toISOString() : null)
+          resolvedGuideSeenAt = response.user?.hasSeenRayd8GuideAt ?? null
           setMemberGuideSeenAt(resolvedGuideSeenAt)
         } catch {
-          resolvedGuideSeenAt = hasSeenGuideLocally() ? new Date().toISOString() : null
+          resolvedGuideSeenAt = null
         }
       }
 
-      if (!guideSeenLocally && !resolvedGuideSeenAt) {
+      if (!resolvedGuideSeenAt) {
         openGuideModal(experience)
         return
       }
 
       startGuideApprovedSession(experience)
     },
-    [guideSeenLocally, memberGuideSeenAt, openGuideModal, startGuideApprovedSession, user?.role],
+    [memberGuideSeenAt, openGuideModal, startGuideApprovedSession, user?.role],
   )
 
   const handleGuidePrimary = useCallback(() => {
@@ -413,7 +371,6 @@ function MemberDashboardLaunchpad({
 
     guideConfirmedRef.current = true
     setIsSubmittingGuide(true)
-    setGuideSeenLocally(true)
     markGuideSeenLocally()
     setMemberGuideSeenAt((currentValue) => currentValue ?? new Date().toISOString())
     trackUmamiEvent('guide_started_session', { experience: guidePendingExperience })
