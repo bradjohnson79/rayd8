@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Rayd8Background } from '../components/Rayd8Background'
 import { verifyBillingSession } from '../services/billing'
+import { trackUmamiEvent } from '../services/umami'
 
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
 
@@ -64,6 +65,10 @@ export function SuccessPage() {
       try {
         await verifyBillingSession(verifiedSessionId, token)
         await user?.reload()
+        trackUmamiEvent('subscription_started', {
+          location: 'success_page',
+          plan: 'regen',
+        })
 
         if (!cancelled) {
           setVerificationState('done')

@@ -27,6 +27,7 @@ import {
   type ExperienceAccessSummary,
 } from '../../services/player'
 import { loadHls, type HlsController } from '../../lib/loadHls'
+import { trackUmamiEvent } from '../../services/umami'
 import { useAuthToken } from '../dashboard/useAuthToken'
 
 type SessionSource = 'member' | 'admin'
@@ -421,7 +422,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
         updateExperienceAccess(response.access)
         setUsageWarningState(toUsageWarningState(response.access))
-
+        trackUmamiEvent('start_session', {
+          experience,
+          sessionType: state.sessionType,
+        })
         setTrackingSessionId(response.session.id)
       } catch (error) {
         if (!cancelled) {

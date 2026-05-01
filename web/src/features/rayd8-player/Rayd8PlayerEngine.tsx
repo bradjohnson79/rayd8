@@ -32,6 +32,7 @@ import { loadHls, type HlsController } from '../../lib/loadHls'
 import { getAdminMuxPlaybackToken } from '../../services/admin'
 import { getMemberPlaybackToken } from '../../services/player'
 import type { ExperienceAccessSummary } from '../../services/player'
+import { trackUmamiEvent } from '../../services/umami'
 import { isMobileViewport, isSmallScreen, isTabletViewport } from '../../utils/device'
 import { useAuthToken } from '../dashboard/useAuthToken'
 import { useTrialStatus } from '../dashboard/useTrialStatus'
@@ -1424,9 +1425,15 @@ export function Rayd8PlayerEngine({
   }, [audioMuted, audioTrack, sessionType, setAudioMuted, setAudioTrack])
 
   const setAmplification = useCallback((amplification: AmplificationLevel) => {
+    if (amplification !== 'off' && amplification !== sessionConfig.amplification) {
+      trackUmamiEvent('amplifier_used', {
+        amplification,
+      })
+    }
+
     setSessionConfig((currentValue) => ({ ...currentValue, amplification }))
     setActivePanel(null)
-  }, [])
+  }, [sessionConfig.amplification])
 
   const audioTrackLabel = FREE_TRIAL_AUDIO_TRACKS[audioTrack].label
   const videoModeLabel = getSessionVideoModes(sessionType)[sessionConfig.videoMode].label
@@ -1875,7 +1882,16 @@ export function Rayd8PlayerEngine({
                         {
                           checked: blueLightEnabled,
                           label: 'Anti-blue light',
-                          onToggle: () => setBlueLightEnabled((currentValue) => !currentValue),
+                          onToggle: () =>
+                            setBlueLightEnabled((currentValue) => {
+                              const nextValue = !currentValue
+
+                              if (nextValue) {
+                                trackUmamiEvent('anti_blue_light_enabled')
+                              }
+
+                              return nextValue
+                            }),
                         },
                         {
                           checked: circadianEnabled,
@@ -1885,7 +1901,16 @@ export function Rayd8PlayerEngine({
                         {
                           checked: nightModeEnabled,
                           label: 'Night mode',
-                          onToggle: () => setNightModeEnabled((currentValue) => !currentValue),
+                          onToggle: () =>
+                            setNightModeEnabled((currentValue) => {
+                              const nextValue = !currentValue
+
+                              if (nextValue) {
+                                trackUmamiEvent('night_mode_enabled')
+                              }
+
+                              return nextValue
+                            }),
                         },
                       ].map((item) => (
                         <FlyoutOptionButton

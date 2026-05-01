@@ -12,6 +12,23 @@
   </head>
   <body>
     <div id="root"></div>
+    <script type="module">
+      const websiteId = import.meta.env.VITE_UMAMI_WEBSITE_ID?.trim()
+      const baseUrl = import.meta.env.VITE_UMAMI_BASE_URL?.trim() || 'https://cloud.umami.is'
+      const scriptUrl =
+        import.meta.env.VITE_UMAMI_SCRIPT_URL?.trim() ||
+        `${baseUrl.replace(/\/+$/, '').replace(/\/api$/, '')}/script.js`
+
+      if (websiteId && !document.querySelector('script[data-r8-umami="true"]')) {
+        const script = document.createElement('script')
+        script.async = true
+        script.defer = true
+        script.src = scriptUrl
+        script.setAttribute('data-website-id', websiteId)
+        script.setAttribute('data-r8-umami', 'true')
+        document.head.appendChild(script)
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

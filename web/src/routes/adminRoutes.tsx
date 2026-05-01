@@ -90,6 +90,11 @@ const AdminSeoReportsPage = lazy(() =>
     default: module.AdminSeoReportsPage,
   })),
 )
+const AdminAnalyticsPage = lazy(() =>
+  import('../pages/admin/admin-tools/Analytics').then((module) => ({
+    default: module.AdminAnalyticsPage,
+  })),
+)
 const AdminSeoReportViewerPage = lazy(() =>
   import('../pages/admin/admin-tools/SeoReportViewer').then((module) => ({
     default: module.AdminSeoReportViewerPage,
@@ -127,6 +132,7 @@ export const adminRoutes: RouteObject = {
             { path: 'settings', element: lazyElement(<AdminSettingsPage />) },
             { path: 'orders', element: lazyElement(<AdminOrdersPage />) },
             { path: 'subscribers', element: lazyElement(<AdminSubscribersPage />) },
+            { path: 'analytics', element: lazyElement(<AdminAnalyticsPage />) },
             { path: 'mux', element: lazyElement(<AdminMuxPage />) },
             { path: 'messages', element: lazyElement(<AdminMessagesPage />) },
             { path: 'notifications', element: lazyElement(<AdminNotificationsPage />) },

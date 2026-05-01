@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuthToken } from '../features/dashboard/useAuthToken'
 import { useAuthUser } from '../features/dashboard/useAuthUser'
 import { createBillingCheckout } from '../services/billing'
+import { trackUmamiEvent } from '../services/umami'
 
 export function RegenUpgradePage() {
   const user = useAuthUser()
@@ -29,6 +30,10 @@ export function RegenUpgradePage() {
         return
       }
 
+      trackUmamiEvent('upgrade_click', {
+        location: 'regen_upgrade_page',
+        plan: 'regen',
+      })
       const response = await createBillingCheckout('regen', token)
       window.location.assign(response.checkoutUrl)
     } catch (error) {

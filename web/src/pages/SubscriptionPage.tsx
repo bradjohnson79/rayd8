@@ -6,6 +6,7 @@ import { useAuthToken } from '../features/dashboard/useAuthToken'
 import { useAuthUser } from '../features/dashboard/useAuthUser'
 import { MarketingButton } from '../features/landing/components/MarketingButton'
 import { createBillingCheckout } from '../services/billing'
+import { trackUmamiEvent } from '../services/umami'
 
 const PLAN_STORAGE_KEY = 'rayd8_plan'
 const RESUME_STORAGE_KEY = 'rayd8_subscription_resume'
@@ -130,6 +131,10 @@ export function SubscriptionPage() {
         return
       }
 
+      trackUmamiEvent('upgrade_click', {
+        location: 'subscription_page',
+        plan: 'regen',
+      })
       const response = await createBillingCheckout('regen', token)
       window.location.assign(response.checkoutUrl)
     } catch (error) {

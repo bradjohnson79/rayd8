@@ -18,6 +18,7 @@ const adminItems = [
   { label: 'SEO & Growth', to: '/admin/seo' },
   { label: 'Orders', to: '/admin/orders' },
   { label: 'Subscribers', to: '/admin/subscribers' },
+  { label: 'Analytics', to: '/admin/analytics' },
   { label: 'Mux', to: '/admin/mux' },
   { label: 'Messages', to: '/admin/messages' },
   { label: 'Notifications', to: '/admin/notifications' },

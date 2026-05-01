@@ -15,6 +15,7 @@ import {
   type BillingSubscriptionStatus,
   type CancellationReason,
 } from '../services/billing'
+import { trackUmamiEvent } from '../services/umami'
 
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
 
@@ -237,6 +238,10 @@ export function SettingsPage() {
         return
       }
 
+      trackUmamiEvent('upgrade_click', {
+        location: 'settings_page',
+        plan: 'regen',
+      })
       const response = await createBillingCheckout('regen', token)
       window.location.assign(response.checkoutUrl)
     } catch (error) {

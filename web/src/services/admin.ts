@@ -121,6 +121,85 @@ export interface AdminNotificationRetryResponse {
   }
 }
 
+export interface AdminAnalyticsOverview {
+  conversionSnapshot: {
+    conversionRate: number
+    conversions: number
+    sessionsStarted: number
+    trialUsers: number
+    upgradeClicks: number
+  }
+  overview: {
+    activeVisitors: number
+    avgSessionDurationSeconds: number
+    bounceRate: number
+    pageviews: number
+    sessions: number
+    visitors: number
+  }
+  range: {
+    endAt: number
+    startAt: number
+  }
+}
+
+export interface AdminAnalyticsPageRow {
+  avgTimeSeconds: number
+  bounceRate: number
+  pageviews: number
+  path: string
+  sessions: number
+  share: number
+  visitors: number
+}
+
+export interface AdminAnalyticsEventMetric {
+  count: number
+  visitors: number
+}
+
+export interface AdminAnalyticsEvents {
+  conversionRate: number
+  featureUsage: {
+    amplifier_used: AdminAnalyticsEventMetric
+    anti_blue_light_enabled: AdminAnalyticsEventMetric
+    night_mode_enabled: AdminAnalyticsEventMetric
+  }
+  funnel: {
+    start_session: AdminAnalyticsEventMetric
+    subscription_started: AdminAnalyticsEventMetric
+    upgrade_click: AdminAnalyticsEventMetric
+  }
+  totals: {
+    events: number
+    uniqueEvents: number
+    visits: number
+    visitors: number
+  }
+}
+
+export interface AdminAnalyticsTimeseries {
+  labels: string[]
+  pageviews: number[]
+  sessions: number[]
+  visitors: number[]
+}
+
+function buildAnalyticsQuery(range?: { endAt?: number; startAt?: number }) {
+  const searchParams = new URLSearchParams()
+
+  if (range?.startAt) {
+    searchParams.set('startAt', String(range.startAt))
+  }
+
+  if (range?.endAt) {
+    searchParams.set('endAt', String(range.endAt))
+  }
+
+  const query = searchParams.toString()
+  return query ? `?${query}` : ''
+}
+
 export async function getAdminOverview(token: string) {
   return apiRequest<{ overview: AdminOverview }>('/api/admin/users/overview', undefined, token)
 }
@@ -207,6 +286,50 @@ export async function getAdminNotificationEvents(token: string) {
 export async function getAdminNotificationActivity(token: string) {
   return apiRequest<{ activity: AdminNotificationActivityRecord[] }>(
     '/api/admin/notifications/activity',
+    undefined,
+    token,
+  )
+}
+
+export async function getAdminAnalyticsOverview(
+  token: string,
+  range?: { endAt?: number; startAt?: number },
+) {
+  return apiRequest<{ overview: AdminAnalyticsOverview }>(
+    `/api/admin/analytics/overview${buildAnalyticsQuery(range)}`,
+    undefined,
+    token,
+  )
+}
+
+export async function getAdminAnalyticsPages(
+  token: string,
+  range?: { endAt?: number; startAt?: number },
+) {
+  return apiRequest<{ pages: AdminAnalyticsPageRow[] }>(
+    `/api/admin/analytics/pages${buildAnalyticsQuery(range)}`,
+    undefined,
+    token,
+  )
+}
+
+export async function getAdminAnalyticsEvents(
+  token: string,
+  range?: { endAt?: number; startAt?: number },
+) {
+  return apiRequest<{ events: AdminAnalyticsEvents }>(
+    `/api/admin/analytics/events${buildAnalyticsQuery(range)}`,
+    undefined,
+    token,
+  )
+}
+
+export async function getAdminAnalyticsTimeseries(
+  token: string,
+  range?: { endAt?: number; startAt?: number },
+) {
+  return apiRequest<{ timeseries: AdminAnalyticsTimeseries }>(
+    `/api/admin/analytics/timeseries${buildAnalyticsQuery(range)}`,
     undefined,
     token,
   )

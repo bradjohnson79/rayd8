@@ -5,6 +5,7 @@ import rawBody from 'fastify-raw-body'
 import { ZodError } from 'zod'
 import { env } from './env.js'
 import { registerAuth } from './plugins/auth.js'
+import { adminAnalyticsRoutes } from './routes/admin/analytics.js'
 import { adminMessageRoutes } from './routes/admin/messages.js'
 import { adminMuxRoutes } from './routes/admin/mux.js'
 import { adminNotificationRoutes } from './routes/admin/notifications.js'
@@ -73,6 +74,7 @@ export function buildServer() {
   void app.register(seoRoutes, { prefix: '/api/seo' })
   void app.register(contactRoutes, { prefix: '/api/contact' })
   void app.register(billingRoutes)
+  void app.register(adminAnalyticsRoutes, { prefix: '/api/admin/analytics' })
   void app.register(adminMessageRoutes, { prefix: '/api/admin/messages' })
   void app.register(adminStripeRoutes, { prefix: '/api/admin/stripe' })
   void app.register(adminMuxRoutes, { prefix: '/api/admin/mux' })
