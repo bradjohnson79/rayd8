@@ -446,7 +446,12 @@ function MemberDashboardLaunchpad({
         </div>
       ) : null}
       {!isPreviewMode && usageSnapshot ? (
-        <div className="relative z-20 mx-auto max-w-7xl px-4 pt-24 sm:px-6 sm:pt-28 lg:px-8">
+        <div
+          className={[
+            'relative z-20 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8',
+            trialStatus?.plan === 'free_trial' ? 'pt-5 sm:pt-6' : 'pt-24 sm:pt-28',
+          ].join(' ')}
+        >
           <DashboardUsageSummary access={usageSnapshot.access} plan={usageSnapshot.plan} />
         </div>
       ) : null}
