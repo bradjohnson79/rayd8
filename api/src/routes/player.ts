@@ -71,13 +71,20 @@ function getTrialAccessError(reason: TrialBlockReason) {
   if (reason === 'TRIAL_EXPIRED') {
     return {
       code: reason,
-      error: 'Your free trial has ended.',
+      error: 'TRIAL_EXPIRED',
     }
   }
 
   return {
-    code: reason,
-    error: 'You have used your available trial hours.',
+    code: 'USAGE_LIMIT_REACHED',
+    error: 'USAGE_LIMIT_REACHED',
+  }
+}
+
+function getAuthRequiredError() {
+  return {
+    code: 'AUTH_REQUIRED',
+    error: 'AUTH_REQUIRED',
   }
 }
 
@@ -106,7 +113,7 @@ async function assertTrialAccess(input: {
 export const playerRoutes: FastifyPluginAsync = async (app) => {
   app.get('/v1/player/playback-token', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
+      return reply.code(401).send(getAuthRequiredError())
     }
 
     const trialStatus = await assertTrialAccess({
@@ -160,7 +167,7 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/v1/player/access', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
+      return reply.code(401).send(getAuthRequiredError())
     }
 
     const trialStatus = await assertTrialAccess({
@@ -192,12 +199,31 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/v1/player/session/start', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
+      console.log('SESSION START DEBUG:', {
+        hasUser: false,
+        hoursUsed: undefined,
+        trialEndsAt: undefined,
+        trialExpired: undefined,
+        userId: undefined,
+      })
+
+      return reply.code(401).send(getAuthRequiredError())
     }
 
     const trialStatus = await assertTrialAccess({
       plan: request.auth.plan,
       role: request.auth.role,
+      userId: request.auth.userId,
+    })
+    const trialExpired = trialStatus.reason === 'TRIAL_EXPIRED'
+    const hoursExceeded = trialStatus.reason === 'HOURS_EXCEEDED'
+
+    console.log('SESSION START DEBUG:', {
+      hasUser: true,
+      hoursExceeded,
+      hoursUsed: trialStatus.trial_hours_used,
+      trialEndsAt: trialStatus.trial_ends_at,
+      trialExpired,
       userId: request.auth.userId,
     })
 
@@ -236,7 +262,7 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/v1/player/session/heartbeat', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
+      return reply.code(401).send(getAuthRequiredError())
     }
 
     const { sessionId } = sessionHeartbeatSchema.parse(request.body)
@@ -284,7 +310,7 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/v1/player/session/end', async (request, reply) => {
     if (!request.auth?.userId) {
-      return reply.code(401).send({ code: 'UNAUTHENTICATED', error: 'Authentication required.' })
+      return reply.code(401).send(getAuthRequiredError())
     }
 
     const { sessionId } = sessionHeartbeatSchema.parse(request.body)

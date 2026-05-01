@@ -50,20 +50,20 @@ const GUIDE_MODAL_TRANSITION_MS = 220
 const RAYD8_GUIDE_STORAGE_KEY = 'rayd8_guide_seen'
 
 function isTrialBlockReason(value: string): value is TrialBlockReason {
-  return value === 'TRIAL_EXPIRED' || value === 'HOURS_EXCEEDED'
+  return value === 'TRIAL_EXPIRED' || value === 'HOURS_EXCEEDED' || value === 'USAGE_LIMIT_REACHED'
 }
 
 function getTrialBlockContent(reason: TrialBlockReason) {
-  if (reason === 'HOURS_EXCEEDED') {
+  if (reason === 'HOURS_EXCEEDED' || reason === 'USAGE_LIMIT_REACHED') {
     return {
-      description: "You've reached your 35-hour trial limit. Unlock full access to continue.",
-      title: "You've reached your 35-hour trial limit",
+      description: 'Your free trial has ended. Upgrade to continue using RAYD8.',
+      title: 'Your free trial has ended',
     }
   }
 
   return {
-    description: 'Your 30-day free trial has ended. Continue with RAYD8 REGEN.',
-    title: 'Your 30-day free trial has ended',
+    description: 'Your free trial has ended. Upgrade to continue using RAYD8.',
+    title: 'Your free trial has ended',
   }
 }
 

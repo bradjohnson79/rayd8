@@ -247,12 +247,12 @@ function toSoftDenialState(access: ExperienceAccessSummary): SoftDenialState | n
 }
 
 function toTrialSoftDenialState(errorMessage: string): SoftDenialState | null {
-  if (errorMessage === 'HOURS_EXCEEDED') {
+  if (errorMessage === 'HOURS_EXCEEDED' || errorMessage === 'USAGE_LIMIT_REACHED') {
     return {
       ctaLabel: 'Upgrade Now',
       ctaTo: UPGRADE_PATH,
-      description: "You've reached your 35-hour trial limit. Unlock full access to continue.",
-      title: "You've reached your 35-hour trial limit",
+      description: 'Your free trial has ended. Upgrade to continue using RAYD8.',
+      title: 'Your free trial has ended',
     }
   }
 
@@ -260,7 +260,7 @@ function toTrialSoftDenialState(errorMessage: string): SoftDenialState | null {
     return {
       ctaLabel: 'Upgrade Now',
       ctaTo: UPGRADE_PATH,
-      description: 'Your 30-day free trial has ended. Continue your experience instantly with REGEN.',
+      description: 'Your free trial has ended. Upgrade to continue using RAYD8.',
       title: 'Your free trial has ended',
     }
   }
@@ -445,6 +445,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
       try {
         const response = await startPlaybackSession(experience, tokenResult.token)
+
+        if (import.meta.env.DEV) {
+          console.log('SESSION RESPONSE:', response)
+        }
 
         if (cancelled) {
           return

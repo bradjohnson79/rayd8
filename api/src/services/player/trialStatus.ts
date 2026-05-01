@@ -24,6 +24,8 @@ export interface TrialStatusPayload {
   notification: TrialNotificationPayload | null
   plan: 'amrita' | 'free_trial' | 'premium' | 'regen'
   reason: TrialBlockReason | null
+  trial_ends_at?: Date | null
+  trial_hours_used?: number
 }
 
 type TrialUserRow = Pick<
@@ -68,12 +70,17 @@ export function getTrialNotification(daysRemaining: number): TrialNotificationPa
 }
 
 export function getTrialStatus(user: TrialUserRow, now = new Date()): TrialStatusPayload {
+  const trialExpired = user.trialEndsAt ? now > user.trialEndsAt : true
+  const hoursExceeded = user.trialHoursUsed >= TRIAL_HOURS_BLOCK_THRESHOLD
+
   if (user.role === 'admin') {
     return {
       allowed: true,
       notification: null,
       plan: user.plan === 'free' ? 'free_trial' : user.plan,
       reason: null,
+      trial_ends_at: user.trialEndsAt,
+      trial_hours_used: user.trialHoursUsed,
     }
   }
 
@@ -83,10 +90,12 @@ export function getTrialStatus(user: TrialUserRow, now = new Date()): TrialStatu
       notification: null,
       plan: user.plan,
       reason: null,
+      trial_ends_at: user.trialEndsAt,
+      trial_hours_used: user.trialHoursUsed,
     }
   }
 
-  if (!user.trialStartedAt || !user.trialEndsAt || now > user.trialEndsAt) {
+  if (!user.trialStartedAt || !user.trialEndsAt || trialExpired) {
     return {
       allowed: false,
       days_remaining: 0,
@@ -94,10 +103,12 @@ export function getTrialStatus(user: TrialUserRow, now = new Date()): TrialStatu
       notification: null,
       plan: 'free_trial',
       reason: 'TRIAL_EXPIRED',
+      trial_ends_at: user.trialEndsAt,
+      trial_hours_used: user.trialHoursUsed,
     }
   }
 
-  if (user.trialHoursUsed >= TRIAL_HOURS_BLOCK_THRESHOLD) {
+  if (hoursExceeded) {
     return {
       allowed: false,
       days_remaining: toDaysRemaining(user.trialEndsAt, now),
@@ -105,6 +116,8 @@ export function getTrialStatus(user: TrialUserRow, now = new Date()): TrialStatu
       notification: null,
       plan: 'free_trial',
       reason: 'HOURS_EXCEEDED',
+      trial_ends_at: user.trialEndsAt,
+      trial_hours_used: user.trialHoursUsed,
     }
   }
 
@@ -115,6 +128,8 @@ export function getTrialStatus(user: TrialUserRow, now = new Date()): TrialStatu
     notification: null,
     plan: 'free_trial',
     reason: null,
+    trial_ends_at: user.trialEndsAt,
+    trial_hours_used: user.trialHoursUsed,
   }
 }
 

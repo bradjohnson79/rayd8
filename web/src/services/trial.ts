@@ -1,6 +1,6 @@
 import { apiRequest } from './api'
 
-export type TrialBlockReason = 'HOURS_EXCEEDED' | 'TRIAL_EXPIRED'
+export type TrialBlockReason = 'HOURS_EXCEEDED' | 'TRIAL_EXPIRED' | 'USAGE_LIMIT_REACHED'
 export type TrialNotificationLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 
 export interface TrialNotification {
