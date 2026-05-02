@@ -17,6 +17,11 @@ const BenefitsImageSection = lazyWithPreload(() =>
 const TeaserSection = lazyWithPreload(() =>
   import('../features/landing/TeaserSection').then((module) => ({ default: module.TeaserSection })),
 )
+const AffiliatePromoSection = lazyWithPreload(() =>
+  import('../components/sections/AffiliatePromoSection').then((module) => ({
+    default: module.AffiliatePromoSection,
+  })),
+)
 const AboutSection = lazyWithPreload(() =>
   import('../features/landing/AboutSection').then((module) => ({ default: module.AboutSection })),
 )
@@ -66,6 +71,7 @@ export function LandingPage() {
     const preloadNearFoldSections = () => {
       void BenefitsImageSection.preload()
       void TeaserSection.preload()
+      void AffiliatePromoSection.preload()
       void AboutSection.preload()
     }
 
@@ -167,6 +173,9 @@ export function LandingPage() {
               <TeaserSection reducedEffects={reducedEffects} />
             </Suspense>
             <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
+              <AffiliatePromoSection reducedEffects={reducedEffects} />
+            </Suspense>
+            <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
               <AboutSection reducedEffects={reducedEffects} />
             </Suspense>
             <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[76svh]" />}>
@@ -195,6 +204,14 @@ export function LandingPage() {
             >
               <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
                 <TeaserSection reducedEffects={reducedEffects} />
+              </Suspense>
+            </DeferredRender>
+            <DeferredRender
+              fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}
+              rootMargin={deferredRootMargin}
+            >
+              <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
+                <AffiliatePromoSection reducedEffects={reducedEffects} />
               </Suspense>
             </DeferredRender>
             <DeferredRender

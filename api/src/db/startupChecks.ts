@@ -8,10 +8,14 @@ const requiredColumns = [
   { tableName: 'users', columnName: 'trial_ends_at' },
   { tableName: 'users', columnName: 'trial_hours_used' },
   { tableName: 'users', columnName: 'trial_notifications_sent' },
+  { tableName: 'users', columnName: 'referral_code' },
+  { tableName: 'users', columnName: 'referred_by_user_id' },
   { tableName: 'user_settings', columnName: 'has_seen_rayd8_guide_at' },
 ] as const
 
 const requiredTables = [
+  'affiliate_commissions',
+  'referral_sessions',
   'seo_actions',
   'seo_audits',
   'seo_reports',
@@ -38,6 +42,19 @@ function getDatabaseTarget() {
   }
 }
 
+function getResultRows(result: unknown) {
+  if (Array.isArray(result)) {
+    return result
+  }
+
+  if (result && typeof result === 'object' && 'rows' in result) {
+    const rows = (result as { rows?: unknown }).rows
+    return Array.isArray(rows) ? rows : []
+  }
+
+  return []
+}
+
 export async function verifyDatabaseStartup(logger: FastifyBaseLogger) {
   const target = getDatabaseTarget()
 
@@ -56,7 +73,14 @@ export async function verifyDatabaseStartup(logger: FastifyBaseLogger) {
     select table_name
     from information_schema.tables
     where table_schema = 'public'
-      and table_name in ('seo_actions', 'seo_audits', 'seo_reports', 'seo_route_metadata')
+      and table_name in (
+        'affiliate_commissions',
+        'referral_sessions',
+        'seo_actions',
+        'seo_audits',
+        'seo_reports',
+        'seo_route_metadata'
+      )
   `)
   const columnRows = await db.execute(sql`
     select table_name, column_name
@@ -67,15 +91,24 @@ export async function verifyDatabaseStartup(logger: FastifyBaseLogger) {
           'trial_started_at',
           'trial_ends_at',
           'trial_hours_used',
-          'trial_notifications_sent'
+          'trial_notifications_sent',
+          'referral_code',
+          'referred_by_user_id'
         ))
         or (table_name = 'user_settings' and column_name = 'has_seen_rayd8_guide_at')
       )
   `)
 
-  const existingTables = new Set(tableRows.rows.map((row) => String(row.table_name)))
+  const latestMigrationRows = getResultRows(latestMigration)
+  const tableResultRows = getResultRows(tableRows)
+  const columnResultRows = getResultRows(columnRows)
+
+  const existingTables = new Set(tableResultRows.map((row) => String((row as { table_name: unknown }).table_name)))
   const existingColumns = new Set(
-    columnRows.rows.map((row) => `${String(row.table_name)}.${String(row.column_name)}`),
+    columnResultRows.map(
+      (row) =>
+        `${String((row as { table_name: unknown }).table_name)}.${String((row as { column_name: unknown }).column_name)}`,
+    ),
   )
   const missingTables = requiredTables.filter((tableName) => !existingTables.has(tableName))
   const missingColumns = requiredColumns
@@ -86,7 +119,7 @@ export async function verifyDatabaseStartup(logger: FastifyBaseLogger) {
     {
       database: target.database,
       host: target.host,
-      latestMigration: latestMigration.rows[0] ?? null,
+      latestMigration: latestMigrationRows[0] ?? null,
       requiredColumnsPresent: missingColumns.length === 0,
       requiredTablesPresent: missingTables.length === 0,
     },

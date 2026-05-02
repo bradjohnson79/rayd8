@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { db } from '../db/client.js'
 import { env } from '../env.js'
 import {
+  affiliateCommissions,
   stripeCheckoutSessions,
   stripeEvents,
   subscriptionCancellationFeedback,
@@ -11,6 +12,8 @@ import {
 } from '../db/schema.js'
 import { clerkClient } from '../lib/clerk.js'
 import { dispatchNotification } from './notifications/dispatchNotification.js'
+import { getAffiliateAttributionForUser } from './referrals.js'
+import { recordAffiliateTrackingEvent } from './affiliates/tracking.js'
 
 const stripeClient = env.STRIPE_SECRET_KEY
   ? new Stripe(env.STRIPE_SECRET_KEY, {
@@ -49,6 +52,114 @@ function planFromPriceId(priceId?: string | null) {
   return null
 }
 
+export async function createAffiliateCommissionForSubscriptionCreate(input: {
+  affiliateUserIdFromMetadata?: string | null
+  billingReason: string | null | undefined
+  eventId: string
+  invoiceId: string
+  plan: PersistedPlan
+  referralCodeFromMetadata?: string | null
+  stripeCustomerId: string | null
+  stripeSubscriptionId: string
+  userId: string
+}) {
+  if (input.billingReason !== 'subscription_create' || input.plan !== 'regen' || !db) {
+    return { created: false, reason: 'not_applicable' as const }
+  }
+
+  const [user] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1)
+  const hasReferralMetadata = Boolean(input.referralCodeFromMetadata && input.affiliateUserIdFromMetadata)
+  const shouldTrackAffiliateSync = Boolean(user?.referredByUserId || hasReferralMetadata)
+
+  if (shouldTrackAffiliateSync) {
+    await recordAffiliateTrackingEvent({
+      affiliateUserId: input.affiliateUserIdFromMetadata ?? user?.referredByUserId ?? null,
+      eventType: 'stripe_payment_processed',
+      hasReferralMetadata,
+      message: hasReferralMetadata
+        ? 'Stripe metadata attached'
+        : 'Stripe payment missing affiliate metadata',
+      referralCode: input.referralCodeFromMetadata ?? null,
+      referredUserId: input.userId,
+      result: hasReferralMetadata ? 'success' : 'warning',
+      stripeCustomerId: input.stripeCustomerId,
+      stripeEventId: input.eventId,
+      stripeInvoiceId: input.invoiceId,
+      stripeSubscriptionId: input.stripeSubscriptionId,
+    })
+  }
+
+  if (!user?.referredByUserId) {
+    if (hasReferralMetadata) {
+      await recordAffiliateTrackingEvent({
+        affiliateUserId: input.affiliateUserIdFromMetadata ?? null,
+        eventType: 'commission_skipped',
+        hasReferralMetadata,
+        message: 'Stripe event fired but no referral match was found',
+        referralCode: input.referralCodeFromMetadata ?? null,
+        referredUserId: input.userId,
+        result: 'warning',
+        stripeCustomerId: input.stripeCustomerId,
+        stripeEventId: input.eventId,
+        stripeInvoiceId: input.invoiceId,
+        stripeSubscriptionId: input.stripeSubscriptionId,
+      })
+    }
+
+    return { created: false, reason: 'missing_attribution' as const }
+  }
+
+  if (!hasReferralMetadata) {
+    await recordAffiliateTrackingEvent({
+      affiliateUserId: user.referredByUserId,
+      eventType: 'stripe_metadata_missing',
+      hasReferralMetadata: false,
+      message: 'Referral exists but Stripe metadata is missing',
+      referralCode: input.referralCodeFromMetadata ?? null,
+      referredUserId: user.id,
+      result: 'warning',
+      stripeCustomerId: input.stripeCustomerId,
+      stripeEventId: input.eventId,
+      stripeInvoiceId: input.invoiceId,
+      stripeSubscriptionId: input.stripeSubscriptionId,
+    })
+  }
+
+  const insertedRows = await db
+    .insert(affiliateCommissions)
+    .values({
+      affiliateUserId: user.referredByUserId,
+      amountUsd: 600,
+      eventId: input.eventId,
+      referredUserId: user.id,
+      source: 'stripe_invoice',
+      status: 'pending',
+      stripeCustomerId: input.stripeCustomerId,
+      stripeSubscriptionId: input.stripeSubscriptionId,
+    })
+    .onConflictDoNothing()
+    .returning({ id: affiliateCommissions.id })
+
+  const created = insertedRows.length > 0
+
+  await recordAffiliateTrackingEvent({
+    affiliateUserId: user.referredByUserId,
+    commissionCreated: created,
+    eventType: created ? 'commission_created' : 'commission_duplicate',
+    hasReferralMetadata,
+    message: created ? 'Commission created: $6' : 'Duplicate commission ignored safely',
+    referralCode: input.referralCodeFromMetadata ?? null,
+    referredUserId: user.id,
+    result: created ? 'success' : 'warning',
+    stripeCustomerId: input.stripeCustomerId,
+    stripeEventId: input.eventId,
+    stripeInvoiceId: input.invoiceId,
+    stripeSubscriptionId: input.stripeSubscriptionId,
+  })
+
+  return { created, reason: created ? ('inserted' as const) : ('duplicate' as const) }
+}
+
 export function verifyStripeWebhook(payload: string | Buffer, signature?: string) {
   if (!stripeClient || !env.STRIPE_WEBHOOK_SECRET || !signature) {
     return null
@@ -65,6 +176,8 @@ export async function createCheckoutSession(input: {
   email: string
   plan: ManagedPlan
   planType?: ManagedPlanType
+  referralCode?: string | null
+  referrerUserId?: string | null
   userId: string
 }) {
   const priceId = getPriceIdForPlan(input.plan)
@@ -73,7 +186,7 @@ export async function createCheckoutSession(input: {
     return null
   }
 
-  return stripeClient.checkout.sessions.create({
+  const session = await stripeClient.checkout.sessions.create({
     mode: 'subscription',
     customer_email: input.email,
     success_url: `${env.APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -83,16 +196,35 @@ export async function createCheckoutSession(input: {
     metadata: {
       plan: input.plan,
       planType: input.planType ?? 'single',
+      referral_code: input.referralCode ?? '',
+      referrer_user_id: input.referrerUserId ?? '',
       userId: input.userId,
     },
     subscription_data: {
       metadata: {
         plan: input.plan,
         planType: input.planType ?? 'single',
+        referral_code: input.referralCode ?? '',
+        referrer_user_id: input.referrerUserId ?? '',
         userId: input.userId,
       },
     },
   })
+
+  if (input.referralCode && input.referrerUserId) {
+    await recordAffiliateTrackingEvent({
+      affiliateUserId: input.referrerUserId,
+      eventType: 'checkout_created',
+      hasReferralMetadata: true,
+      message: 'Stripe metadata attached to checkout',
+      referralCode: input.referralCode,
+      referredUserId: input.userId,
+      result: 'success',
+      stripeEventId: session.id,
+    })
+  }
+
+  return session
 }
 
 async function hasProcessedCheckoutSession(stripeSessionId: string) {
@@ -418,6 +550,23 @@ async function activateCheckoutSession(session: Stripe.Checkout.Session) {
 
 async function handleCheckoutCompleted(event: Stripe.CheckoutSessionCompletedEvent) {
   const session = event.data.object
+  const metadata = session.metadata ?? {}
+
+  if (metadata.referral_code && metadata.referrer_user_id) {
+    await recordAffiliateTrackingEvent({
+      affiliateUserId: metadata.referrer_user_id,
+      eventType: 'checkout_completed',
+      hasReferralMetadata: true,
+      message: 'Checkout session completed',
+      referralCode: metadata.referral_code,
+      referredUserId: (session.client_reference_id ?? metadata.userId) ?? null,
+      result: 'success',
+      stripeCustomerId:
+        typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null,
+      stripeSubscriptionId:
+        typeof session.subscription === 'string' ? session.subscription : session.subscription?.id ?? null,
+    })
+  }
   await activateCheckoutSession(session)
 }
 
@@ -427,6 +576,24 @@ async function syncSubscriptionFromStripe(subscription: Stripe.Subscription) {
 
   if (!userId || !subscription.customer) {
     return
+  }
+
+  const hasReferralMetadata = Boolean(
+    subscription.metadata.referral_code && subscription.metadata.referrer_user_id,
+  )
+
+  if (hasReferralMetadata) {
+    await recordAffiliateTrackingEvent({
+      affiliateUserId: subscription.metadata.referrer_user_id ?? null,
+      eventType: 'stripe_metadata_attached',
+      hasReferralMetadata: true,
+      message: 'Stripe metadata attached',
+      referralCode: subscription.metadata.referral_code ?? null,
+      referredUserId: userId,
+      result: 'success',
+      stripeCustomerId: String(subscription.customer),
+      stripeSubscriptionId: subscription.id,
+    })
   }
 
   const plan =
@@ -557,6 +724,19 @@ async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceed
     existingSubscription?.plan ??
     'regen'
 
+  await createAffiliateCommissionForSubscriptionCreate({
+    affiliateUserIdFromMetadata: subscription.metadata.referrer_user_id ?? null,
+    billingReason: invoice.billing_reason,
+    eventId: event.id,
+    invoiceId: invoice.id,
+    plan,
+    referralCodeFromMetadata: subscription.metadata.referral_code ?? null,
+    stripeCustomerId:
+      typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id ?? null,
+    stripeSubscriptionId: subscription.id,
+    userId,
+  })
+
   await safeDispatchNotification({
     event: 'payment.succeeded',
     payload: {
@@ -651,6 +831,19 @@ export async function processStripeEvent(event: Stripe.Event) {
   await markEventProcessed(event.id, event.type)
 
   return { duplicate: false }
+}
+
+export async function getCheckoutAffiliateMetadata(userId: string) {
+  const attribution = await getAffiliateAttributionForUser(userId)
+
+  if (!attribution) {
+    return null
+  }
+
+  return {
+    referralCode: attribution.referralCode,
+    referrerUserId: attribution.referrerUserId,
+  }
 }
 
 export async function createBillingPortalSession(input: { userId: string }) {

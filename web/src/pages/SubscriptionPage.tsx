@@ -10,6 +10,7 @@ import {
 } from '../features/auth/useAuthReadiness'
 import { MarketingButton } from '../features/landing/components/MarketingButton'
 import { createBillingCheckout } from '../services/billing'
+import { flushStoredReferralCode } from '../services/referrals'
 import { trackUmamiEvent } from '../services/umami'
 
 const PLAN_STORAGE_KEY = 'rayd8_plan'
@@ -140,6 +141,8 @@ export function SubscriptionPage() {
         )
         return
       }
+
+      await flushStoredReferralCode(tokenResult.token).catch(() => null)
 
       trackUmamiEvent('upgrade_click', {
         location: 'subscription_page',

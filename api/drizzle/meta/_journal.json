@@ -92,6 +92,20 @@
       "when": 1777653589576,
       "tag": "0012_slimy_mauler",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1777741054225,
+      "tag": "0013_lively_mandrill",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1777753563913,
+      "tag": "0014_supreme_killer_shrike",
+      "breakpoints": true
     }
   ]
 }

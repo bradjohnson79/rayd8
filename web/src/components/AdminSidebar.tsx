@@ -16,6 +16,7 @@ const mainPlatformItems = [
 
 const adminItems = [
   { label: 'SEO & Growth', to: '/admin/seo' },
+  { label: 'Affiliates', to: '/admin/affiliates' },
   { label: 'Orders', to: '/admin/orders' },
   { label: 'Subscribers', to: '/admin/subscribers' },
   { label: 'Analytics', to: '/admin/analytics' },

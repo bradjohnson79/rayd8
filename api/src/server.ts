@@ -7,6 +7,7 @@ import { env } from './env.js'
 import { verifyDatabaseStartup } from './db/startupChecks.js'
 import { registerAuth } from './plugins/auth.js'
 import { adminAnalyticsRoutes } from './routes/admin/analytics.js'
+import { adminAffiliateRoutes } from './routes/admin/affiliates.js'
 import { adminMessageRoutes } from './routes/admin/messages.js'
 import { adminMuxRoutes } from './routes/admin/mux.js'
 import { adminNotificationRoutes } from './routes/admin/notifications.js'
@@ -18,6 +19,7 @@ import { contactRoutes } from './routes/contact.js'
 import { healthRoutes } from './routes/health.js'
 import { meRoutes } from './routes/me.js'
 import { playerRoutes } from './routes/player.js'
+import { referralRoutes } from './routes/referrals.js'
 import { seoRoutes } from './routes/seo.js'
 import { settingsRoutes } from './routes/settings.js'
 import { stripeWebhookRoutes } from './routes/stripeWebhook.js'
@@ -69,6 +71,7 @@ export function buildServer() {
   void app.register(healthRoutes)
   void app.register(meRoutes)
   void app.register(playerRoutes)
+  void app.register(referralRoutes)
   void app.register(usageRoutes)
   void app.register(settingsRoutes)
   void app.register(stripeWebhookRoutes)
@@ -76,6 +79,8 @@ export function buildServer() {
   void app.register(contactRoutes, { prefix: '/api/contact' })
   void app.register(billingRoutes)
   void app.register(adminAnalyticsRoutes, { prefix: '/api/admin/analytics' })
+  void app.register(adminAffiliateRoutes, { prefix: '/api/admin/affiliates' })
+  void app.register(adminAffiliateRoutes, { prefix: '/v1/admin/affiliates' })
   void app.register(adminMessageRoutes, { prefix: '/api/admin/messages' })
   void app.register(adminStripeRoutes, { prefix: '/api/admin/stripe' })
   void app.register(adminMuxRoutes, { prefix: '/api/admin/mux' })

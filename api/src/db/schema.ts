@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   doublePrecision,
   index,
@@ -44,12 +45,24 @@ export const cancellationReasonEnum = pgEnum('cancellation_reason', [
   'found_alternative',
   'other',
 ])
+export const affiliateCommissionStatusEnum = pgEnum('affiliate_commission_status', [
+  'pending',
+  'approved',
+  'paid',
+])
+export const affiliateTrackingResultEnum = pgEnum('affiliate_tracking_result', [
+  'success',
+  'warning',
+  'error',
+])
 
 export const users = pgTable(
   'users',
   {
     id: text('id').primaryKey(),
     email: text('email').notNull(),
+    referralCode: text('referral_code').notNull(),
+    referredByUserId: text('referred_by_user_id').references((): AnyPgColumn => users.id),
     role: roleEnum('role').notNull().default('member'),
     plan: planEnum('plan').notNull().default('free'),
     trialStartedAt: timestamp('trial_started_at', { withTimezone: true }),
@@ -58,7 +71,11 @@ export const users = pgTable(
     trialNotificationsSent: jsonb('trial_notifications_sent').$type<string[]>().notNull().default([]),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [uniqueIndex('users_email_idx').on(table.email)],
+  (table) => [
+    uniqueIndex('users_email_idx').on(table.email),
+    uniqueIndex('users_referral_code_idx').on(table.referralCode),
+    index('users_referred_by_user_id_idx').on(table.referredByUserId),
+  ],
 )
 
 export const subscriptions = pgTable(
@@ -133,6 +150,81 @@ export const stripeEvents = pgTable(
     processedAt: timestamp('processed_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex('stripe_events_event_id_idx').on(table.stripeEventId)],
+)
+
+export const referralSessions = pgTable(
+  'referral_sessions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    referralCode: text('referral_code').notNull(),
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('referral_sessions_referral_code_idx').on(table.referralCode),
+    index('referral_sessions_created_at_idx').on(table.createdAt),
+  ],
+)
+
+export const affiliateCommissions = pgTable(
+  'affiliate_commissions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    affiliateUserId: text('affiliate_user_id')
+      .notNull()
+      .references(() => users.id),
+    referredUserId: text('referred_user_id')
+      .notNull()
+      .references(() => users.id),
+    stripeCustomerId: text('stripe_customer_id'),
+    stripeSubscriptionId: text('stripe_subscription_id'),
+    amountUsd: integer('amount_usd').notNull().default(600),
+    status: affiliateCommissionStatusEnum('status').notNull().default('pending'),
+    source: text('source').notNull().default('stripe_invoice'),
+    eventId: text('event_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('affiliate_commissions_subscription_idx').on(table.stripeSubscriptionId),
+    uniqueIndex('affiliate_commissions_affiliate_referred_idx').on(
+      table.affiliateUserId,
+      table.referredUserId,
+    ),
+    index('affiliate_commissions_affiliate_user_idx').on(table.affiliateUserId),
+    index('affiliate_commissions_referred_user_idx').on(table.referredUserId),
+    index('affiliate_commissions_status_idx').on(table.status),
+    index('affiliate_commissions_created_at_idx').on(table.createdAt),
+  ],
+)
+
+export const affiliateTrackingEvents = pgTable(
+  'affiliate_tracking_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    eventType: text('event_type').notNull(),
+    result: affiliateTrackingResultEnum('result').notNull().default('success'),
+    referralCode: text('referral_code'),
+    affiliateUserId: text('affiliate_user_id').references(() => users.id),
+    referredUserId: text('referred_user_id').references(() => users.id),
+    stripeCustomerId: text('stripe_customer_id'),
+    stripeSubscriptionId: text('stripe_subscription_id'),
+    stripeInvoiceId: text('stripe_invoice_id'),
+    stripeEventId: text('stripe_event_id'),
+    hasReferralMetadata: boolean('has_referral_metadata'),
+    commissionCreated: boolean('commission_created'),
+    message: text('message').notNull().default(''),
+    details: jsonb('details').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('affiliate_tracking_events_type_idx').on(table.eventType),
+    index('affiliate_tracking_events_result_idx').on(table.result),
+    index('affiliate_tracking_events_created_at_idx').on(table.createdAt),
+    index('affiliate_tracking_events_subscription_idx').on(table.stripeSubscriptionId),
+    index('affiliate_tracking_events_referral_code_idx').on(table.referralCode),
+  ],
 )
 
 export const stripeCheckoutSessions = pgTable(

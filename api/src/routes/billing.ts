@@ -6,6 +6,7 @@ import {
   cancelSubscriptionAtPeriodEnd,
   createBillingPortalSession,
   createCheckoutSession,
+  getCheckoutAffiliateMetadata,
   getBillingStatus,
   verifyCheckoutSession,
   type CancellationReason,
@@ -118,10 +119,13 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
       })
     }
 
+    const affiliateMetadata = await getCheckoutAffiliateMetadata(user.id)
     const session = await createCheckoutSession({
       userId: user.id,
       email: user.email,
       plan,
+      referralCode: affiliateMetadata?.referralCode ?? null,
+      referrerUserId: affiliateMetadata?.referrerUserId ?? null,
     })
 
     if (!session?.url) {

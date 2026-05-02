@@ -49,6 +49,98 @@ export interface AdminUserRecord {
   active_session_count: number
 }
 
+export type AffiliateCommissionStatus = 'pending' | 'approved' | 'paid'
+
+export interface AdminAffiliateOverviewCard {
+  approvedAmountUsd: number
+  nextPayoutDate: string
+  paidAmountUsd: number
+  pendingAmountUsd: number
+  totalAffiliates: number
+  totalCommissions: number
+  totalReferrals: number
+}
+
+export interface AdminAffiliatePerformanceRecord {
+  createdAt: string
+  email: string
+  lastPayoutDate: string | null
+  payoutEligible: boolean
+  pendingBalanceUsd: number
+  referralCode: string
+  totalPaidUsd: number
+  totalEarnedUsd: number
+  totalReferrals: number
+  userId: string
+}
+
+export interface AdminAffiliateSummaryResponse {
+  cards: {
+    nextPayoutDate: string
+    totalAffiliateRevenueGeneratedUsd: number
+    totalCommissionsOwedUsd: number
+    totalPaidOutUsd: number
+  }
+  payoutSchedule: {
+    cutoffDate: string
+    daysUntilNextPayout: number
+    minimumPayoutThresholdUsd: number
+    nextPayoutDate: string
+    payoutWindowLabel: string
+  }
+  tracking: {
+    health: {
+      label: string
+      message: string
+      status: 'green' | 'red' | 'yellow'
+    }
+    lastVerifiedAffiliateFlow: {
+      message: string
+      result: 'error' | 'success' | 'warning'
+      verifiedAt: string | null
+    }
+    stripeSyncIntegrity: {
+      attributedPayments: number
+      commissionCreationRate: number
+      metadataCoverageRate: number
+      totalTrackedPayments: number
+    }
+  }
+}
+
+export type AdminAffiliateLeaderboardStatus = 'active' | 'rising' | 'top_performer'
+
+export interface AdminAffiliateTopRecord {
+  id: string
+  lastPayoutDate: string | null
+  maskedEmail: string
+  payoutEligible: boolean
+  pendingBalanceUsd: number
+  rank: number
+  referralCode: string
+  status: AdminAffiliateLeaderboardStatus
+  totalEarnedUsd: number
+  totalPaidUsd: number
+  totalReferrals: number
+  userEmail: string
+}
+
+export interface AdminAffiliateCommissionRecord {
+  affiliateEmail: string
+  affiliateUserId: string
+  amountUsd: number
+  createdAt: string
+  eventId: string
+  id: string
+  paidAt: string | null
+  referredEmail: string
+  referredUserId: string
+  source: string
+  status: AffiliateCommissionStatus
+  stripeCustomerId: string | null
+  stripeSubscriptionId: string | null
+}
+
 export interface ContactMessageRecord {
   id: string
   user_id: string
@@ -200,6 +292,29 @@ function buildAnalyticsQuery(range?: { endAt?: number; startAt?: number }) {
   return query ? `?${query}` : ''
 }
 
+function buildAffiliateQuery(filters?: {
+  endAt?: string
+  startAt?: string
+  status?: 'all' | AffiliateCommissionStatus
+}) {
+  const searchParams = new URLSearchParams()
+
+  if (filters?.startAt) {
+    searchParams.set('startAt', filters.startAt)
+  }
+
+  if (filters?.endAt) {
+    searchParams.set('endAt', filters.endAt)
+  }
+
+  if (filters?.status) {
+    searchParams.set('status', filters.status)
+  }
+
+  const query = searchParams.toString()
+  return query ? `?${query}` : ''
+}
+
 export async function getAdminOverview(token: string) {
   return apiRequest<{ overview: AdminOverview }>('/api/admin/users/overview', undefined, token)
 }
@@ -236,6 +351,80 @@ export async function getAdminSubscribers(token: string) {
     undefined,
     token,
   )
+}
+
+export async function getAdminAffiliatesOverview(
+  token: string,
+  filters?: {
+    endAt?: string
+    startAt?: string
+    status?: 'all' | AffiliateCommissionStatus
+  },
+) {
+  return apiRequest<{
+    affiliates: AdminAffiliatePerformanceRecord[]
+    overview: AdminAffiliateOverviewCard
+  }>(`/api/admin/affiliates/overview${buildAffiliateQuery(filters)}`, undefined, token)
+}
+
+export async function getAdminAffiliateSummary(token: string) {
+  return apiRequest<AdminAffiliateSummaryResponse>('/v1/admin/affiliates/summary', undefined, token)
+}
+
+export async function getAdminTopAffiliates(token: string) {
+  return apiRequest<{ affiliates: AdminAffiliateTopRecord[] }>('/v1/admin/affiliates/top', undefined, token)
+}
+
+export async function getAdminAffiliateCommissions(
+  token: string,
+  filters?: {
+    endAt?: string
+    startAt?: string
+    status?: 'all' | AffiliateCommissionStatus
+  },
+) {
+  return apiRequest<{ commissions: AdminAffiliateCommissionRecord[] }>(
+    `/api/admin/affiliates/commissions${buildAffiliateQuery(filters)}`,
+    undefined,
+    token,
+  )
+}
+
+export async function markAdminAffiliateCommissionsPaid(commissionIds: string[], token: string) {
+  return apiRequest<{
+    commissions: AdminAffiliateCommissionRecord[]
+    totalPayoutAmountUsd: number
+    updatedIds: string[]
+  }>(
+    '/api/admin/affiliates/commissions/mark-paid',
+    {
+      method: 'POST',
+      body: JSON.stringify({ commissionIds }),
+    },
+    token,
+  )
+}
+
+export async function downloadAdminAffiliateCsv(
+  token: string,
+  filters?: {
+    endAt?: string
+    startAt?: string
+    status?: 'all' | AffiliateCommissionStatus
+  },
+) {
+  const response = await fetch(`${apiBaseUrl}/api/admin/affiliates/export.csv${buildAffiliateQuery(filters)}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string }
+    throw new Error(payload.error ?? 'Unable to download affiliate CSV.')
+  }
+
+  return response.blob()
 }
 
 export async function getAdminMuxAssets(token: string) {

@@ -25,6 +25,7 @@
     "fastify-plugin": "^5.1.0",
     "fastify-raw-body": "^5.0.0",
     "openai": "^6.35.0",
+    "postgres": "^3.4.9",
     "puppeteer": "^24.42.0",
     "resend": "^6.12.2",
     "stripe": "^22.0.2",

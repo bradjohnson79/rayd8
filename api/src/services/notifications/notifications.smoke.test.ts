@@ -25,6 +25,7 @@ async function ensureUserRecord(input: {
       email: input.email,
       id: input.userId,
       plan: input.plan ?? 'regen',
+      referralCode: input.userId.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase() || 'SMOKETST',
       role: input.role ?? 'member',
     })
     .onConflictDoUpdate({
@@ -32,6 +33,7 @@ async function ensureUserRecord(input: {
       set: {
         email: input.email,
         plan: input.plan ?? 'regen',
+        referralCode: input.userId.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase() || 'SMOKETST',
         role: input.role ?? 'member',
       },
     })

@@ -1,9 +1,11 @@
+import { randomBytes } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import type { InferSelectModel } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { env } from '../env.js'
 import {
   activeSessions,
+  affiliateCommissions,
   contactMessages,
   stripeCheckoutSessions,
   subscriptionCancellationFeedback,
@@ -20,6 +22,8 @@ import { toAppPlan } from './player/accessPolicy.js'
 import { ensureTrialWindowForUser } from './player/trialStatus.js'
 
 export type UserRecord = InferSelectModel<typeof users>
+
+const REFERRAL_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 function normalizeRole(value: unknown): UserRecord['role'] {
   return value === 'admin' ? 'admin' : 'member'
@@ -46,6 +50,43 @@ function normalizePlan(value: unknown): UserRecord['plan'] {
   return 'free'
 }
 
+function generateReferralCodeCandidate(length = 8) {
+  const bytes = randomBytes(length)
+  let code = ''
+
+  for (let index = 0; index < length; index += 1) {
+    code += REFERRAL_CODE_ALPHABET[bytes[index] % REFERRAL_CODE_ALPHABET.length]
+  }
+
+  return code.toUpperCase()
+}
+
+function isReferralCodeConflict(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+  return message.includes('users_referral_code_idx') || message.includes('referral_code')
+}
+
+async function createUniqueReferralCode() {
+  if (!db) {
+    return generateReferralCodeCandidate()
+  }
+
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const referralCode = generateReferralCodeCandidate()
+    const [existingUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.referralCode, referralCode))
+      .limit(1)
+
+    if (!existingUser) {
+      return referralCode
+    }
+  }
+
+  throw new Error('Unable to generate a unique referral code.')
+}
+
 async function reconcileUserIdentity(nextUser: UserRecord) {
   if (!db) {
     return
@@ -64,6 +105,8 @@ async function reconcileUserIdentity(nextUser: UserRecord) {
 
     await db.insert(users).values({
       ...nextUser,
+      referralCode: userWithEmail.referralCode ?? nextUser.referralCode,
+      referredByUserId: userWithEmail.referredByUserId,
       createdAt: userWithEmail.createdAt,
       trialEndsAt: userWithEmail.trialEndsAt,
       trialHoursUsed: userWithEmail.trialHoursUsed,
@@ -85,6 +128,15 @@ async function reconcileUserIdentity(nextUser: UserRecord) {
     await db.update(usagePeriods).set({ userId: nextUser.id }).where(eq(usagePeriods.userId, userWithEmail.id))
     await db.update(userDevices).set({ userId: nextUser.id }).where(eq(userDevices.userId, userWithEmail.id))
     await db.update(activeSessions).set({ userId: nextUser.id }).where(eq(activeSessions.userId, userWithEmail.id))
+    await db.update(users).set({ referredByUserId: nextUser.id }).where(eq(users.referredByUserId, userWithEmail.id))
+    await db
+      .update(affiliateCommissions)
+      .set({ affiliateUserId: nextUser.id })
+      .where(eq(affiliateCommissions.affiliateUserId, userWithEmail.id))
+    await db
+      .update(affiliateCommissions)
+      .set({ referredUserId: nextUser.id })
+      .where(eq(affiliateCommissions.referredUserId, userWithEmail.id))
     await db
       .update(contactMessages)
       .set({ userId: nextUser.id })
@@ -101,6 +153,8 @@ async function reconcileUserIdentity(nextUser: UserRecord) {
       target: users.id,
       set: {
         email: nextUser.email,
+        referralCode: nextUser.referralCode,
+        referredByUserId: nextUser.referredByUserId,
         role: nextUser.role,
         plan: nextUser.plan,
       },
@@ -132,24 +186,53 @@ export async function syncUserFromClerk(userId: string) {
     throw new Error('Authenticated Clerk user does not have an email address.')
   }
 
-  const nextUser: UserRecord = {
-    id: clerkUser.id,
-    email,
-    role: resolveSourceOfTruthRole(email, normalizeRole(clerkUser.publicMetadata.role)),
-    plan: normalizePlan(clerkUser.publicMetadata.plan),
-    trialEndsAt: null,
-    trialHoursUsed: 0,
-    trialNotificationsSent: [],
-    trialStartedAt: null,
-    createdAt: new Date(),
-  }
-
   if (!db) {
-    return nextUser
+    return {
+      id: clerkUser.id,
+      email,
+      referralCode: generateReferralCodeCandidate(),
+      referredByUserId: null,
+      role: resolveSourceOfTruthRole(email, normalizeRole(clerkUser.publicMetadata.role)),
+      plan: normalizePlan(clerkUser.publicMetadata.plan),
+      trialEndsAt: null,
+      trialHoursUsed: 0,
+      trialNotificationsSent: [],
+      trialStartedAt: null,
+      createdAt: new Date(),
+    }
   }
 
   const [existingUserById] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
-  await reconcileUserIdentity(nextUser)
+  let nextUser: UserRecord = {
+    id: clerkUser.id,
+    email,
+    referralCode: existingUserById?.referralCode ?? (await createUniqueReferralCode()),
+    referredByUserId: existingUserById?.referredByUserId ?? null,
+    role: resolveSourceOfTruthRole(email, normalizeRole(clerkUser.publicMetadata.role)),
+    plan: normalizePlan(clerkUser.publicMetadata.plan),
+    trialEndsAt: existingUserById?.trialEndsAt ?? null,
+    trialHoursUsed: existingUserById?.trialHoursUsed ?? 0,
+    trialNotificationsSent: existingUserById?.trialNotificationsSent ?? [],
+    trialStartedAt: existingUserById?.trialStartedAt ?? null,
+    createdAt: existingUserById?.createdAt ?? new Date(),
+  }
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      await reconcileUserIdentity(nextUser)
+      break
+    } catch (error) {
+      if (attempt < 4 && isReferralCodeConflict(error)) {
+        nextUser = {
+          ...nextUser,
+          referralCode: await createUniqueReferralCode(),
+        }
+        continue
+      }
+
+      throw error
+    }
+  }
 
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
 

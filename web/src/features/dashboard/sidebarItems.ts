@@ -14,6 +14,7 @@ const baseItems: SidebarItem[] = [
   { kind: 'section', label: 'RAYD8® Premium', sectionId: 'premium', to: toDashboardSectionHref('premium') },
   { kind: 'section', label: 'RAYD8® REGEN', sectionId: 'regen', to: toDashboardSectionHref('regen') },
   { kind: 'section', label: 'AMRITA', sectionId: 'amrita', to: toDashboardSectionHref('amrita') },
+  { kind: 'route', label: 'Affiliate', to: '/dashboard/affiliate' },
   { kind: 'route', label: 'Instructions', to: '/dashboard/instructions' },
   { kind: 'route', label: 'Settings', to: '/dashboard/settings' },
   { kind: 'route', label: 'Contact', to: '/contact' },

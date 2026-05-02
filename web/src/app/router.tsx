@@ -36,8 +36,21 @@ const SubscriptionPage = lazy(() =>
     default: module.SubscriptionPage,
   })),
 )
+const SignupReferralPage = lazy(() =>
+  import('../pages/SignupReferralPage').then((module) => ({
+    default: module.SignupReferralPage,
+  })),
+)
 const SuccessPage = lazy(() =>
   import('../pages/SuccessPage').then((module) => ({ default: module.SuccessPage })),
+)
+const Rayd8AffiliatePage = lazy(() =>
+  import('../pages/Rayd8AffiliatePage').then((module) => ({
+    default: module.Rayd8AffiliatePage,
+  })),
+)
+const AffiliatePage = lazy(() =>
+  import('../pages/AffiliatePage').then((module) => ({ default: module.AffiliatePage })),
 )
 const SessionAppShell = lazy(() =>
   import('../components/SessionAppShell').then((module) => ({
@@ -71,6 +84,16 @@ export const router = createBrowserRouter([
         element: lazyElement(<SubscriptionPage />),
       },
       {
+        path: 'signup',
+        errorElement: <AppRouteErrorBoundary scope="public" />,
+        element: lazyElement(<SignupReferralPage />),
+      },
+      {
+        path: 'rayd8-affiliate',
+        errorElement: <AppRouteErrorBoundary scope="public" />,
+        element: lazyElement(<Rayd8AffiliatePage />),
+      },
+      {
         path: 'success',
         errorElement: <AppRouteErrorBoundary scope="public" />,
         element: lazyElement(<SuccessPage />),
@@ -90,6 +113,7 @@ export const router = createBrowserRouter([
                 element: <Outlet />,
                 children: [
                   { index: true, element: lazyElement(<DashboardPage />) },
+                  { path: 'affiliate', element: lazyElement(<AffiliatePage />) },
                   { path: 'instructions', element: lazyElement(<InstructionsPage />) },
                   { path: 'settings', element: lazyElement(<SettingsPage />) },
                   { path: 'upgrade', element: lazyElement(<RegenUpgradePage />) },
