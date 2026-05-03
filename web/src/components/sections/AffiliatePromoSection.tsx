@@ -93,13 +93,15 @@ export function AffiliatePromoSection({
             <div className="relative overflow-hidden rounded-[1.8rem] border border-white/10 bg-[linear-gradient(165deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-3 shadow-[0_22px_65px_rgba(0,0,0,0.28)]">
               <div className="relative overflow-hidden rounded-[1.3rem] bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.2),transparent_28%),radial-gradient(circle_at_82%_16%,rgba(96,165,250,0.2),transparent_26%),radial-gradient(circle_at_50%_100%,rgba(168,85,247,0.22),transparent_36%),linear-gradient(180deg,#081019_0%,#10192a_100%)]">
                 {!imageFailed ? (
-                  <img
-                    alt="RAYD8 affiliate promo"
-                    className="max-h-[26rem] w-full object-cover object-center lg:max-h-[30rem]"
-                    loading="lazy"
-                    onError={() => setImageFailed(true)}
-                    src={PROMO_IMAGE}
-                  />
+                  <div className="flex aspect-[16/9] w-full items-center justify-center p-2 sm:p-3">
+                    <img
+                      alt="RAYD8 affiliate promo"
+                      className="h-full w-full object-contain object-center"
+                      loading="lazy"
+                      onError={() => setImageFailed(true)}
+                      src={PROMO_IMAGE}
+                    />
+                  </div>
                 ) : (
                   <div className="flex aspect-[16/9] w-full items-end justify-start p-6 sm:p-8">
                     <div className="max-w-sm">

@@ -17,6 +17,11 @@ const BenefitsImageSection = lazyWithPreload(() =>
 const TeaserSection = lazyWithPreload(() =>
   import('../features/landing/TeaserSection').then((module) => ({ default: module.TeaserSection })),
 )
+const NewsletterSignup = lazyWithPreload(() =>
+  import('../components/NewsletterSignup').then((module) => ({
+    default: module.default,
+  })),
+)
 const AffiliatePromoSection = lazyWithPreload(() =>
   import('../components/sections/AffiliatePromoSection').then((module) => ({
     default: module.AffiliatePromoSection,
@@ -70,6 +75,7 @@ export function LandingPage() {
 
     const preloadNearFoldSections = () => {
       void BenefitsImageSection.preload()
+      void NewsletterSignup.preload()
       void TeaserSection.preload()
       void AffiliatePromoSection.preload()
       void AboutSection.preload()
@@ -169,7 +175,10 @@ export function LandingPage() {
             <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
               <BenefitsImageSection />
             </Suspense>
-            <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
+            <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
+              <NewsletterSignup reducedEffects={reducedEffects} />
+            </Suspense>
+            <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
               <TeaserSection reducedEffects={reducedEffects} />
             </Suspense>
             <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
@@ -199,10 +208,18 @@ export function LandingPage() {
               </Suspense>
             </DeferredRender>
             <DeferredRender
-              fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}
+              fallback={<LandingSectionFallback minHeightClassName="min-h-[26svh]" />}
               rootMargin={deferredRootMargin}
             >
-              <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
+              <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[26svh]" />}>
+                <NewsletterSignup reducedEffects={reducedEffects} />
+              </Suspense>
+            </DeferredRender>
+            <DeferredRender
+              fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}
+              rootMargin={deferredRootMargin}
+            >
+              <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
                 <TeaserSection reducedEffects={reducedEffects} />
               </Suspense>
             </DeferredRender>
