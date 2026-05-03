@@ -179,6 +179,7 @@ export const TestimonialsSection = memo(function TestimonialsSection({
       eyebrow="Testimonials"
       id="testimonials"
       reducedEffects={reducedEffects}
+      showBackToTop
       title="Real people who experienced RAYD8® living technology for the first time."
     >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)] xl:gap-8">

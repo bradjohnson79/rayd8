@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { LandingBackToTop } from './components/LandingBackToTop'
 
 const SOCIAL = {
   facebook: 'https://www.facebook.com',
@@ -78,6 +79,8 @@ export function LandingFooter() {
             </a>
           </div>
         </div>
+
+        <LandingBackToTop className="mt-6 sm:mt-8" />
 
         <div className="mt-4 max-w-5xl border-t border-white/8 pt-4 sm:mt-5 sm:pt-5">
           <p className="text-xs leading-6 text-white/56">{disclaimer}</p>

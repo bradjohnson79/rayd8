@@ -19,6 +19,7 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
       eyebrowClassName="text-[12px] font-medium leading-snug tracking-wide text-emerald-200/85 normal-case sm:text-[13px]"
       id="teaser"
       reducedEffects={reducedEffects}
+      showBackToTop
       title="Turn Your Screen Into a Living Field"
     >
       <div className="space-y-8 sm:space-y-10">

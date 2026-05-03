@@ -48,6 +48,7 @@ export function AffiliatePromoSection({
       className="py-10 sm:py-14"
       id="affiliate-program"
       reducedEffects={reducedEffects}
+      showBackToTop
     >
       <div className="group relative overflow-hidden rounded-[2rem] border border-emerald-200/18 bg-[linear-gradient(135deg,rgba(12,22,28,0.9),rgba(14,24,40,0.92)_48%,rgba(36,20,58,0.9))] px-6 py-7 shadow-[0_24px_90px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition duration-300 hover:-translate-y-1 hover:border-emerald-200/26 hover:shadow-[0_34px_110px_rgba(16,185,129,0.12)] sm:px-8 sm:py-9 lg:px-10 lg:py-10">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_34%),radial-gradient(circle_at_80%_20%,rgba(96,165,250,0.16),transparent_26%),radial-gradient(circle_at_70%_80%,rgba(168,85,247,0.12),transparent_24%)]" />

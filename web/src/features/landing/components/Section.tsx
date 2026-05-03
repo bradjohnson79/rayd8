@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import type { PropsWithChildren, ReactNode } from 'react'
+import { LandingBackToTop } from './LandingBackToTop'
 
 interface SectionProps extends PropsWithChildren {
   childrenClassName?: string
@@ -9,6 +10,7 @@ interface SectionProps extends PropsWithChildren {
   eyebrowClassName?: string
   id?: string
   reducedEffects?: boolean
+  showBackToTop?: boolean
   title?: ReactNode
 }
 
@@ -21,6 +23,7 @@ export function Section({
   eyebrowClassName,
   id,
   reducedEffects = false,
+  showBackToTop = false,
   title,
 }: SectionProps) {
   return (
@@ -52,6 +55,7 @@ export function Section({
           </div>
         ) : null}
         {children}
+        {showBackToTop ? <LandingBackToTop className="mt-10 sm:mt-12" /> : null}
       </div>
     </motion.section>
   )

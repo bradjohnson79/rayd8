@@ -117,6 +117,8 @@ export function LandingPage() {
 
     if (hashId === 'teaser') {
       void TeaserSection.preload()
+    } else if (hashId === 'affiliate-program') {
+      void AffiliatePromoSection.preload()
     } else if (hashId === 'about') {
       void AboutSection.preload()
     } else if (hashId === 'testimonials') {

@@ -120,6 +120,7 @@ export const ContactSection = memo(function ContactSection({
       eyebrow="Contact"
       id="contact"
       reducedEffects={reducedEffects}
+      showBackToTop
       title="Start the conversation."
     >
       <div

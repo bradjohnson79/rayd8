@@ -31,6 +31,7 @@ export function AboutSection({ reducedEffects = false }: AboutSectionProps) {
       eyebrow="About RAYD8®"
       id="about"
       reducedEffects={reducedEffects}
+      showBackToTop
       title="Built from visual engineering and energetic design."
     >
       <div className="flex flex-col items-stretch gap-8 lg:flex-row lg:items-start lg:gap-5 xl:gap-6">

@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { ConversionButton } from './components/ConversionButton'
+import { LandingBackToTop } from './components/LandingBackToTop'
 
 const HERO_VIDEO_PATH = '/hero/RAYD8_Hero.mp4'
 const HERO_STILL = '/hero/RAYD8-Premium.png'
@@ -211,6 +212,7 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
             Designed for everyday use—no setup required
           </p>
         </div>
+        <LandingBackToTop className="mt-10 sm:mt-12" />
       </div>
     </section>
   )

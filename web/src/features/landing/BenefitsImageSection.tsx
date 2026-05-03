@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { LandingBackToTop } from './components/LandingBackToTop'
 
 const BENEFITS_IMAGE = '/images/RAYD8_benefits.png'
 
@@ -20,6 +21,7 @@ export const BenefitsImageSection = memo(function BenefitsImageSection() {
           />
         </div>
       </div>
+      <LandingBackToTop className="mt-6 px-4 sm:mt-8 sm:px-6 lg:px-8" />
     </section>
   )
 })

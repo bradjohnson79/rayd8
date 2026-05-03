@@ -8,6 +8,7 @@ import { ConversionButton } from './components/ConversionButton'
 
 const navigationItems = [
   { href: '/#teaser', label: 'Use RAYD8® Now' },
+  { href: '/#affiliate-program', label: 'Affiliate Program' },
   { href: '#about', label: 'About RAYD8®' },
   { href: '#testimonials', label: 'Testimonials' },
   { href: '/#contact-form', label: 'Contact' },
@@ -15,6 +16,8 @@ const navigationItems = [
 
 const mobileNavigationItems = [
   { href: '#hero', label: 'Home' },
+  { href: '/#teaser', label: 'Use RAYD8® Now' },
+  { href: '/#affiliate-program', label: 'Affiliate Program' },
   { href: '#about', label: 'About' },
   { href: '#testimonials', label: 'Testimonials' },
   { href: '/#contact-form', label: 'Contact' },
