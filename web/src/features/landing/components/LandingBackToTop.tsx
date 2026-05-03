@@ -1,4 +1,5 @@
 import { memo, useCallback } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { MarketingButton } from './MarketingButton'
 
 export const LandingBackToTop = memo(function LandingBackToTop({
@@ -6,9 +7,28 @@ export const LandingBackToTop = memo(function LandingBackToTop({
 }: {
   className?: string
 }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+
   const handleClick = useCallback(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
+    // Strip hash so LandingPage hash scroll retries don't fight scroll-to-top, and the
+    // browser won't re-anchor to a section fragment after scrolling.
+    if (location.hash) {
+      navigate(
+        { pathname: location.pathname, search: location.search, hash: '' },
+        { replace: true },
+      )
+    }
+
+    const scrollDocumentTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+    }
+
+    // After navigate(), let React flush + hash effect cleanup run before scrolling.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(scrollDocumentTop)
+    })
+  }, [location.hash, location.pathname, location.search, navigate])
 
   return (
     <div className={`flex justify-center ${className}`.trim()}>
