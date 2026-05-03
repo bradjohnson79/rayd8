@@ -158,7 +158,7 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
         className="pointer-events-none absolute inset-3 z-[2] rounded-[1.5rem] border border-white/12 shadow-[0_0_50px_rgba(0,0,0,0.35)] sm:inset-5 sm:rounded-[1.75rem] md:inset-8"
       />
 
-      <div className="relative z-[3] mx-auto flex w-full max-w-7xl flex-col px-4 pb-20 pt-12 sm:px-6 sm:pb-24 sm:pt-[20vh] lg:px-8 lg:pt-[24vh]">
+      <div className="relative z-[3] mx-auto flex w-full max-w-7xl flex-col px-4 pb-20 pt-10 sm:px-6 sm:pb-24 sm:pt-14 lg:px-8 lg:pt-16">
         <div className="max-w-3xl rounded-[2rem] border border-black/45 bg-[linear-gradient(180deg,rgba(14,20,30,0.48),rgba(7,10,16,0.3))] px-5 py-6 shadow-[0_20px_70px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:px-7 sm:py-8">
           <p className="text-[10px] font-medium uppercase leading-relaxed tracking-[0.36em] text-emerald-200/80 sm:text-[11px] sm:tracking-[0.4em]">
             Next Level Digital Wellness System
