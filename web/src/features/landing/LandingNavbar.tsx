@@ -6,19 +6,11 @@ import { MobileMenu } from '../../components/MobileMenu'
 import { useAuthUser } from '../dashboard/useAuthUser'
 import { ConversionButton } from './components/ConversionButton'
 
+/** Same order and labels for desktop nav and mobile drawer. */
 const navigationItems = [
   { href: '/#teaser', label: 'Use RAYD8® Now' },
   { href: '/#affiliate-program', label: 'Affiliate Program' },
   { href: '#about', label: 'About RAYD8®' },
-  { href: '#testimonials', label: 'Testimonials' },
-  { href: '/#contact-form', label: 'Contact' },
-]
-
-const mobileNavigationItems = [
-  { href: '#hero', label: 'Home' },
-  { href: '/#teaser', label: 'Use RAYD8® Now' },
-  { href: '/#affiliate-program', label: 'Affiliate Program' },
-  { href: '#about', label: 'About' },
   { href: '#testimonials', label: 'Testimonials' },
   { href: '/#contact-form', label: 'Contact' },
 ]
@@ -132,7 +124,7 @@ export const LandingNavbar = memo(function LandingNavbar() {
       </div>
       <MobileMenu
         isAuthenticated={user.isAuthenticated}
-        items={mobileNavigationItems}
+        items={navigationItems}
         onClose={() => setMobileMenuOpen(false)}
         onSignIn={() => void openSignIn()}
         onSignUp={() => void openSignUp()}

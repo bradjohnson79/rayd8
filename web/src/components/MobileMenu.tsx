@@ -83,7 +83,7 @@ export function MobileMenu({
               </button>
             </div>
 
-            <nav className="mt-8 flex flex-col gap-2">
+            <nav className="mt-8 flex flex-col gap-2" aria-label="Primary">
               {items.map((item) => (
                 <a
                   className="rounded-2xl border border-transparent px-4 py-3 text-left text-base text-white/84 transition hover:border-white/10 hover:bg-white/[0.05] hover:text-white"
@@ -94,13 +94,6 @@ export function MobileMenu({
                   {item.label}
                 </a>
               ))}
-              <Link
-                className="rounded-2xl border border-transparent px-4 py-3 text-left text-base text-white/84 transition hover:border-white/10 hover:bg-white/[0.05] hover:text-white"
-                onClick={onClose}
-                to="/subscription?plan=regen"
-              >
-                Subscription
-              </Link>
             </nav>
 
             <div className="mt-auto border-t border-white/10 pt-5">
