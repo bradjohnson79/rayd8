@@ -10,51 +10,73 @@ interface TestimonialsSectionProps {
 const testimonialVideos = [
   {
     id: 'testimonial-1',
+    isLiveLab: false,
     thumbnailUrl: 'https://img.youtube.com/vi/WGce4s9Sqyc/hqdefault.jpg',
     title: 'Testimonial 1',
     youtubeId: 'WGce4s9Sqyc',
   },
   {
     id: 'testimonial-2',
+    isLiveLab: false,
     thumbnailUrl: 'https://img.youtube.com/vi/bNIk9PGuvqc/hqdefault.jpg',
     title: 'Testimonial 2',
     youtubeId: 'bNIk9PGuvqc',
   },
   {
     id: 'testimonial-3',
+    isLiveLab: false,
     thumbnailUrl: 'https://img.youtube.com/vi/APrDynSKC9g/hqdefault.jpg',
     title: 'Testimonial 3',
     youtubeId: 'APrDynSKC9g',
   },
   {
     id: 'testimonial-4',
+    isLiveLab: false,
     thumbnailUrl: 'https://img.youtube.com/vi/DSWhJUq81BI/hqdefault.jpg',
     title: 'Testimonial 4',
     youtubeId: 'DSWhJUq81BI',
   },
   {
     id: 'testimonial-5',
+    isLiveLab: false,
     thumbnailUrl: 'https://img.youtube.com/vi/lltP0TkvG_U/hqdefault.jpg',
     title: 'Testimonial 5',
     youtubeId: 'lltP0TkvG_U',
   },
   {
     id: 'testimonial-6',
+    isLiveLab: false,
     thumbnailUrl: 'https://img.youtube.com/vi/YpDI2k4sIbg/hqdefault.jpg',
     title: 'Testimonial 6',
     youtubeId: 'YpDI2k4sIbg',
   },
   {
     id: 'testimonial-7',
+    isLiveLab: false,
     thumbnailUrl: 'https://img.youtube.com/vi/TlfZoqC5JUg/hqdefault.jpg',
     title: 'Testimonial 7',
     youtubeId: 'TlfZoqC5JUg',
   },
   {
     id: 'testimonial-8',
+    isLiveLab: false,
     thumbnailUrl: 'https://img.youtube.com/vi/YTsOa5NxkQc/hqdefault.jpg',
     title: 'Testimonial 8',
     youtubeId: 'YTsOa5NxkQc',
+  },
+  {
+    id: 'nalomie-blood',
+    isLiveLab: true,
+    thumbnailUrl: 'https://img.youtube.com/vi/muLwMcCLdxA/hqdefault.jpg',
+    title: 'Nalomie Blood Test',
+    youtubeId: 'muLwMcCLdxA',
+  },
+  {
+    id: 'amelia-blood',
+    isLiveLab: true,
+    thumbnailUrl: 'https://img.youtube.com/vi/jfPMTbWQnjI/hqdefault.jpg',
+    title: 'Amelia Blood Test',
+    youtubeId: 'jfPMTbWQnjI',
   },
 ] as const
 
@@ -157,7 +179,10 @@ export const TestimonialsSection = memo(function TestimonialsSection({
       title="Real people who experienced RAYD8® living technology for the first time."
     >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)] xl:gap-8">
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-2xl sm:rounded-[2.25rem] sm:p-6">
+        <div
+          className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-2xl sm:rounded-[2.25rem] sm:p-6"
+          id="video-testimonials"
+        >
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-[11px] uppercase tracking-[0.34em] text-white/56">Video testimonials</p>
@@ -200,7 +225,7 @@ export const TestimonialsSection = memo(function TestimonialsSection({
                   aria-label={`Select ${video.title}`}
                   aria-pressed={isActive}
                   className={[
-                    'min-w-[8.8rem] overflow-hidden rounded-[1.2rem] border bg-black/20 text-left transition duration-200 md:min-w-0',
+                    'relative min-w-[8.8rem] overflow-hidden rounded-[1.2rem] border bg-black/20 text-left transition duration-200 md:min-w-0',
                     isActive
                       ? 'border-emerald-200/55 shadow-[0_0_0_1px_rgba(167,243,208,0.18)]'
                       : 'border-white/10 hover:border-white/18',
@@ -209,6 +234,11 @@ export const TestimonialsSection = memo(function TestimonialsSection({
                   onClick={() => handleSelectVideo(index)}
                   type="button"
                 >
+                  {video.isLiveLab ? (
+                    <span className="absolute left-2 top-2 z-10 rounded-md bg-[linear-gradient(90deg,#00d4ff,#8a5cff)] px-2 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white shadow-[0_8px_22px_rgba(0,0,0,0.22)]">
+                      Live Lab
+                    </span>
+                  ) : null}
                   <img
                     alt={video.title}
                     className="aspect-video w-full object-cover"
@@ -228,10 +258,65 @@ export const TestimonialsSection = memo(function TestimonialsSection({
           </div>
         </div>
 
-        <WrittenTestimonialSlider
-          reducedEffects={reducedEffects}
-          testimonials={writtenTestimonials}
-        />
+        <div className="flex h-full min-h-0 flex-col gap-5">
+          <div className="flex-1 min-h-0">
+            <WrittenTestimonialSlider
+              reducedEffects={reducedEffects}
+              testimonials={writtenTestimonials}
+            />
+          </div>
+
+          <div className="flex flex-1 min-h-0 flex-col rounded-[1.7rem] border border-white/8 bg-white/[0.03] p-5 backdrop-blur-xl">
+            <h3 className="text-lg font-semibold text-white">Live Labs Analysis</h3>
+            <p className="mt-2 text-sm leading-7 text-slate-300">
+              Independent live blood observations following a RAYD8 session.
+            </p>
+
+            <div className="live-labs-scroll mt-4 min-h-0 flex-1 overflow-y-auto pr-2 text-[13px] leading-6 text-slate-300">
+              <p>
+                This testimonial is a live blood test analysis from two volunteers,
+                Amelia and Nalomie, who took a live blood test 1 hour before and
+                1 hour after a 3 hour RAYD8 session using 12 LED flatscreens
+                running the REGEN version.
+              </p>
+
+              <h4 className="mt-4 text-sm font-semibold uppercase tracking-[0.24em] text-white/84">
+                Amelia
+              </h4>
+              <p className="mt-2">
+                <strong className="font-semibold text-white">Dry Blood:</strong> The blood has
+                formed more cohesively with fewer cracks, showing rapid improvement.
+              </p>
+              <p className="mt-2">
+                <strong className="font-semibold text-white">Live Blood:</strong> Initial samples
+                showed better hydration and separation. Post-session changes may reflect detox
+                processes, where released material temporarily enters the bloodstream before
+                elimination.
+              </p>
+
+              <h4 className="mt-4 text-sm font-semibold uppercase tracking-[0.24em] text-white/84">
+                Nalomie
+              </h4>
+              <p className="mt-2">
+                <strong className="font-semibold text-white">Dry Blood:</strong> Initial signs
+                indicated dehydration and low mineral state. Post-session irritation may reflect
+                detox response.
+              </p>
+              <p className="mt-2">
+                <strong className="font-semibold text-white">Live Blood:</strong> Faster movement
+                likely due to stress/adrenaline. Circulation slowed post-session, suggesting nervous
+                system relaxation. Food particles cleared, indicating nutrient absorption.
+              </p>
+
+              <p className="live-labs-cta mt-3 text-[13px] italic text-[#a8c8ff]/90">
+                Both live blood test videos can be viewed in the{' '}
+                <a className="underline decoration-white/20 underline-offset-4 hover:text-white" href="#video-testimonials">
+                  video testimonials section
+                </a>.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </Section>
   )
