@@ -1,5 +1,4 @@
-import { memo, useCallback } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { memo, useCallback, type MouseEvent } from 'react'
 import { MarketingButton } from './MarketingButton'
 
 export const LandingBackToTop = memo(function LandingBackToTop({
@@ -7,34 +6,79 @@ export const LandingBackToTop = memo(function LandingBackToTop({
 }: {
   className?: string
 }) {
-  const navigate = useNavigate()
-  const location = useLocation()
+  const blurActiveElement = () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+  }
 
-  const handleClick = useCallback(() => {
-    // Strip hash so LandingPage hash scroll retries don't fight scroll-to-top, and the
-    // browser won't re-anchor to a section fragment after scrolling.
-    if (location.hash) {
-      navigate(
-        { pathname: location.pathname, search: location.search, hash: '' },
-        { replace: true },
+  const handleClick = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    event.currentTarget.blur()
+    blurActiveElement()
+
+    const scrollToAbsoluteTop = () => {
+      blurActiveElement()
+      const root = document.documentElement
+      const previousRootScrollBehavior = root.style.scrollBehavior
+      const previousBodyScrollBehavior = document.body.style.scrollBehavior
+
+      root.style.scrollBehavior = 'auto'
+      document.body.style.scrollBehavior = 'auto'
+
+      const header = document.querySelector('header')
+      header?.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' })
+      window.scrollTo(0, 0)
+      const scrollRoots = [
+        document.scrollingElement,
+        document.documentElement,
+        document.body,
+        ...Array.from(document.querySelectorAll<HTMLElement>('*')).filter(
+          (element) =>
+            element.scrollTop > 0 ||
+            element.scrollLeft > 0 ||
+            element.scrollHeight > element.clientHeight ||
+            element.scrollWidth > element.clientWidth,
+        ),
+      ]
+
+      for (const scrollRoot of scrollRoots) {
+        if (!scrollRoot) {
+          continue
+        }
+
+        scrollRoot.scrollTop = 0
+        scrollRoot.scrollLeft = 0
+      }
+
+      window.requestAnimationFrame(() => {
+        root.style.scrollBehavior = previousRootScrollBehavior
+        document.body.style.scrollBehavior = previousBodyScrollBehavior
+      })
+    }
+
+    if (window.location.hash) {
+      window.history.replaceState(
+        window.history.state,
+        document.title,
+        `${window.location.pathname}${window.location.search}`,
       )
     }
 
-    const scrollDocumentTop = () => {
-      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
-    }
+    scrollToAbsoluteTop()
 
-    // After navigate(), let React flush + hash effect cleanup run before scrolling.
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(scrollDocumentTop)
-    })
-  }, [location.hash, location.pathname, location.search, navigate])
+    // Enforce the final position after native fragment scrolling or focus restoration
+    // has had a chance to run.
+    for (const delayMs of [0, 75, 175, 350, 700]) {
+      window.setTimeout(() => scrollToAbsoluteTop(), delayMs)
+    }
+  }, [])
 
   return (
     <div className={`flex justify-center ${className}`.trim()}>
       <MarketingButton
         className="gap-2 px-5 py-2.5 text-xs sm:text-sm"
         onClick={handleClick}
+        onMouseDown={(event) => event.preventDefault()}
         type="button"
         variant="ghost"
       >
