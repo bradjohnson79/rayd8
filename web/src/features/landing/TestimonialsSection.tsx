@@ -148,6 +148,9 @@ export const TestimonialsSection = memo(function TestimonialsSection({
     () => testimonialVideos[activeVideoIndex] ?? testimonialVideos[0],
     [activeVideoIndex],
   )
+  const activeVideoFrameClass = activeVideo.isLiveLab
+    ? 'w-full max-w-[23rem] sm:max-w-[25rem] lg:max-w-[28rem] xl:max-w-[30rem]'
+    : 'w-full max-w-[20rem] sm:max-w-[22rem] lg:max-w-[24rem] xl:max-w-[25rem]'
 
   const handlePlaybackStarted = useCallback(() => {
     setHasUserStartedPlayback(true)
@@ -193,7 +196,7 @@ export const TestimonialsSection = memo(function TestimonialsSection({
           </div>
 
           <div className="mt-6 flex justify-center">
-            <div className="w-full max-w-[20rem] sm:max-w-[22rem] lg:max-w-[24rem] xl:max-w-[25rem]">
+            <div className={activeVideoFrameClass}>
               <div className="aspect-[9/16] overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#05080c] shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
                 <TestimonialVideoPlayer
                   key={`${activeVideo.youtubeId}-${shouldAutoplayActiveVideo ? 'autoplay' : 'manual'}`}
@@ -258,15 +261,15 @@ export const TestimonialsSection = memo(function TestimonialsSection({
           </div>
         </div>
 
-        <div className="flex h-full min-h-0 flex-col gap-5">
-          <div className="flex-1 min-h-0">
+        <div className="flex self-start flex-col gap-4 lg:gap-5">
+          <div>
             <WrittenTestimonialSlider
               reducedEffects={reducedEffects}
               testimonials={writtenTestimonials}
             />
           </div>
 
-          <div className="flex flex-1 min-h-0 flex-col rounded-[1.7rem] border border-white/8 bg-white/[0.03] p-5 backdrop-blur-xl">
+          <div className="flex flex-col rounded-[1.7rem] border border-white/8 bg-white/[0.03] p-5 backdrop-blur-xl">
             <h3 className="text-lg font-semibold text-white">Live Labs Analysis</h3>
             <p className="mt-2 text-sm leading-7 text-slate-300">
               Independent live blood observations following a RAYD8 session.
