@@ -52,6 +52,11 @@ const AdminSubscribersPage = lazy(() =>
     default: module.AdminSubscribersPage,
   })),
 )
+const AdminPromoCodesPage = lazy(() =>
+  import('../pages/admin/admin-tools/PromoCodes').then((module) => ({
+    default: module.AdminPromoCodesPage,
+  })),
+)
 const AdminMuxPage = lazy(() =>
   import('../pages/admin/admin-tools/Mux').then((module) => ({ default: module.AdminMuxPage })),
 )
@@ -137,6 +142,7 @@ export const adminRoutes: RouteObject = {
             { path: 'settings', element: lazyElement(<AdminSettingsPage />) },
             { path: 'orders', element: lazyElement(<AdminOrdersPage />) },
             { path: 'subscribers', element: lazyElement(<AdminSubscribersPage />) },
+            { path: 'promo-codes', element: lazyElement(<AdminPromoCodesPage />) },
             { path: 'affiliates', element: lazyElement(<AdminAffiliatesPage />) },
             { path: 'analytics', element: lazyElement(<AdminAnalyticsPage />) },
             { path: 'mux', element: lazyElement(<AdminMuxPage />) },

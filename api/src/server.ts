@@ -11,6 +11,7 @@ import { adminAffiliateRoutes } from './routes/admin/affiliates.js'
 import { adminMessageRoutes } from './routes/admin/messages.js'
 import { adminMuxRoutes } from './routes/admin/mux.js'
 import { adminNotificationRoutes } from './routes/admin/notifications.js'
+import { adminPromoCodeRoutes } from './routes/admin/promoCodes.js'
 import { adminSeoRoutes } from './routes/admin/seo.js'
 import { adminStripeRoutes } from './routes/admin/stripe.js'
 import { adminUserRoutes } from './routes/admin/users.js'
@@ -85,6 +86,7 @@ export function buildServer() {
   void app.register(adminStripeRoutes, { prefix: '/api/admin/stripe' })
   void app.register(adminMuxRoutes, { prefix: '/api/admin/mux' })
   void app.register(adminNotificationRoutes, { prefix: '/api/admin/notifications' })
+  void app.register(adminPromoCodeRoutes, { prefix: '/api/admin/promo-codes' })
   void app.register(adminSeoRoutes, { prefix: '/api/admin/seo' })
   void app.register(adminUserRoutes, { prefix: '/api/admin/users' })
 

@@ -806,3 +806,194 @@ export async function downloadAdminSeoReportPdf(reportId: string, token: string)
 
   return response.blob()
 }
+
+export type AdminPromoCodeDiscountType = 'amount' | 'percent'
+export type AdminPromoCodeDuration = 'forever' | 'once' | 'repeating'
+export type AdminPromoCodePlan = 'all' | 'amrita' | 'regen'
+export type AdminPromoCodeSyncStatus =
+  | 'error'
+  | 'inactive'
+  | 'mismatch'
+  | 'missing'
+  | 'pending'
+  | 'synced'
+
+export interface AdminPromoCodeRecord {
+  amount_off: number | null
+  applies_to_plan: AdminPromoCodePlan
+  archived_at: string | null
+  code: string
+  created_at: string
+  currency: string
+  description: string | null
+  discount_type: AdminPromoCodeDiscountType
+  duration: AdminPromoCodeDuration
+  duration_in_months: number | null
+  expires_at: string | null
+  id: string
+  is_active: boolean
+  max_redemptions: number | null
+  name: string
+  percent_off: number | null
+  stripe_coupon_id: string | null
+  stripe_environment: string
+  stripe_promotion_code_id: string | null
+  stripe_sync_error: string | null
+  stripe_sync_status: AdminPromoCodeSyncStatus
+  times_redeemed: number
+  updated_at: string
+}
+
+export interface AdminPromoCodeRedemptionRecord {
+  amount_discounted: number | null
+  code: string
+  created_at: string
+  currency: string
+  id: string
+  status: string
+  stripe_checkout_session_id: string | null
+  stripe_customer_id: string | null
+  stripe_invoice_id: string | null
+  stripe_subscription_id: string | null
+  user_id: string | null
+}
+
+export interface AdminPromoCodeListResponse {
+  environment: string
+  promoCodes: AdminPromoCodeRecord[]
+  summary: {
+    active: number
+    archived: number
+    errors: number
+    expired: number
+    inactive: number
+    total: number
+    totalRedemptions: number
+  }
+}
+
+export interface AdminPromoCodeCreatePayload {
+  amountOff?: number | null
+  appliesToPlan?: AdminPromoCodePlan
+  code: string
+  description?: string | null
+  discountType: AdminPromoCodeDiscountType
+  duration: AdminPromoCodeDuration
+  durationInMonths?: number | null
+  expiresAt?: string | null
+  maxRedemptions?: number | null
+  name: string
+  percentOff?: number | null
+}
+
+export async function getAdminPromoCodes(
+  input: {
+    query?: string
+    sort?: string
+    status?: string
+  },
+  token: string,
+) {
+  const params = new URLSearchParams()
+
+  if (input.query) {
+    params.set('query', input.query)
+  }
+
+  if (input.sort) {
+    params.set('sort', input.sort)
+  }
+
+  if (input.status) {
+    params.set('status', input.status)
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  return apiRequest<AdminPromoCodeListResponse>(`/api/admin/promo-codes${suffix}`, undefined, token)
+}
+
+export async function createAdminPromoCode(payload: AdminPromoCodeCreatePayload, token: string) {
+  return apiRequest<{ promoCode: AdminPromoCodeRecord }>(
+    '/api/admin/promo-codes',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+}
+
+export async function getAdminPromoCodeDetails(id: string, token: string) {
+  return apiRequest<{
+    promoCode: AdminPromoCodeRecord
+    redemptions: AdminPromoCodeRedemptionRecord[]
+  }>(`/api/admin/promo-codes/${encodeURIComponent(id)}`, undefined, token)
+}
+
+export async function updateAdminPromoCode(
+  id: string,
+  payload: {
+    description?: string | null
+    name?: string
+  },
+  token: string,
+) {
+  return apiRequest<{ promoCode: AdminPromoCodeRecord }>(
+    `/api/admin/promo-codes/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+}
+
+export async function validateAdminPromoCode(id: string, token: string) {
+  return apiRequest<{
+    validation: {
+      checkedAt: string
+      messages: string[]
+      status: AdminPromoCodeSyncStatus
+    }
+  }>(`/api/admin/promo-codes/${encodeURIComponent(id)}/validate-stripe`, { method: 'POST' }, token)
+}
+
+export async function refreshAdminPromoCodeFromStripe(id: string, token: string) {
+  return apiRequest<{ promoCode: AdminPromoCodeRecord }>(
+    `/api/admin/promo-codes/${encodeURIComponent(id)}/refresh-from-stripe`,
+    { method: 'POST' },
+    token,
+  )
+}
+
+export async function repairAdminPromoCodeSync(id: string, token: string) {
+  return apiRequest<{ promoCode: AdminPromoCodeRecord }>(
+    `/api/admin/promo-codes/${encodeURIComponent(id)}/repair-sync`,
+    { method: 'POST' },
+    token,
+  )
+}
+
+export async function recreateAdminPromoCodeIfMissing(id: string, token: string) {
+  return apiRequest<{ promoCode: AdminPromoCodeRecord }>(
+    `/api/admin/promo-codes/${encodeURIComponent(id)}/recreate-if-missing`,
+    { method: 'POST' },
+    token,
+  )
+}
+
+export async function deactivateAdminPromoCode(id: string, token: string) {
+  return apiRequest<{ promoCode: AdminPromoCodeRecord }>(
+    `/api/admin/promo-codes/${encodeURIComponent(id)}/deactivate`,
+    { method: 'POST' },
+    token,
+  )
+}
+
+export async function archiveAdminPromoCode(id: string, token: string) {
+  return apiRequest<{ promoCode: AdminPromoCodeRecord }>(
+    `/api/admin/promo-codes/${encodeURIComponent(id)}/archive`,
+    { method: 'POST' },
+    token,
+  )
+}

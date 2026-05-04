@@ -14,6 +14,7 @@ import { clerkClient } from '../lib/clerk.js'
 import { dispatchNotification } from './notifications/dispatchNotification.js'
 import { getAffiliateAttributionForUser } from './referrals.js'
 import { recordAffiliateTrackingEvent } from './affiliates/tracking.js'
+import { recordPromoCodeRedemption } from './admin/promoCodes.js'
 
 const stripeClient = env.STRIPE_SECRET_KEY
   ? new Stripe(env.STRIPE_SECRET_KEY, {
@@ -188,6 +189,7 @@ export async function createCheckoutSession(input: {
 
   const session = await stripeClient.checkout.sessions.create({
     mode: 'subscription',
+    allow_promotion_codes: true,
     customer_email: input.email,
     success_url: `${env.APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${env.APP_URL}/subscription?plan=regen&canceled=true`,
@@ -548,8 +550,68 @@ async function activateCheckoutSession(session: Stripe.Checkout.Session) {
   }
 }
 
+function getCheckoutDiscountDetails(session: Stripe.Checkout.Session) {
+  const checkoutSession = session as Stripe.Checkout.Session & {
+    total_details?: {
+      amount_discount?: number | null
+      breakdown?: {
+        discounts?: Array<{
+          amount?: number | null
+          discount?: {
+            coupon?: string | Stripe.Coupon | null
+            promotion_code?: string | Stripe.PromotionCode | null
+          } | null
+        }>
+      } | null
+    } | null
+  }
+  const discount = checkoutSession.total_details?.breakdown?.discounts?.[0]
+  const stripeDiscount = discount?.discount
+  const promotionCode = stripeDiscount?.promotion_code
+  const coupon = stripeDiscount?.coupon
+  const promotionCodeId =
+    typeof promotionCode === 'string' ? promotionCode : promotionCode?.id ?? null
+  const couponId = typeof coupon === 'string' ? coupon : coupon?.id ?? null
+
+  if (!promotionCodeId && !couponId) {
+    return null
+  }
+
+  return {
+    amountDiscounted: discount?.amount ?? checkoutSession.total_details?.amount_discount ?? null,
+    couponId,
+    promotionCodeId,
+  }
+}
+
+async function recordCheckoutPromoCodeRedemption(session: Stripe.Checkout.Session) {
+  const details = getCheckoutDiscountDetails(session)
+
+  if (!details) {
+    return
+  }
+
+  await recordPromoCodeRedemption({
+    amountDiscounted: details.amountDiscounted,
+    currency: session.currency ?? null,
+    stripeCheckoutSessionId: session.id,
+    stripeCouponId: details.couponId,
+    stripeCustomerId:
+      typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null,
+    stripePromotionCodeId: details.promotionCodeId,
+    stripeSubscriptionId:
+      typeof session.subscription === 'string' ? session.subscription : session.subscription?.id ?? null,
+    userId: session.client_reference_id ?? session.metadata?.userId ?? null,
+  })
+}
+
 async function handleCheckoutCompleted(event: Stripe.CheckoutSessionCompletedEvent) {
-  const session = event.data.object
+  const session =
+    stripeClient
+      ? await stripeClient.checkout.sessions.retrieve(event.data.object.id, {
+          expand: ['total_details.breakdown.discounts.discount'],
+        })
+      : event.data.object
   const metadata = session.metadata ?? {}
 
   if (metadata.referral_code && metadata.referrer_user_id) {
@@ -567,6 +629,7 @@ async function handleCheckoutCompleted(event: Stripe.CheckoutSessionCompletedEve
         typeof session.subscription === 'string' ? session.subscription : session.subscription?.id ?? null,
     })
   }
+  await recordCheckoutPromoCodeRedemption(session)
   await activateCheckoutSession(session)
 }
 

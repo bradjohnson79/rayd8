@@ -55,6 +55,21 @@ export const affiliateTrackingResultEnum = pgEnum('affiliate_tracking_result', [
   'warning',
   'error',
 ])
+export const promoCodeDiscountTypeEnum = pgEnum('promo_code_discount_type', ['percent', 'amount'])
+export const promoCodeDurationEnum = pgEnum('promo_code_duration', ['once', 'repeating', 'forever'])
+export const promoCodeAppliesToPlanEnum = pgEnum('promo_code_applies_to_plan', [
+  'regen',
+  'amrita',
+  'all',
+])
+export const promoCodeSyncStatusEnum = pgEnum('promo_code_sync_status', [
+  'synced',
+  'pending',
+  'error',
+  'inactive',
+  'missing',
+  'mismatch',
+])
 
 export const users = pgTable(
   'users',
@@ -239,6 +254,80 @@ export const stripeCheckoutSessions = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex('stripe_checkout_sessions_session_id_idx').on(table.stripeSessionId)],
+)
+
+export const rayd8PromoCodes = pgTable(
+  'rayd8_promo_codes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    discountType: promoCodeDiscountTypeEnum('discount_type').notNull(),
+    percentOff: integer('percent_off'),
+    amountOff: integer('amount_off'),
+    currency: text('currency').notNull().default('usd'),
+    duration: promoCodeDurationEnum('duration').notNull(),
+    durationInMonths: integer('duration_in_months'),
+    maxRedemptions: integer('max_redemptions'),
+    timesRedeemed: integer('times_redeemed').notNull().default(0),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    isActive: boolean('is_active').notNull().default(true),
+    appliesToPlan: promoCodeAppliesToPlanEnum('applies_to_plan').notNull().default('regen'),
+    stripeCouponId: text('stripe_coupon_id'),
+    stripePromotionCodeId: text('stripe_promotion_code_id'),
+    stripeEnvironment: text('stripe_environment').notNull().default('unknown'),
+    stripeSyncStatus: promoCodeSyncStatusEnum('stripe_sync_status').notNull().default('pending'),
+    stripeSyncError: text('stripe_sync_error'),
+    createdByAdminId: text('created_by_admin_id').references(() => users.id),
+    affiliateId: text('affiliate_id'),
+    campaignId: text('campaign_id'),
+    referralSource: text('referral_source'),
+    commissionEligible: boolean('commission_eligible'),
+    commissionStatus: text('commission_status'),
+    payoutBatchId: text('payout_batch_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('rayd8_promo_codes_code_idx').on(table.code),
+    uniqueIndex('rayd8_promo_codes_stripe_coupon_idx').on(table.stripeCouponId),
+    uniqueIndex('rayd8_promo_codes_stripe_promotion_code_idx').on(table.stripePromotionCodeId),
+    index('rayd8_promo_codes_active_idx').on(table.isActive),
+    index('rayd8_promo_codes_sync_status_idx').on(table.stripeSyncStatus),
+    index('rayd8_promo_codes_applies_to_plan_idx').on(table.appliesToPlan),
+    index('rayd8_promo_codes_created_at_idx').on(table.createdAt),
+    index('rayd8_promo_codes_expires_at_idx').on(table.expiresAt),
+  ],
+)
+
+export const rayd8PromoCodeRedemptions = pgTable(
+  'rayd8_promo_code_redemptions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    promoCodeId: uuid('promo_code_id').references(() => rayd8PromoCodes.id),
+    userId: text('user_id').references(() => users.id),
+    code: text('code').notNull(),
+    stripeCouponId: text('stripe_coupon_id'),
+    stripePromotionCodeId: text('stripe_promotion_code_id'),
+    stripeCheckoutSessionId: text('stripe_checkout_session_id'),
+    stripeCustomerId: text('stripe_customer_id'),
+    stripeSubscriptionId: text('stripe_subscription_id'),
+    stripeInvoiceId: text('stripe_invoice_id'),
+    amountDiscounted: integer('amount_discounted'),
+    currency: text('currency').notNull().default('usd'),
+    status: text('status').notNull().default('applied'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('rayd8_promo_redemptions_checkout_idx').on(table.stripeCheckoutSessionId),
+    index('rayd8_promo_redemptions_promo_code_idx').on(table.promoCodeId),
+    index('rayd8_promo_redemptions_user_idx').on(table.userId),
+    index('rayd8_promo_redemptions_code_idx').on(table.code),
+    index('rayd8_promo_redemptions_subscription_idx').on(table.stripeSubscriptionId),
+    index('rayd8_promo_redemptions_created_at_idx').on(table.createdAt),
+  ],
 )
 
 export const archivedAdminOrders = pgTable(

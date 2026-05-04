@@ -19,6 +19,7 @@ const adminItems = [
   { label: 'Affiliates', to: '/admin/affiliates' },
   { label: 'Orders', to: '/admin/orders' },
   { label: 'Subscribers', to: '/admin/subscribers' },
+  { label: 'Promo Codes', to: '/admin/promo-codes' },
   { label: 'Analytics', to: '/admin/analytics' },
   { label: 'Mux', to: '/admin/mux' },
   { label: 'Messages', to: '/admin/messages' },
