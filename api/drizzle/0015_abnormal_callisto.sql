@@ -1,0 +1,1 @@
+ALTER TABLE "user_settings" ADD COLUMN "allow_extended_sessions" boolean DEFAULT false NOT NULL;

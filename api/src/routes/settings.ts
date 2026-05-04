@@ -5,6 +5,7 @@ import { syncUserFromClerk } from '../services/users.js'
 import { sendAuthRequired } from '../http/errors.js'
 
 const settingsSchema = z.object({
+  allowExtendedSessions: z.boolean().default(false),
   amplifierMode: z.enum(['off', '5x', '10x', '20x']),
   blueLightEnabled: z.boolean(),
   circadianEnabled: z.boolean(),

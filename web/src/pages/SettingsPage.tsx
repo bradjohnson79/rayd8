@@ -16,6 +16,11 @@ import {
   type BillingSubscriptionStatus,
   type CancellationReason,
 } from '../services/billing'
+import {
+  getSettings,
+  updateSettings,
+  type UserSettingsPayload,
+} from '../services/settings'
 
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
 
@@ -27,6 +32,15 @@ const cancellationReasonOptions: Array<{ id: CancellationReason; label: string }
   { id: 'found_alternative', label: 'Found alternative' },
   { id: 'other', label: 'Other' },
 ]
+
+const defaultUserSettings: UserSettingsPayload = {
+  allowExtendedSessions: false,
+  amplifierMode: 'off',
+  blueLightEnabled: false,
+  circadianEnabled: false,
+  hasSeenRayd8GuideAt: null,
+  lastSpeedMode: 'standard',
+}
 
 type ClerkFocus = 'profile' | 'security'
 type CancellationStep = 'reasons' | 'confirm'
@@ -116,6 +130,9 @@ export function SettingsPage() {
   const [activeCheckout, setActiveCheckout] = useState(false)
   const [activePortal, setActivePortal] = useState(false)
   const [activeCancellation, setActiveCancellation] = useState(false)
+  const [isLoadingSettings, setIsLoadingSettings] = useState(user.isAuthenticated)
+  const [isSavingExtendedSessions, setIsSavingExtendedSessions] = useState(false)
+  const [userSettings, setUserSettings] = useState<UserSettingsPayload | null>(null)
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [cancelStep, setCancelStep] = useState<CancellationStep>('reasons')
   const [selectedReasons, setSelectedReasons] = useState<CancellationReason[]>([])
@@ -132,6 +149,55 @@ export function SettingsPage() {
   useEffect(() => {
     window.localStorage.setItem(LANGUAGE_PREFERENCE_STORAGE_KEY, language)
   }, [language])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadUserSettings() {
+      if (!user.isAuthenticated) {
+        setUserSettings(null)
+        setIsLoadingSettings(false)
+        return
+      }
+
+      setIsLoadingSettings(true)
+
+      try {
+        const token = await getAuthToken()
+
+        if (!token || cancelled) {
+          if (!cancelled && !token) {
+            setStatusMessage(SESSION_EXPIRED_MESSAGE)
+            setUserSettings(null)
+          }
+          return
+        }
+
+        const response = await getSettings(token)
+
+        if (!cancelled) {
+          setUserSettings(response.settings)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStatusMessage(
+            error instanceof Error ? error.message : 'Unable to load your playback settings.',
+          )
+          setUserSettings(null)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingSettings(false)
+        }
+      }
+    }
+
+    void loadUserSettings()
+
+    return () => {
+      cancelled = true
+    }
+  }, [getAuthToken, user.isAuthenticated])
 
   useEffect(() => {
     let cancelled = false
@@ -270,6 +336,44 @@ export function SettingsPage() {
     }
   }
 
+  async function handleExtendedSessionsToggle() {
+    if (isSavingExtendedSessions) {
+      return
+    }
+
+    setIsSavingExtendedSessions(true)
+    setStatusMessage(null)
+
+    try {
+      const token = await getAuthToken()
+
+      if (!token) {
+        setStatusMessage(SESSION_EXPIRED_MESSAGE)
+        return
+      }
+
+      const currentSettings = userSettings ?? defaultUserSettings
+      const nextSettings = {
+        ...currentSettings,
+        allowExtendedSessions: !currentSettings.allowExtendedSessions,
+      }
+      const response = await updateSettings(nextSettings, token)
+
+      setUserSettings(response.settings)
+      setStatusMessage(
+        response.settings.allowExtendedSessions
+          ? 'Extended sessions enabled. Two-hour pause reminders are disabled.'
+          : 'Extended sessions disabled. Two-hour pause reminders are active.',
+      )
+    } catch (error) {
+      setStatusMessage(
+        error instanceof Error ? error.message : 'Unable to update extended session settings.',
+      )
+    } finally {
+      setIsSavingExtendedSessions(false)
+    }
+  }
+
   async function handleConfirmCancellation() {
     setActiveCancellation(true)
     setCancelValidationMessage(null)
@@ -316,7 +420,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="h-full space-y-6 overflow-y-auto overscroll-y-auto px-4 py-8 sm:px-6 lg:px-8">
       <section className="rounded-[2rem] border border-white/12 bg-white/[0.045] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] backdrop-blur-2xl sm:p-8">
         <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/60">Settings</p>
         <h1 className="mt-3 text-3xl font-semibold text-white">Account management</h1>
@@ -381,6 +485,58 @@ export function SettingsPage() {
             Selected: {LANGUAGE_OPTIONS.find((option) => option.code === language)?.label ?? 'English'}
           </p>
         </div>
+      </section>
+
+      <section className="rounded-[2rem] border border-white/12 bg-white/[0.045] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] backdrop-blur-2xl sm:p-8">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="max-w-3xl">
+            <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/60">
+              Playback preferences
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold text-white">
+              Allow Extended Sessions (Disable 2-Hour Pause Reminder)
+            </h2>
+            <p className="mt-4 text-sm leading-7 text-slate-300">
+              Enable uninterrupted playback for long-duration or overnight sessions.
+            </p>
+            <p className="mt-3 text-sm leading-6 text-slate-400">
+              {userSettings?.allowExtendedSessions
+                ? 'Extended sessions are enabled. RAYD8 will not show the two-hour pause reminder.'
+                : 'Extended sessions are off. RAYD8 will show a two-hour pause reminder during long sessions.'}
+            </p>
+          </div>
+
+          <button
+            aria-pressed={Boolean(userSettings?.allowExtendedSessions)}
+            className={[
+              'relative inline-flex h-12 w-24 shrink-0 items-center rounded-full border p-1 transition disabled:cursor-not-allowed disabled:opacity-60',
+              userSettings?.allowExtendedSessions
+                ? 'border-emerald-200/40 bg-emerald-400/24'
+                : 'border-white/12 bg-white/[0.06]',
+            ].join(' ')}
+            disabled={!user.isAuthenticated || isLoadingSettings || isSavingExtendedSessions}
+            onClick={() => void handleExtendedSessionsToggle()}
+            type="button"
+          >
+            <span
+              className={[
+                'inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-xs font-semibold text-slate-950 shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition-transform',
+                userSettings?.allowExtendedSessions ? 'translate-x-12' : 'translate-x-0',
+              ].join(' ')}
+            >
+              {isSavingExtendedSessions
+                ? '...'
+                : userSettings?.allowExtendedSessions
+                  ? 'On'
+                  : 'Off'}
+            </span>
+          </button>
+        </div>
+        {!user.isAuthenticated ? (
+          <p className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-4 text-sm leading-6 text-amber-100">
+            Sign in to manage extended playback preferences.
+          </p>
+        ) : null}
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">

@@ -76,6 +76,8 @@ interface SessionContextValue extends SessionState, AudioState {
 const HEARTBEAT_MS = 30_000
 const SOFT_DENIAL_EXIT_MS = 3_500
 const UPGRADE_PATH = '/subscription?plan=regen'
+const AUDIO_RECOVERY_COOLDOWN_MS = 5_000
+const AUDIO_HEALTH_CHECK_MS = 20_000
 
 const SessionContext = createContext<SessionContextValue | null>(null)
 
@@ -689,6 +691,10 @@ function GlobalAudioRail({
   const audioControllerRef = useRef<HlsController | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const audioRequestRef = useRef(0)
+  const audioHealthTimerRef = useRef<number | null>(null)
+  const currentAudioSourceUrlRef = useRef<string | null>(null)
+  const lastAudioRecoveryTimestampRef = useRef(0)
+  const lastKnownVolumeRef = useRef(audioVolume)
 
   const currentExperience = useMemo<Experience | null>(
     () => (sessionType ? getExperienceFromSessionType(sessionType) : null),
@@ -721,9 +727,61 @@ function GlobalAudioRail({
       return
     }
 
+    lastKnownVolumeRef.current = audioMuted ? lastKnownVolumeRef.current : audioVolume
     audio.muted = audioMuted
     audio.volume = audioMuted ? 0 : audioVolume
   }, [audioMuted, audioVolume])
+
+  const shouldAudioBePlaying = useCallback(() => {
+    return Boolean(isActive && currentExperience && audioTrack !== 'none')
+  }, [audioTrack, currentExperience, isActive])
+
+  const recoverAudioPlayback = useCallback(
+    async (reason: 'pause' | 'stalled' | 'error' | 'health-check') => {
+      const audio = audioRef.current
+
+      if (!audio || !shouldAudioBePlaying()) {
+        return false
+      }
+
+      const now = Date.now()
+
+      if (now - lastAudioRecoveryTimestampRef.current < AUDIO_RECOVERY_COOLDOWN_MS) {
+        return false
+      }
+
+      lastAudioRecoveryTimestampRef.current = now
+
+      try {
+        if (!audioMuted) {
+          audio.muted = false
+          audio.volume = audio.volume === 0 ? lastKnownVolumeRef.current : audio.volume
+        }
+
+        if (reason === 'error' && currentAudioSourceUrlRef.current) {
+          const storedTime = Number.isFinite(audio.currentTime) ? audio.currentTime : 0
+
+          await setMediaSource(audioControllerRef, audio, currentAudioSourceUrlRef.current)
+
+          try {
+            audio.currentTime = storedTime
+          } catch {
+            // Ignore failed corrective seeks while the audio stream is recovering.
+          }
+
+          if (!audioMuted) {
+            audio.muted = false
+            audio.volume = lastKnownVolumeRef.current
+          }
+        }
+
+        return await tryPlay(audio)
+      } catch {
+        return false
+      }
+    },
+    [audioMuted, shouldAudioBePlaying],
+  )
 
   useEffect(() => {
     if (!isActive || !currentExperience || audioTrack === 'none') {
@@ -766,6 +824,7 @@ function GlobalAudioRail({
           return
         }
 
+        currentAudioSourceUrlRef.current = playback.playback.signed_url
         await setMediaSource(audioControllerRef, audioRef.current, playback.playback.signed_url)
 
         if (audioRef.current) {
@@ -813,8 +872,77 @@ function GlobalAudioRail({
     sessionSource,
   ])
 
+  useEffect(() => {
+    const audio = audioRef.current
+
+    if (!audio) {
+      return
+    }
+
+    const handlePause = () => {
+      if (shouldAudioBePlaying()) {
+        void recoverAudioPlayback('pause')
+      }
+    }
+
+    const handleStall = () => {
+      if (shouldAudioBePlaying()) {
+        void recoverAudioPlayback('stalled')
+      }
+    }
+
+    const handleError = () => {
+      if (shouldAudioBePlaying()) {
+        void recoverAudioPlayback('error')
+      }
+    }
+
+    audio.addEventListener('pause', handlePause)
+    audio.addEventListener('stalled', handleStall)
+    audio.addEventListener('waiting', handleStall)
+    audio.addEventListener('error', handleError)
+
+    return () => {
+      audio.removeEventListener('pause', handlePause)
+      audio.removeEventListener('stalled', handleStall)
+      audio.removeEventListener('waiting', handleStall)
+      audio.removeEventListener('error', handleError)
+    }
+  }, [recoverAudioPlayback, shouldAudioBePlaying])
+
+  useEffect(() => {
+    const checkAudioHealth = () => {
+      const audio = audioRef.current
+
+      if (audio && shouldAudioBePlaying()) {
+        if (!audio.paused && !audioMuted && audio.volume === 0) {
+          audio.volume = lastKnownVolumeRef.current
+        }
+
+        if (audio.paused) {
+          void recoverAudioPlayback('health-check')
+        }
+      }
+
+      audioHealthTimerRef.current = window.setTimeout(checkAudioHealth, AUDIO_HEALTH_CHECK_MS)
+    }
+
+    audioHealthTimerRef.current = window.setTimeout(checkAudioHealth, AUDIO_HEALTH_CHECK_MS)
+
+    return () => {
+      if (audioHealthTimerRef.current !== null) {
+        window.clearTimeout(audioHealthTimerRef.current)
+        audioHealthTimerRef.current = null
+      }
+    }
+  }, [audioMuted, recoverAudioPlayback, shouldAudioBePlaying])
+
   useEffect(
     () => () => {
+      if (audioHealthTimerRef.current !== null) {
+        window.clearTimeout(audioHealthTimerRef.current)
+        audioHealthTimerRef.current = null
+      }
       resetMedia(audioRef.current)
       audioControllerRef.current?.destroy()
       audioControllerRef.current = null
