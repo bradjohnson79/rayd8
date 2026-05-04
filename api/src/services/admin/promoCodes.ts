@@ -571,11 +571,23 @@ export async function archivePromoCode(id: string) {
     throw new Error('Database is not configured.')
   }
 
+  const existing = await getPromoCodeById(id)
+
+  if (!existing) {
+    return null
+  }
+
+  if (stripeClient && existing.stripePromotionCodeId) {
+    await stripeClient.promotionCodes.update(existing.stripePromotionCodeId, { active: false })
+  }
+
   const [record] = await db
     .update(rayd8PromoCodes)
     .set({
       archivedAt: new Date(),
       isActive: false,
+      stripeSyncError: null,
+      stripeSyncStatus: 'inactive',
       updatedAt: new Date(),
     })
     .where(eq(rayd8PromoCodes.id, id))

@@ -8,7 +8,6 @@ import {
   getAdminPromoCodeDetails,
   getAdminPromoCodes,
   recreateAdminPromoCodeIfMissing,
-  updateAdminPromoCode,
   validateAdminPromoCode,
   refreshAdminPromoCodeFromStripe,
   repairAdminPromoCodeSync,
@@ -32,13 +31,6 @@ const defaultFormState = {
   maxRedemptions: '',
   name: '',
   percentOff: '',
-}
-
-const defaultEditFormState = {
-  appliesToPlan: 'regen' as AdminPromoCodePlan,
-  description: '',
-  isActive: true,
-  name: '',
 }
 
 function formatDate(value: string | null) {
@@ -120,9 +112,6 @@ export function AdminPromoCodesPage() {
   const getAuthToken = useAuthToken()
   const [activePromoCode, setActivePromoCode] = useState<AdminPromoCodeRecord | null>(null)
   const [creating, setCreating] = useState(false)
-  const [editFormState, setEditFormState] = useState(defaultEditFormState)
-  const [editingPromoCode, setEditingPromoCode] = useState<AdminPromoCodeRecord | null>(null)
-  const [editSaving, setEditSaving] = useState(false)
   const [environment, setEnvironment] = useState('unknown')
   const [error, setError] = useState<string | null>(null)
   const [formState, setFormState] = useState(defaultFormState)
@@ -266,63 +255,6 @@ export function AdminPromoCodesPage() {
     }
   }
 
-  function openEditModal(promoCode: AdminPromoCodeRecord) {
-    setEditingPromoCode(promoCode)
-    setEditFormState({
-      appliesToPlan: promoCode.applies_to_plan,
-      description: promoCode.description ?? '',
-      isActive: promoCode.is_active,
-      name: promoCode.name,
-    })
-    setError(null)
-    setStatusMessage(null)
-  }
-
-  async function handleSaveEdit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    if (!editingPromoCode) {
-      return
-    }
-
-    setEditSaving(true)
-    setError(null)
-    setStatusMessage(null)
-
-    try {
-      const token = await getAuthToken()
-
-      if (!token) {
-        throw new Error('Authentication token missing for promo code update.')
-      }
-
-      const response = await updateAdminPromoCode(
-        editingPromoCode.id,
-        {
-          appliesToPlan: editFormState.appliesToPlan,
-          description: editFormState.description || null,
-          isActive: editFormState.isActive,
-          name: editFormState.name,
-        },
-        token,
-      )
-
-      setEditingPromoCode(null)
-      setStatusMessage(
-        `${response.promoCode.code} was updated locally and synced to Stripe where Stripe allows changes.`,
-      )
-      await loadPromoCodes()
-
-      if (activePromoCode?.id === editingPromoCode.id) {
-        await loadDetails(response.promoCode)
-      }
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Unable to update promo code.')
-    } finally {
-      setEditSaving(false)
-    }
-  }
-
   async function runAction(
     action: 'archive' | 'deactivate' | 'recreate' | 'refresh' | 'repair' | 'validate',
     promoCode: AdminPromoCodeRecord,
@@ -371,8 +303,16 @@ export function AdminPromoCodesPage() {
       }
 
       if (action === 'archive') {
+        const confirmed = window.confirm(
+          `Archive ${promoCode.code}? This will deactivate it in Stripe and hide it from the active promo code table.`,
+        )
+
+        if (!confirmed) {
+          return
+        }
+
         const response = await archiveAdminPromoCode(promoCode.id, token)
-        setStatusMessage(`${response.promoCode.code} was archived locally.`)
+        setStatusMessage(`${response.promoCode.code} was deactivated in Stripe and archived locally.`)
       }
 
       await loadPromoCodes()
@@ -406,120 +346,6 @@ export function AdminPromoCodesPage() {
       {statusMessage ? (
         <div className="rounded-[1.75rem] border border-white/12 bg-white/[0.045] p-4 text-sm text-slate-200 shadow-[0_18px_60px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
           {statusMessage}
-        </div>
-      ) : null}
-
-      {editingPromoCode ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 p-4 backdrop-blur-md sm:items-center">
-          <form
-            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] border border-white/12 bg-slate-950/88 p-5 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl"
-            onSubmit={(event) => void handleSaveEdit(event)}
-          >
-            <div className="flex flex-col gap-4 border-b border-white/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.28em] text-violet-200/65">Edit Promo Code</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">{editingPromoCode.code}</h2>
-                <p className="mt-2 text-sm text-slate-400">
-                  {formatDiscount(editingPromoCode)} • {editingPromoCode.duration}
-                  {editingPromoCode.duration_in_months ? ` • ${editingPromoCode.duration_in_months} months` : ''}
-                </p>
-              </div>
-              <button
-                className="rounded-2xl border border-white/12 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/10"
-                onClick={() => setEditingPromoCode(null)}
-                type="button"
-              >
-                Cancel
-              </button>
-            </div>
-
-            <div className="mt-5 rounded-2xl border border-amber-200/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-50">
-              Stripe does not allow promo code text, discount type, discount value, or duration to be safely changed after creation.
-              Archive this code and create a new one if one of those values needs to change.
-            </div>
-
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <FieldWithHelp help="Internal or display name for this promo code." label="Name">
-                <input
-                  className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
-                  onChange={(event) => setEditFormState((value) => ({ ...value, name: event.target.value }))}
-                  required
-                  value={editFormState.name}
-                />
-              </FieldWithHelp>
-              <FieldWithHelp help="Set whether Stripe should currently accept this promotion code." label="Active Status">
-                <select
-                  className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-violet-200/60"
-                  onChange={(event) => setEditFormState((value) => ({ ...value, isActive: event.target.value === 'true' }))}
-                  value={String(editFormState.isActive)}
-                >
-                  <option value="true">Active</option>
-                  <option value="false">Inactive</option>
-                </select>
-              </FieldWithHelp>
-              <FieldWithHelp help="Local plan association used for admin organization and Stripe metadata." label="Product / Plan">
-                <select
-                  className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-violet-200/60"
-                  onChange={(event) =>
-                    setEditFormState((value) => ({
-                      ...value,
-                      appliesToPlan: event.target.value as AdminPromoCodePlan,
-                    }))
-                  }
-                  value={editFormState.appliesToPlan}
-                >
-                  <option value="regen">REGEN</option>
-                  <option value="amrita">AMRITA future</option>
-                  <option value="all">All future plans</option>
-                </select>
-              </FieldWithHelp>
-              <FieldWithHelp help="Stripe does not allow max redemptions to be changed after creation in this integration." label="Max Redemptions">
-                <input
-                  className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-400 outline-none disabled:opacity-70"
-                  disabled
-                  value={editingPromoCode.max_redemptions ?? 'Unlimited'}
-                />
-              </FieldWithHelp>
-              <FieldWithHelp help="Stripe does not allow redeem-by date to be changed after creation in this integration." label="Redeem By">
-                <input
-                  className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-400 outline-none disabled:opacity-70"
-                  disabled
-                  value={formatDate(editingPromoCode.expires_at)}
-                />
-              </FieldWithHelp>
-              <FieldWithHelp help="Optional internal notes about campaign details or contributor tier." label="Description / Campaign Notes" className="md:col-span-2">
-                <textarea
-                  className="min-h-28 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
-                  onChange={(event) => setEditFormState((value) => ({ ...value, description: event.target.value }))}
-                  value={editFormState.description}
-                />
-              </FieldWithHelp>
-            </div>
-
-            <div className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300 md:grid-cols-2">
-              <p>Stripe coupon ID: {editingPromoCode.stripe_coupon_id ?? 'Missing'}</p>
-              <p>Stripe promotion ID: {editingPromoCode.stripe_promotion_code_id ?? 'Missing'}</p>
-              <p>Code: {editingPromoCode.code}</p>
-              <p>Duration: {editingPromoCode.duration}</p>
-            </div>
-
-            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                className="rounded-2xl border border-white/12 px-4 py-3 text-sm text-slate-200 transition hover:bg-white/10"
-                onClick={() => setEditingPromoCode(null)}
-                type="button"
-              >
-                Cancel
-              </button>
-              <button
-                className="rounded-2xl border border-emerald-200/30 bg-emerald-300/16 px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-300/22 disabled:cursor-not-allowed disabled:opacity-55"
-                disabled={editSaving}
-                type="submit"
-              >
-                {editSaving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </form>
         </div>
       ) : null}
 
@@ -784,7 +610,6 @@ export function AdminPromoCodesPage() {
                     <td className="px-5 py-4">{formatDate(promoCode.expires_at)}</td>
                     <td className="px-5 py-4">
                       <div className="flex flex-wrap gap-2">
-                        <button className="rounded-xl border border-white/12 px-3 py-2 text-xs text-white hover:bg-white/10" onClick={() => openEditModal(promoCode)} type="button">Edit</button>
                         <button className="rounded-xl border border-white/12 px-3 py-2 text-xs text-white hover:bg-white/10" onClick={() => void runAction('validate', promoCode)} type="button">Validate</button>
                         <button className="rounded-xl border border-white/12 px-3 py-2 text-xs text-white hover:bg-white/10" onClick={() => void runAction('refresh', promoCode)} type="button">Refresh</button>
                         <button className="rounded-xl border border-white/12 px-3 py-2 text-xs text-white hover:bg-white/10" onClick={() => void runAction('repair', promoCode)} type="button">Repair</button>
