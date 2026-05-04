@@ -313,6 +313,7 @@ export const rayd8PromoCodeRedemptions = pgTable(
     stripePromotionCodeId: text('stripe_promotion_code_id'),
     stripeCheckoutSessionId: text('stripe_checkout_session_id'),
     stripeCustomerId: text('stripe_customer_id'),
+    customerEmail: text('customer_email'),
     stripeSubscriptionId: text('stripe_subscription_id'),
     stripeInvoiceId: text('stripe_invoice_id'),
     amountDiscounted: integer('amount_discounted'),
@@ -322,6 +323,10 @@ export const rayd8PromoCodeRedemptions = pgTable(
   },
   (table) => [
     uniqueIndex('rayd8_promo_redemptions_checkout_idx').on(table.stripeCheckoutSessionId),
+    uniqueIndex('rayd8_promo_redemptions_subscription_promo_idx').on(
+      table.stripeSubscriptionId,
+      table.promoCodeId,
+    ),
     index('rayd8_promo_redemptions_promo_code_idx').on(table.promoCodeId),
     index('rayd8_promo_redemptions_user_idx').on(table.userId),
     index('rayd8_promo_redemptions_code_idx').on(table.code),

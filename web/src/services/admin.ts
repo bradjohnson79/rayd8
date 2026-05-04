@@ -849,6 +849,7 @@ export interface AdminPromoCodeRedemptionRecord {
   code: string
   created_at: string
   currency: string
+  customer_email: string | null
   id: string
   status: string
   stripe_checkout_session_id: string | null
@@ -933,7 +934,9 @@ export async function getAdminPromoCodeDetails(id: string, token: string) {
 export async function updateAdminPromoCode(
   id: string,
   payload: {
+    appliesToPlan?: AdminPromoCodePlan
     description?: string | null
+    isActive?: boolean
     name?: string
   },
   token: string,

@@ -120,6 +120,13 @@
       "when": 1777926835856,
       "tag": "0016_happy_arachne",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1777933996755,
+      "tag": "0017_wealthy_lady_mastermind",
+      "breakpoints": true
     }
   ]
 }

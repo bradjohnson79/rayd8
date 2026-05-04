@@ -1,4 +1,4 @@
-import { desc, eq, isNull, or } from 'drizzle-orm'
+import { and, count, desc, eq, or } from 'drizzle-orm'
 import Stripe from 'stripe'
 import { db } from '../../db/client.js'
 import { rayd8PromoCodeRedemptions, rayd8PromoCodes } from '../../db/schema.js'
@@ -46,6 +46,7 @@ export interface AdminPromoCodeRedemptionRecord {
   code: string
   created_at: string
   currency: string
+  customer_email: string | null
   id: string
   status: string
   stripe_checkout_session_id: string | null
@@ -76,7 +77,9 @@ export interface CreatePromoCodeInput {
 }
 
 export interface UpdatePromoCodeInput {
+  appliesToPlan?: PromoCodePlan
   description?: string | null
+  isActive?: boolean
   name?: string
 }
 
@@ -134,7 +137,10 @@ function parseDate(value?: string | null) {
   return date
 }
 
-function serializePromoCode(row: typeof rayd8PromoCodes.$inferSelect): AdminPromoCodeRecord {
+function serializePromoCode(
+  row: typeof rayd8PromoCodes.$inferSelect,
+  redemptionCount = row.timesRedeemed,
+): AdminPromoCodeRecord {
   return {
     amount_off: row.amountOff,
     applies_to_plan: row.appliesToPlan,
@@ -157,7 +163,7 @@ function serializePromoCode(row: typeof rayd8PromoCodes.$inferSelect): AdminProm
     stripe_promotion_code_id: row.stripePromotionCodeId,
     stripe_sync_error: row.stripeSyncError,
     stripe_sync_status: row.stripeSyncStatus,
-    times_redeemed: row.timesRedeemed,
+    times_redeemed: redemptionCount,
     updated_at: row.updatedAt.toISOString(),
   }
 }
@@ -170,6 +176,7 @@ function serializeRedemption(
     code: row.code,
     created_at: row.createdAt.toISOString(),
     currency: row.currency,
+    customer_email: row.customerEmail,
     id: row.id,
     status: row.status,
     stripe_checkout_session_id: row.stripeCheckoutSessionId,
@@ -251,6 +258,39 @@ async function getPromoCodeById(id: string) {
   return record ?? null
 }
 
+async function getRedemptionCountsByPromoCodeId() {
+  if (!db) {
+    return new Map<string, number>()
+  }
+
+  const rows = await db
+    .select({
+      count: count(),
+      promoCodeId: rayd8PromoCodeRedemptions.promoCodeId,
+    })
+    .from(rayd8PromoCodeRedemptions)
+    .groupBy(rayd8PromoCodeRedemptions.promoCodeId)
+
+  return new Map(
+    rows
+      .filter((row): row is { count: number; promoCodeId: string } => Boolean(row.promoCodeId))
+      .map((row) => [row.promoCodeId, row.count]),
+  )
+}
+
+async function getRedemptionCountForPromoCode(promoCodeId: string) {
+  if (!db) {
+    return 0
+  }
+
+  const [row] = await db
+    .select({ count: count() })
+    .from(rayd8PromoCodeRedemptions)
+    .where(eq(rayd8PromoCodeRedemptions.promoCodeId, promoCodeId))
+
+  return row?.count ?? 0
+}
+
 export async function listPromoCodes(input: ListPromoCodesInput = {}) {
   if (!db) {
     return {
@@ -269,6 +309,7 @@ export async function listPromoCodes(input: ListPromoCodesInput = {}) {
   }
 
   const rows = await db.select().from(rayd8PromoCodes).orderBy(desc(rayd8PromoCodes.createdAt))
+  const redemptionCounts = await getRedemptionCountsByPromoCodeId()
   const now = Date.now()
   const query = input.query?.trim().toLowerCase()
   const status = input.status ?? 'all'
@@ -313,7 +354,7 @@ export async function listPromoCodes(input: ListPromoCodesInput = {}) {
       case 'expires':
         return (left.expiresAt?.getTime() ?? Number.MAX_SAFE_INTEGER) - (right.expiresAt?.getTime() ?? Number.MAX_SAFE_INTEGER)
       case 'redemptions':
-        return right.timesRedeemed - left.timesRedeemed
+        return (redemptionCounts.get(right.id) ?? 0) - (redemptionCounts.get(left.id) ?? 0)
       case 'status':
         return left.stripeSyncStatus.localeCompare(right.stripeSyncStatus)
       default:
@@ -323,7 +364,7 @@ export async function listPromoCodes(input: ListPromoCodesInput = {}) {
 
   return {
     environment: stripeEnvironment(),
-    promoCodes: sorted.map(serializePromoCode),
+    promoCodes: sorted.map((row) => serializePromoCode(row, redemptionCounts.get(row.id) ?? 0)),
     summary: {
       active: rows.filter((row) => row.isActive && !row.archivedAt && (!row.expiresAt || row.expiresAt.getTime() > now)).length,
       archived: rows.filter((row) => row.archivedAt).length,
@@ -331,7 +372,7 @@ export async function listPromoCodes(input: ListPromoCodesInput = {}) {
       expired: rows.filter((row) => row.expiresAt && row.expiresAt.getTime() <= now).length,
       inactive: rows.filter((row) => !row.isActive && !row.archivedAt).length,
       total: rows.length,
-      totalRedemptions: rows.reduce((total, row) => total + row.timesRedeemed, 0),
+      totalRedemptions: [...redemptionCounts.values()].reduce((total, value) => total + value, 0),
     },
   }
 }
@@ -434,7 +475,7 @@ export async function getPromoCodeDetails(id: string) {
     .limit(25)
 
   return {
-    promoCode: serializePromoCode(promoCode),
+    promoCode: serializePromoCode(promoCode, await getRedemptionCountForPromoCode(promoCode.id)),
     redemptions: redemptions.map(serializeRedemption),
   }
 }
@@ -452,6 +493,8 @@ export async function updatePromoCode(id: string, input: UpdatePromoCodeInput) {
 
   const name = input.name?.trim()
   const description = input.description === undefined ? existing.description : input.description?.trim() || null
+  const appliesToPlan = input.appliesToPlan ?? existing.appliesToPlan
+  const isActive = input.isActive ?? existing.isActive
 
   if (name !== undefined && !name) {
     throw new Error('Promo code name cannot be empty.')
@@ -460,17 +503,32 @@ export async function updatePromoCode(id: string, input: UpdatePromoCodeInput) {
   if (stripeClient && existing.stripeCouponId) {
     await stripeClient.coupons.update(existing.stripeCouponId, {
       metadata: {
+        rayd8_applies_to_plan: appliesToPlan,
         rayd8_description: description ?? '',
       },
       name: name ?? existing.name,
     })
   }
 
+  if (stripeClient && existing.stripePromotionCodeId) {
+    await stripeClient.promotionCodes.update(existing.stripePromotionCodeId, {
+      active: isActive,
+      metadata: {
+        rayd8_applies_to_plan: appliesToPlan,
+        rayd8_code: existing.code,
+        rayd8_description: description ?? '',
+      },
+    })
+  }
+
   const [record] = await db
     .update(rayd8PromoCodes)
     .set({
+      appliesToPlan,
       description,
+      isActive,
       name: name ?? existing.name,
+      stripeSyncStatus: isActive ? existing.stripeSyncStatus : 'inactive',
       updatedAt: new Date(),
     })
     .where(eq(rayd8PromoCodes.id, id))
@@ -544,6 +602,7 @@ export async function validatePromoCodeWithStripe(id: string): Promise<AdminProm
   const messages: string[] = []
   let status: PromoCodeSyncStatus = 'synced'
   let stripeSyncError: string | null = null
+  const localRedemptionCount = await getRedemptionCountForPromoCode(existing.id)
 
   try {
     if (!existing.stripeCouponId || !existing.stripePromotionCodeId) {
@@ -610,6 +669,13 @@ export async function validatePromoCodeWithStripe(id: string): Promise<AdminProm
         messages.push('Promotion code expiration does not match local record.')
       }
 
+      if ((promotionCode.times_redeemed ?? 0) !== localRedemptionCount) {
+        status = 'mismatch'
+        messages.push(
+          `Stripe reports ${promotionCode.times_redeemed ?? 0} redemption(s), but the local database has ${localRedemptionCount} recorded redemption row(s). Review webhook delivery; no customer rows were fabricated from aggregate Stripe counts.`,
+        )
+      }
+
       await db
         .update(rayd8PromoCodes)
         .set({
@@ -617,7 +683,7 @@ export async function validatePromoCodeWithStripe(id: string): Promise<AdminProm
           stripeEnvironment: stripeEnvironment(),
           stripeSyncError: messages.length ? messages.join(' ') : null,
           stripeSyncStatus: status,
-          timesRedeemed: promotionCode.times_redeemed ?? 0,
+          timesRedeemed: localRedemptionCount,
           updatedAt: new Date(),
         })
         .where(eq(rayd8PromoCodes.id, id))
@@ -692,6 +758,7 @@ export async function repairPromoCodeSync(id: string) {
 
   const coupon = retrievedCoupon as Stripe.Coupon
   const promotionCode = await stripeClient.promotionCodes.retrieve(existing.stripePromotionCodeId)
+  const localRedemptionCount = await getRedemptionCountForPromoCode(existing.id)
   const [record] = await db
     .update(rayd8PromoCodes)
     .set({
@@ -708,7 +775,7 @@ export async function repairPromoCodeSync(id: string) {
       stripeEnvironment: stripeEnvironment(),
       stripeSyncError: null,
       stripeSyncStatus: promotionCode.active ? 'synced' : 'inactive',
-      timesRedeemed: promotionCode.times_redeemed ?? 0,
+      timesRedeemed: localRedemptionCount,
       updatedAt: new Date(),
     })
     .where(eq(rayd8PromoCodes.id, id))
@@ -790,6 +857,7 @@ export async function recordPromoCodeRedemption(input: {
   amountDiscounted?: number | null
   code?: string | null
   currency?: string | null
+  customerEmail?: string | null
   stripeCheckoutSessionId?: string | null
   stripeCouponId?: string | null
   stripeCustomerId?: string | null
@@ -820,12 +888,47 @@ export async function recordPromoCodeRedemption(input: {
     return
   }
 
-  await db
+  if (!input.stripeCheckoutSessionId && input.stripeSubscriptionId) {
+    const [existingRedemption] = await db
+      .select({ id: rayd8PromoCodeRedemptions.id })
+      .from(rayd8PromoCodeRedemptions)
+      .where(
+        and(
+          eq(rayd8PromoCodeRedemptions.promoCodeId, promoCode.id),
+          eq(rayd8PromoCodeRedemptions.stripeSubscriptionId, input.stripeSubscriptionId),
+        ),
+      )
+      .limit(1)
+
+    if (existingRedemption) {
+      return
+    }
+  }
+
+  if (!input.stripeCheckoutSessionId && !input.stripeSubscriptionId && input.stripeInvoiceId) {
+    const [existingRedemption] = await db
+      .select({ id: rayd8PromoCodeRedemptions.id })
+      .from(rayd8PromoCodeRedemptions)
+      .where(
+        and(
+          eq(rayd8PromoCodeRedemptions.promoCodeId, promoCode.id),
+          eq(rayd8PromoCodeRedemptions.stripeInvoiceId, input.stripeInvoiceId),
+        ),
+      )
+      .limit(1)
+
+    if (existingRedemption) {
+      return
+    }
+  }
+
+  const inserted = await db
     .insert(rayd8PromoCodeRedemptions)
     .values({
       amountDiscounted: input.amountDiscounted ?? null,
       code: promoCode.code,
       currency: input.currency ?? promoCode.currency,
+      customerEmail: input.customerEmail ?? null,
       promoCodeId: promoCode.id,
       stripeCheckoutSessionId: input.stripeCheckoutSessionId ?? null,
       stripeCouponId: input.stripeCouponId ?? promoCode.stripeCouponId,
@@ -836,11 +939,17 @@ export async function recordPromoCodeRedemption(input: {
       userId: input.userId ?? null,
     })
     .onConflictDoNothing()
+    .returning({ id: rayd8PromoCodeRedemptions.id })
 
+  if (inserted.length === 0) {
+    return
+  }
+
+  const localRedemptionCount = await getRedemptionCountForPromoCode(promoCode.id)
   await db
     .update(rayd8PromoCodes)
     .set({
-      timesRedeemed: promoCode.timesRedeemed + 1,
+      timesRedeemed: localRedemptionCount,
       updatedAt: new Date(),
     })
     .where(eq(rayd8PromoCodes.id, promoCode.id))

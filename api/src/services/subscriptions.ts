@@ -550,38 +550,111 @@ async function activateCheckoutSession(session: Stripe.Checkout.Session) {
   }
 }
 
-function getCheckoutDiscountDetails(session: Stripe.Checkout.Session) {
-  const checkoutSession = session as Stripe.Checkout.Session & {
-    total_details?: {
-      amount_discount?: number | null
-      breakdown?: {
-        discounts?: Array<{
-          amount?: number | null
-          discount?: {
-            coupon?: string | Stripe.Coupon | null
-            promotion_code?: string | Stripe.PromotionCode | null
-          } | null
-        }>
-      } | null
-    } | null
+function asRecord(value: unknown) {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null
+}
+
+function getStripeObjectId(value: unknown) {
+  if (typeof value === 'string') {
+    return value
   }
-  const discount = checkoutSession.total_details?.breakdown?.discounts?.[0]
-  const stripeDiscount = discount?.discount
-  const promotionCode = stripeDiscount?.promotion_code
-  const coupon = stripeDiscount?.coupon
-  const promotionCodeId =
-    typeof promotionCode === 'string' ? promotionCode : promotionCode?.id ?? null
-  const couponId = typeof coupon === 'string' ? coupon : coupon?.id ?? null
+
+  const record = asRecord(value)
+  return typeof record?.id === 'string' ? record.id : null
+}
+
+function getAmountDiscounted(value: unknown) {
+  const record = asRecord(value)
+  const amount = record?.amount
+  return typeof amount === 'number' ? amount : null
+}
+
+function extractDiscountDetails(discount: unknown, amountDiscounted?: number | null) {
+  const record = asRecord(discount)
+
+  if (!record) {
+    return null
+  }
+
+  const source = asRecord(record.source)
+  const promotionCodeId = getStripeObjectId(record.promotion_code)
+  const couponId = getStripeObjectId(record.coupon) ?? getStripeObjectId(source?.coupon)
 
   if (!promotionCodeId && !couponId) {
     return null
   }
 
   return {
-    amountDiscounted: discount?.amount ?? checkoutSession.total_details?.amount_discount ?? null,
+    amountDiscounted: amountDiscounted ?? null,
     couponId,
     promotionCodeId,
   }
+}
+
+function getFirstDiscountDetailsFromArray(value: unknown, amountDiscounted?: number | null) {
+  if (!Array.isArray(value)) {
+    return null
+  }
+
+  for (const item of value) {
+    const itemRecord = asRecord(item)
+    const nestedDiscount = itemRecord?.discount ?? item
+    const nestedAmount = getAmountDiscounted(item) ?? amountDiscounted ?? null
+    const details = extractDiscountDetails(nestedDiscount, nestedAmount)
+
+    if (details) {
+      return details
+    }
+  }
+
+  return null
+}
+
+function getCheckoutDiscountDetails(session: Stripe.Checkout.Session) {
+  const checkoutSession = session as Stripe.Checkout.Session & {
+    discount?: unknown
+    discounts?: unknown
+    subscription?: unknown
+  }
+  const totalDetails = asRecord(checkoutSession.total_details)
+  const totalAmountDiscounted =
+    typeof totalDetails?.amount_discount === 'number' ? totalDetails.amount_discount : null
+  const breakdown = asRecord(totalDetails?.breakdown)
+  const fromBreakdown = getFirstDiscountDetailsFromArray(
+    breakdown?.discounts,
+    totalAmountDiscounted,
+  )
+
+  if (fromBreakdown) {
+    return fromBreakdown
+  }
+
+  const fromSessionDiscounts = getFirstDiscountDetailsFromArray(
+    checkoutSession.discounts,
+    totalAmountDiscounted,
+  )
+
+  if (fromSessionDiscounts) {
+    return fromSessionDiscounts
+  }
+
+  const fromSessionDiscount = extractDiscountDetails(checkoutSession.discount, totalAmountDiscounted)
+
+  if (fromSessionDiscount) {
+    return fromSessionDiscount
+  }
+
+  const subscription = asRecord(checkoutSession.subscription)
+  const fromSubscriptionDiscounts = getFirstDiscountDetailsFromArray(
+    subscription?.discounts,
+    totalAmountDiscounted,
+  )
+
+  if (fromSubscriptionDiscounts) {
+    return fromSubscriptionDiscounts
+  }
+
+  return extractDiscountDetails(subscription?.discount, totalAmountDiscounted)
 }
 
 async function recordCheckoutPromoCodeRedemption(session: Stripe.Checkout.Session) {
@@ -594,6 +667,7 @@ async function recordCheckoutPromoCodeRedemption(session: Stripe.Checkout.Sessio
   await recordPromoCodeRedemption({
     amountDiscounted: details.amountDiscounted,
     currency: session.currency ?? null,
+    customerEmail: session.customer_details?.email ?? session.customer_email ?? null,
     stripeCheckoutSessionId: session.id,
     stripeCouponId: details.couponId,
     stripeCustomerId:
@@ -605,13 +679,105 @@ async function recordCheckoutPromoCodeRedemption(session: Stripe.Checkout.Sessio
   })
 }
 
+function getInvoiceDiscountAmount(invoice: Stripe.Invoice) {
+  const invoiceRecord = invoice as Stripe.Invoice & {
+    total_discount_amounts?: Array<{ amount?: number | null }> | null
+  }
+
+  return (
+    invoiceRecord.total_discount_amounts?.reduce((total, item) => total + (item.amount ?? 0), 0) ??
+    null
+  )
+}
+
+function getInvoiceDiscountDetails(invoice: Stripe.Invoice, subscription: Stripe.Subscription) {
+  const amountDiscounted = getInvoiceDiscountAmount(invoice)
+  const invoiceRecord = invoice as Stripe.Invoice & {
+    discount?: unknown
+    discounts?: unknown
+  }
+  const fromInvoiceDiscounts = getFirstDiscountDetailsFromArray(
+    invoiceRecord.discounts,
+    amountDiscounted,
+  )
+
+  if (fromInvoiceDiscounts) {
+    return fromInvoiceDiscounts
+  }
+
+  const fromInvoiceDiscount = extractDiscountDetails(invoiceRecord.discount, amountDiscounted)
+
+  if (fromInvoiceDiscount) {
+    return fromInvoiceDiscount
+  }
+
+  const subscriptionRecord = subscription as Stripe.Subscription & {
+    discount?: unknown
+    discounts?: unknown
+  }
+  const fromSubscriptionDiscounts = getFirstDiscountDetailsFromArray(
+    subscriptionRecord.discounts,
+    amountDiscounted,
+  )
+
+  if (fromSubscriptionDiscounts) {
+    return fromSubscriptionDiscounts
+  }
+
+  return extractDiscountDetails(subscriptionRecord.discount, amountDiscounted)
+}
+
+async function recordInvoicePromoCodeRedemption(input: {
+  invoice: Stripe.Invoice
+  subscription: Stripe.Subscription
+  userEmail?: string | null
+  userId?: string | null
+}) {
+  const details = getInvoiceDiscountDetails(input.invoice, input.subscription)
+
+  if (!details) {
+    return
+  }
+
+  await recordPromoCodeRedemption({
+    amountDiscounted: details.amountDiscounted,
+    currency: input.invoice.currency ?? null,
+    customerEmail: input.userEmail ?? null,
+    stripeCouponId: details.couponId,
+    stripeCustomerId:
+      typeof input.invoice.customer === 'string'
+        ? input.invoice.customer
+        : input.invoice.customer?.id ?? null,
+    stripeInvoiceId: input.invoice.id,
+    stripePromotionCodeId: details.promotionCodeId,
+    stripeSubscriptionId: input.subscription.id,
+    userId: input.userId ?? null,
+  })
+}
+
 async function handleCheckoutCompleted(event: Stripe.CheckoutSessionCompletedEvent) {
-  const session =
-    stripeClient
-      ? await stripeClient.checkout.sessions.retrieve(event.data.object.id, {
-          expand: ['total_details.breakdown.discounts.discount'],
-        })
-      : event.data.object
+  let session = event.data.object
+
+  if (stripeClient) {
+    try {
+      session = await stripeClient.checkout.sessions.retrieve(event.data.object.id, {
+        expand: [
+          'discounts',
+          'discounts.coupon',
+          'discounts.promotion_code',
+          'subscription',
+          'subscription.discounts',
+          'subscription.discounts.promotion_code',
+          'total_details.breakdown.discounts.discount',
+          'total_details.breakdown.discounts.discount.promotion_code',
+        ],
+      })
+    } catch {
+      session = await stripeClient.checkout.sessions.retrieve(event.data.object.id, {
+        expand: ['subscription'],
+      })
+    }
+  }
   const metadata = session.metadata ?? {}
 
   if (metadata.referral_code && metadata.referrer_user_id) {
@@ -787,6 +953,13 @@ async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceed
     existingSubscription?.plan ??
     'regen'
 
+  await recordInvoicePromoCodeRedemption({
+    invoice,
+    subscription,
+    userEmail: userContext?.email ?? null,
+    userId,
+  })
+
   await createAffiliateCommissionForSubscriptionCreate({
     affiliateUserIdFromMetadata: subscription.metadata.referrer_user_id ?? null,
     billingReason: invoice.billing_reason,
@@ -883,6 +1056,9 @@ export async function processStripeEvent(event: Stripe.Event) {
       break
     case 'invoice.payment_succeeded':
       await handleInvoicePaymentSucceeded(event as Stripe.InvoicePaymentSucceededEvent)
+      break
+    case 'invoice.paid':
+      await handleInvoicePaymentSucceeded(event as unknown as Stripe.InvoicePaymentSucceededEvent)
       break
     case 'invoice.payment_failed':
       await handleInvoicePaymentFailed(event as Stripe.InvoicePaymentFailedEvent)

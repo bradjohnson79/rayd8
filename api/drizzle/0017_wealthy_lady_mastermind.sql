@@ -1,0 +1,2 @@
+ALTER TABLE "rayd8_promo_code_redemptions" ADD COLUMN "customer_email" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "rayd8_promo_redemptions_subscription_promo_idx" ON "rayd8_promo_code_redemptions" USING btree ("stripe_subscription_id","promo_code_id");

@@ -50,7 +50,9 @@ const createPromoCodeSchema = z.object({
 })
 
 const updatePromoCodeSchema = z.object({
+  appliesToPlan: z.enum(['regen', 'amrita', 'all']).optional(),
   description: z.string().max(1000).optional().nullable(),
+  isActive: z.boolean().optional(),
   name: z.string().min(1).max(120).optional(),
 })
 
