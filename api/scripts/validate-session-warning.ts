@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  getConsecutivePlaybackStartTime,
   shouldTriggerSessionWarning,
   TWO_HOURS_MS,
 } from '../../web/src/features/rayd8-player/sessionWarning.ts'
@@ -56,6 +57,50 @@ assert.equal(
   }),
   false,
   'missing session start time must not trigger',
+)
+
+assert.equal(
+  getConsecutivePlaybackStartTime({
+    allowExtendedSessions: false,
+    now: startTime,
+    playbackState: 'playing',
+    sessionStartTime: null,
+  }),
+  startTime,
+  'consecutive timer should start when playback begins',
+)
+
+assert.equal(
+  getConsecutivePlaybackStartTime({
+    allowExtendedSessions: false,
+    now: startTime + 30_000,
+    playbackState: 'playing',
+    sessionStartTime: startTime,
+  }),
+  startTime,
+  'consecutive timer should preserve the original start while playback continues',
+)
+
+assert.equal(
+  getConsecutivePlaybackStartTime({
+    allowExtendedSessions: false,
+    now: startTime + 30_000,
+    playbackState: 'recovering',
+    sessionStartTime: startTime,
+  }),
+  null,
+  'consecutive timer should reset when playback is not actively playing',
+)
+
+assert.equal(
+  getConsecutivePlaybackStartTime({
+    allowExtendedSessions: true,
+    now: startTime,
+    playbackState: 'playing',
+    sessionStartTime: startTime,
+  }),
+  null,
+  'extended sessions should bypass consecutive warning timing',
 )
 
 console.log('Session warning timing checks passed.')

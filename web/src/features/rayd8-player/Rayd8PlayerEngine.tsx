@@ -4,7 +4,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
   type MutableRefObject,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -12,6 +11,14 @@ import {
 import type { SessionType } from '../../app/types'
 import { ConfirmModal } from '../../components/ConfirmModal'
 import { GuideModal } from './GuideModal'
+import { PlayerPerformanceNotice } from './PlayerPerformanceNotice'
+import {
+  InteractionRequiredOverlay,
+  PreloadOverlay,
+  UsageWarningOverlay,
+} from './PlayerSessionStatusOverlays'
+import { VideoSurface } from './VideoSurface'
+import { acquireBodyScrollLock } from './bodyScrollLock'
 import {
   formatRuntimeClock,
   formatRuntimeLimit,
@@ -47,7 +54,18 @@ import { useAuthUser } from '../dashboard/useAuthUser'
 import { CloseButton } from '../player/CloseButton'
 import { OverlayLayer } from '../player/OverlayLayer'
 import { useSession } from '../session/SessionProvider'
-import { shouldTriggerSessionWarning } from './sessionWarning'
+import {
+  addTrackedDomEventListener,
+  addTrackedEventListener,
+  recordHlsController,
+  recordPlayerRender,
+  recordSourceLoad,
+  recordVideoMount,
+} from './playerDiagnostics'
+import {
+  getConsecutivePlaybackStartTime,
+  shouldTriggerSessionWarning,
+} from './sessionWarning'
 
 const defaultSessionConfig: LastSessionConfig = {
   videoMode: DEFAULT_FREE_TRIAL_VIDEO_MODE,
@@ -129,7 +147,13 @@ function persistLastSessionConfig(nextValue: LastSessionConfig) {
     return
   }
 
-  window.localStorage.setItem(LAST_SESSION_STORAGE_KEY, JSON.stringify(nextValue))
+  const serializedValue = JSON.stringify(nextValue)
+
+  if (window.localStorage.getItem(LAST_SESSION_STORAGE_KEY) === serializedValue) {
+    return
+  }
+
+  window.localStorage.setItem(LAST_SESSION_STORAGE_KEY, serializedValue)
 }
 
 function clearTimers(timerIds: Array<number | null>) {
@@ -146,12 +170,14 @@ async function setMediaSource(
   media: HTMLMediaElement | null,
   sourceUrl: string,
   stabilityProfile: PlaybackStabilityProfile,
+  diagnosticsLabel: string,
 ){
   if (!media) {
     return
   }
 
   media.pause()
+  recordSourceLoad(diagnosticsLabel, sourceUrl)
 
   if (media.canPlayType('application/vnd.apple.mpegurl')) {
     media.src = sourceUrl
@@ -168,12 +194,14 @@ async function setMediaSource(
   const profileKey = stabilityProfile.mobileOptimized ? 'mobile' : 'desktop'
 
   if (controllerRef.current && controllerProfileRef.current !== profileKey) {
+    recordHlsController(diagnosticsLabel, 'destroy')
     controllerRef.current.destroy()
     controllerRef.current = null
     controllerProfileRef.current = null
   }
 
   if (!controllerRef.current) {
+    recordHlsController(diagnosticsLabel, 'create')
     controllerRef.current = new Hls({
       capLevelToPlayerSize: true,
       enableWorker: true,
@@ -217,7 +245,7 @@ function configureVideoElement(video: HTMLVideoElement | null) {
     return
   }
 
-  video.loop = false
+  video.loop = true
   video.defaultMuted = true
   video.muted = true
   video.volume = 0
@@ -233,10 +261,8 @@ interface Rayd8PlayerEngineProps {
 }
 
 type ControlPanel = 'mode' | 'audio' | 'volume' | 'amplification' | 'gear' | null
-type VideoLayer = 0 | 1
 type PlaybackState = 'preloading' | 'ready' | 'playing' | 'recovering' | 'interaction-required'
 
-const VIDEO_LOOP_DISSOLVE_MS = 1000
 const PLAYER_CHROME_IDLE_MS = 2200
 const DEFAULT_BRIGHTNESS_PERCENT = 100
 const FREEZE_CHECK_INTERVAL_MS = 1000
@@ -345,13 +371,11 @@ async function waitForPlaybackReady(
 
   return await new Promise<boolean>((resolve, reject) => {
     let settled = false
+    let removeListeners: Array<() => void> = []
 
     const cleanup = () => {
-      media.removeEventListener('canplay', handleCanPlay)
-      media.removeEventListener('progress', handleProgress)
-      media.removeEventListener('loadedmetadata', handleProgress)
-      media.removeEventListener('durationchange', handleProgress)
-      media.removeEventListener('error', handleError)
+      removeListeners.forEach((removeListener) => removeListener())
+      removeListeners = []
       signal?.removeEventListener('abort', handleAbort)
     }
 
@@ -406,11 +430,23 @@ async function waitForPlaybackReady(
       resolve(false)
     }
 
-    media.addEventListener('canplay', handleCanPlay)
-    media.addEventListener('progress', handleProgress)
-    media.addEventListener('loadedmetadata', handleProgress)
-    media.addEventListener('durationchange', handleProgress)
-    media.addEventListener('error', handleError)
+    removeListeners = [
+      addTrackedEventListener(media, 'canplay', handleCanPlay, 'video:ready:canplay'),
+      addTrackedEventListener(media, 'progress', handleProgress, 'video:ready:progress'),
+      addTrackedEventListener(
+        media,
+        'loadedmetadata',
+        handleProgress,
+        'video:ready:loadedmetadata',
+      ),
+      addTrackedEventListener(
+        media,
+        'durationchange',
+        handleProgress,
+        'video:ready:durationchange',
+      ),
+      addTrackedEventListener(media, 'error', handleError, 'video:ready:error'),
+    ]
     signal?.addEventListener('abort', handleAbort, { once: true })
 
     evaluate(false)
@@ -456,6 +492,7 @@ export function Rayd8PlayerEngine({
   onClose,
   sessionType,
 }: Rayd8PlayerEngineProps) {
+  recordPlayerRender('Rayd8PlayerEngine')
   const { getTokenSafe } = useAuthReadiness()
   const navigateToUpgrade = useUpgradeNavigation()
   const user = useAuthUser()
@@ -475,19 +512,13 @@ export function Rayd8PlayerEngine({
     usageWarningState,
   } = useSession()
   const primaryVideoControllerRef = useRef<HlsController | null>(null)
-  const secondaryVideoControllerRef = useRef<HlsController | null>(null)
   const primaryVideoControllerProfileRef = useRef<string | null>(null)
-  const secondaryVideoControllerProfileRef = useRef<string | null>(null)
   const primaryVideoRef = useRef<HTMLVideoElement | null>(null)
-  const secondaryVideoRef = useRef<HTMLVideoElement | null>(null)
   const playerRootRef = useRef<HTMLDivElement | null>(null)
   const brightnessTrackRef = useRef<HTMLDivElement | null>(null)
   const brightnessDraggingRef = useRef(false)
   const controlDockRef = useRef<HTMLDivElement | null>(null)
-  const activeVideoLayerRef = useRef<VideoLayer>(0)
-  const loopTransitioningRef = useRef(false)
   const currentVideoSourceUrlRef = useRef<string | null>(null)
-  const loopTransitionTimerRef = useRef<number | null>(null)
   const chromeHideTimerRef = useRef<number | null>(null)
   const fullscreenHintTimerRef = useRef<number | null>(null)
   const videoRequestRef = useRef(0)
@@ -496,10 +527,16 @@ export function Rayd8PlayerEngine({
   const lastRecoveryTimestampRef = useRef(0)
   const previousFullscreenRef = useRef(false)
   const lastFullscreenTapTimestampRef = useRef(0)
-  const previousBodyOverflowRef = useRef<string | null>(null)
+  const releaseBodyScrollLockRef = useRef<(() => void) | null>(null)
   const sessionStartTimeRef = useRef<number | null>(null)
   const sessionWarningTimerRef = useRef<number | null>(null)
   const bufferHealthTimerRef = useRef<number | null>(null)
+  const manualGuideTimerRef = useRef<number | null>(null)
+  const chromeActivityFrameRef = useRef<number | null>(null)
+  const brightnessUpdateFrameRef = useRef<number | null>(null)
+  const pendingBrightnessPercentRef = useRef(DEFAULT_BRIGHTNESS_PERCENT)
+  const mobileViewportRef = useRef(isMobileViewport())
+  const tabletViewportRef = useRef(isTabletViewport())
   const systemPausedRef = useRef(false)
   const playbackStateRef = useRef<PlaybackState>('preloading')
   const [sessionConfig, setSessionConfig] = useState<LastSessionConfig>(() => readLastSessionConfig())
@@ -509,7 +546,6 @@ export function Rayd8PlayerEngine({
   const [videoError, setVideoError] = useState<string | null>(null)
   const [playbackState, setPlaybackState] = useState<PlaybackState>('preloading')
   const [preloadPercent, setPreloadPercent] = useState(0)
-  const [activeVideoLayer, setActiveVideoLayer] = useState<VideoLayer>(0)
   const [exitPromptOpen, setExitPromptOpen] = useState(false)
   const [activePanel, setActivePanel] = useState<ControlPanel>(null)
   const [manualGuideOpen, setManualGuideOpen] = useState(false)
@@ -525,6 +561,13 @@ export function Rayd8PlayerEngine({
 
   const playbackMode = isAdminPreview ? 'admin' : 'member'
   const shouldUsePlaybackStability = true
+  const smoothPlaybackMode = useMemo(
+    () =>
+      typeof window !== 'undefined' &&
+      import.meta.env.DEV &&
+      window.localStorage.getItem('rayd8-smooth-playback') === 'true',
+    [],
+  )
   const effectiveAllowExtendedSessions = playbackMode === 'member' && allowExtendedSessions
   const experience = useMemo(() => getExperienceFromSessionType(sessionType), [sessionType])
   const playbackPlan = useMemo(
@@ -584,9 +627,10 @@ export function Rayd8PlayerEngine({
   )
   const shouldBlurForTrialBlock = Boolean(trialOverlayState || softDenialState?.ctaTo)
   const playbackStabilityProfile = useMemo(
-    () => getPlaybackStabilityProfile(shouldUsePlaybackStability),
-    [shouldUsePlaybackStability],
+    () => getPlaybackStabilityProfile(smoothPlaybackMode || mobileViewport || tabletViewport),
+    [mobileViewport, smoothPlaybackMode, tabletViewport],
   )
+  const playbackStabilityProfileRef = useRef(playbackStabilityProfile)
   const fitMode = mobileViewport || tabletViewport ? 'contain' : 'cover'
   const pseudoFullscreenViewport = mobileViewport || tabletViewport
   const isPseudoFullscreen = isFullscreen && pseudoFullscreenViewport
@@ -628,12 +672,23 @@ export function Rayd8PlayerEngine({
   }, [audioTrack, sessionConfig])
 
   useEffect(() => {
-    activeVideoLayerRef.current = activeVideoLayer
-  }, [activeVideoLayer])
-
-  useEffect(() => {
     playbackStateRef.current = playbackState
   }, [playbackState])
+
+  useEffect(() => {
+    mobileViewportRef.current = mobileViewport
+    tabletViewportRef.current = tabletViewport
+    playbackStabilityProfileRef.current = playbackStabilityProfile
+  }, [mobileViewport, playbackStabilityProfile, tabletViewport])
+
+  const setPrimaryVideoElement = useCallback((node: HTMLVideoElement | null) => {
+    if (primaryVideoRef.current === node) {
+      return
+    }
+
+    recordVideoMount('primary', node !== null)
+    primaryVideoRef.current = node
+  }, [])
 
   useEffect(() => {
     if (playbackMode !== 'member') {
@@ -711,18 +766,38 @@ export function Rayd8PlayerEngine({
 
   useEffect(() => {
     const syncViewportFlags = () => {
-      setMobileViewport(isMobileViewport())
-      setTabletViewport(isTabletViewport())
-      setSmallScreenViewport(isSmallScreen())
+      const nextMobileViewport = isMobileViewport()
+      const nextTabletViewport = isTabletViewport()
+      const nextSmallScreenViewport = isSmallScreen()
+
+      setMobileViewport((currentValue) =>
+        currentValue === nextMobileViewport ? currentValue : nextMobileViewport,
+      )
+      setTabletViewport((currentValue) =>
+        currentValue === nextTabletViewport ? currentValue : nextTabletViewport,
+      )
+      setSmallScreenViewport((currentValue) =>
+        currentValue === nextSmallScreenViewport ? currentValue : nextSmallScreenViewport,
+      )
     }
 
     syncViewportFlags()
-    window.addEventListener('resize', syncViewportFlags)
-    window.addEventListener('orientationchange', syncViewportFlags)
+    const removeResizeListener = addTrackedDomEventListener(
+      window,
+      'resize',
+      syncViewportFlags,
+      'window:resize:viewport',
+    )
+    const removeOrientationListener = addTrackedDomEventListener(
+      window,
+      'orientationchange',
+      syncViewportFlags,
+      'window:orientationchange:viewport',
+    )
 
     return () => {
-      window.removeEventListener('resize', syncViewportFlags)
-      window.removeEventListener('orientationchange', syncViewportFlags)
+      removeResizeListener()
+      removeOrientationListener()
     }
   }, [])
 
@@ -745,12 +820,22 @@ export function Rayd8PlayerEngine({
       }
     }
 
-    window.addEventListener('pointerdown', handlePointerDown)
-    window.addEventListener('keydown', handleKeyDown)
+    const removePointerListener = addTrackedDomEventListener(
+      window,
+      'pointerdown',
+      handlePointerDown as EventListener,
+      'window:pointerdown:panel',
+    )
+    const removeKeyListener = addTrackedDomEventListener(
+      window,
+      'keydown',
+      handleKeyDown as EventListener,
+      'window:keydown:panel',
+    )
 
     return () => {
-      window.removeEventListener('pointerdown', handlePointerDown)
-      window.removeEventListener('keydown', handleKeyDown)
+      removePointerListener()
+      removeKeyListener()
     }
   }, [activePanel])
 
@@ -781,9 +866,15 @@ export function Rayd8PlayerEngine({
   const closeManualGuide = useCallback(() => {
     setManualGuideClosing(true)
     trackUmamiEvent('guide_closed_manual', { experience })
-    window.setTimeout(() => {
+
+    if (manualGuideTimerRef.current !== null) {
+      window.clearTimeout(manualGuideTimerRef.current)
+    }
+
+    manualGuideTimerRef.current = window.setTimeout(() => {
       setManualGuideOpen(false)
       setManualGuideClosing(false)
+      manualGuideTimerRef.current = null
     }, GUIDE_MODAL_TRANSITION_MS)
   }, [experience])
 
@@ -820,11 +911,16 @@ export function Rayd8PlayerEngine({
       setIsFullscreen(document.fullscreenElement === playerRootRef.current)
     }
 
-    document.addEventListener('fullscreenchange', syncFullscreenState)
+    const removeFullscreenListener = addTrackedDomEventListener(
+      document,
+      'fullscreenchange',
+      syncFullscreenState,
+      'document:fullscreenchange',
+    )
     syncFullscreenState()
 
     return () => {
-      document.removeEventListener('fullscreenchange', syncFullscreenState)
+      removeFullscreenListener()
     }
   }, [pseudoFullscreenViewport])
 
@@ -835,15 +931,20 @@ export function Rayd8PlayerEngine({
       }
     }
 
-    window.addEventListener('keydown', handleEscapeFullscreen)
+    const removeKeyListener = addTrackedDomEventListener(
+      window,
+      'keydown',
+      handleEscapeFullscreen as EventListener,
+      'window:keydown:fullscreen',
+    )
 
     return () => {
-      window.removeEventListener('keydown', handleEscapeFullscreen)
+      removeKeyListener()
     }
   }, [exitFullscreen])
 
   const pingChromeVisibility = useCallback(() => {
-    setChromeVisible(true)
+    setChromeVisible((currentValue) => (currentValue ? currentValue : true))
 
     if (chromeHideTimerRef.current !== null) {
       window.clearTimeout(chromeHideTimerRef.current)
@@ -854,27 +955,30 @@ export function Rayd8PlayerEngine({
     }, PLAYER_CHROME_IDLE_MS)
   }, [])
 
+  const scheduleChromeVisibilityPing = useCallback(() => {
+    if (chromeActivityFrameRef.current !== null) {
+      return
+    }
+
+    chromeActivityFrameRef.current = window.requestAnimationFrame(() => {
+      chromeActivityFrameRef.current = null
+      pingChromeVisibility()
+    })
+  }, [pingChromeVisibility])
+
   useEffect(() => {
     if (!isPseudoFullscreen) {
-      if (previousBodyOverflowRef.current !== null) {
-        document.body.style.overflow = previousBodyOverflowRef.current
-        previousBodyOverflowRef.current = null
-      }
+      releaseBodyScrollLockRef.current?.()
+      releaseBodyScrollLockRef.current = null
 
       return
     }
 
-    if (previousBodyOverflowRef.current === null) {
-      previousBodyOverflowRef.current = document.body.style.overflow
-    }
-
-    document.body.style.overflow = 'hidden'
+    releaseBodyScrollLockRef.current ??= acquireBodyScrollLock()
 
     return () => {
-      if (previousBodyOverflowRef.current !== null) {
-        document.body.style.overflow = previousBodyOverflowRef.current
-        previousBodyOverflowRef.current = null
-      }
+      releaseBodyScrollLockRef.current?.()
+      releaseBodyScrollLockRef.current = null
     }
   }, [isPseudoFullscreen])
 
@@ -921,33 +1025,42 @@ export function Rayd8PlayerEngine({
     [exitFullscreen, isPseudoFullscreen],
   )
 
+  const handleVideoSurfacePointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      pingChromeVisibility()
+      handlePseudoFullscreenSurfacePointerUp(event)
+    },
+    [handlePseudoFullscreenSurfacePointerUp, pingChromeVisibility],
+  )
+
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
       pingChromeVisibility()
     })
 
     const handlePlayerActivity = () => {
-      pingChromeVisibility()
+      scheduleChromeVisibilityPing()
     }
 
-    window.addEventListener('mousemove', handlePlayerActivity)
-    window.addEventListener('click', handlePlayerActivity)
-    window.addEventListener('pointerdown', handlePlayerActivity)
-    window.addEventListener('keydown', handlePlayerActivity)
-    window.addEventListener('touchstart', handlePlayerActivity)
-    window.addEventListener('focus', handlePlayerActivity)
+    const removeActivityListeners = [
+      addTrackedDomEventListener(window, 'mousemove', handlePlayerActivity, 'window:mousemove'),
+      addTrackedDomEventListener(window, 'click', handlePlayerActivity, 'window:click'),
+      addTrackedDomEventListener(window, 'pointerdown', handlePlayerActivity, 'window:pointerdown'),
+      addTrackedDomEventListener(window, 'keydown', handlePlayerActivity, 'window:keydown:activity'),
+      addTrackedDomEventListener(window, 'touchstart', handlePlayerActivity, 'window:touchstart'),
+      addTrackedDomEventListener(window, 'focus', handlePlayerActivity, 'window:focus'),
+    ]
 
     return () => {
       window.cancelAnimationFrame(frameId)
+      if (chromeActivityFrameRef.current !== null) {
+        window.cancelAnimationFrame(chromeActivityFrameRef.current)
+        chromeActivityFrameRef.current = null
+      }
       clearTimers([chromeHideTimerRef.current, fullscreenHintTimerRef.current])
-      window.removeEventListener('mousemove', handlePlayerActivity)
-      window.removeEventListener('click', handlePlayerActivity)
-      window.removeEventListener('pointerdown', handlePlayerActivity)
-      window.removeEventListener('keydown', handlePlayerActivity)
-      window.removeEventListener('touchstart', handlePlayerActivity)
-      window.removeEventListener('focus', handlePlayerActivity)
+      removeActivityListeners.forEach((removeListener) => removeListener())
     }
-  }, [pingChromeVisibility])
+  }, [pingChromeVisibility, scheduleChromeVisibilityPing])
 
   const fetchPlaybackUrl = useCallback(
     async (assetId: string) => {
@@ -973,114 +1086,53 @@ export function Rayd8PlayerEngine({
     [getTokenSafe, playbackMode, sessionType],
   )
 
-  const getVideoElement = useCallback(
-    (layer: VideoLayer) => (layer === 0 ? primaryVideoRef.current : secondaryVideoRef.current),
-    [],
-  )
-
-  const getVideoControllerRef = useCallback(
-    (layer: VideoLayer) =>
-      layer === 0 ? primaryVideoControllerRef : secondaryVideoControllerRef,
-    [],
-  )
-
-  const getVideoControllerProfileRef = useCallback(
-    (layer: VideoLayer) =>
-      layer === 0 ? primaryVideoControllerProfileRef : secondaryVideoControllerProfileRef,
-    [],
-  )
+  const getVideoElement = useCallback(() => primaryVideoRef.current, [])
 
   const triggerSessionContinuityCheck = useCallback(() => {
     if (effectiveAllowExtendedSessions) {
       return
     }
 
-    const activeVideo = getVideoElement(activeVideoLayerRef.current)
-    const standbyVideo = getVideoElement(activeVideoLayerRef.current === 0 ? 1 : 0)
+    const activeVideo = getVideoElement()
 
     systemPausedRef.current = true
     activeVideo?.pause()
-    standbyVideo?.pause()
     resetSessionContinuityTimer()
     setPlaybackState('interaction-required')
     pingChromeVisibility()
   }, [effectiveAllowExtendedSessions, getVideoElement, pingChromeVisibility, resetSessionContinuityTimer])
 
-  const startLoopCrossfade = useCallback(async () => {
-    const sourceUrl = currentVideoSourceUrlRef.current
-
-    if (!sourceUrl || loopTransitioningRef.current) {
-      return
+  const destroyPrimaryVideoPipeline = useCallback((diagnosticsLabel: string) => {
+    if (primaryVideoControllerRef.current) {
+      recordHlsController(diagnosticsLabel, 'destroy')
+      primaryVideoControllerRef.current.destroy()
+      primaryVideoControllerRef.current = null
     }
 
-    const currentLayer = activeVideoLayerRef.current
-    const nextLayer: VideoLayer = currentLayer === 0 ? 1 : 0
-    const nextVideo = getVideoElement(nextLayer)
-
-    if (!nextVideo) {
-      return
-    }
-
-    loopTransitioningRef.current = true
-    configureVideoElement(nextVideo)
-
-    try {
-      await setMediaSource(
-        getVideoControllerRef(nextLayer),
-        getVideoControllerProfileRef(nextLayer),
-        nextVideo,
-        sourceUrl,
-        playbackStabilityProfile,
-      )
-
-      const started = await tryPlay(nextVideo)
-
-      if (!started) {
-        setPlaybackState('interaction-required')
-        loopTransitioningRef.current = false
-        return
-      }
-
-      setActiveVideoLayer(nextLayer)
-
-      if (loopTransitionTimerRef.current !== null) {
-        window.clearTimeout(loopTransitionTimerRef.current)
-      }
-
-      loopTransitionTimerRef.current = window.setTimeout(() => {
-        const previousVideo = getVideoElement(currentLayer)
-        resetMedia(previousVideo)
-        loopTransitioningRef.current = false
-      }, VIDEO_LOOP_DISSOLVE_MS)
-    } catch (error) {
-      loopTransitioningRef.current = false
-      setVideoError(
-        error instanceof Error ? error.message : 'Unable to keep the current video loop seamless.',
-      )
-    }
-  }, [getVideoControllerProfileRef, getVideoControllerRef, getVideoElement, playbackStabilityProfile])
+    primaryVideoControllerProfileRef.current = null
+    resetMedia(primaryVideoRef.current)
+  }, [])
 
   const endSession = useCallback(() => {
+    void exitFullscreen()
     clearTimers([
-      loopTransitionTimerRef.current,
       bufferHealthTimerRef.current,
       sessionWarningTimerRef.current,
+      manualGuideTimerRef.current,
     ])
     bufferHealthTimerRef.current = null
     sessionWarningTimerRef.current = null
-    loopTransitioningRef.current = false
+    manualGuideTimerRef.current = null
     systemPausedRef.current = true
     clearSessionContinuityTimer()
-    resetMedia(primaryVideoRef.current)
-    resetMedia(secondaryVideoRef.current)
+    destroyPrimaryVideoPipeline('primary:end-session')
     onClose()
-  }, [clearSessionContinuityTimer, onClose])
+  }, [clearSessionContinuityTimer, destroyPrimaryVideoPipeline, exitFullscreen, onClose])
 
   const shouldVideoBePlaying = useCallback((video: HTMLVideoElement | null) => {
     return Boolean(
       video?.currentSrc &&
         playbackStateRef.current === 'playing' &&
-        !loopTransitioningRef.current &&
         !systemPausedRef.current,
     )
   }, [])
@@ -1103,9 +1155,8 @@ export function Rayd8PlayerEngine({
         return false
       }
 
-      const activeLayer = activeVideoLayerRef.current
-      const activeVideo = getVideoElement(activeLayer)
-      const activeController = getVideoControllerRef(activeLayer).current
+      const activeVideo = getVideoElement()
+      const activeController = primaryVideoControllerRef.current
 
       if (!activeVideo) {
         return false
@@ -1169,7 +1220,7 @@ export function Rayd8PlayerEngine({
         return false
       }
     },
-    [getVideoControllerRef, getVideoElement, shouldUsePlaybackStability, shouldVideoBePlaying],
+    [getVideoElement, shouldUsePlaybackStability, shouldVideoBePlaying],
   )
 
   useEffect(() => {
@@ -1178,9 +1229,19 @@ export function Rayd8PlayerEngine({
       return
     }
 
-    if (sessionStartTimeRef.current === null) {
-      resetSessionContinuityTimer()
+    const nextSessionStartTime = getConsecutivePlaybackStartTime({
+      allowExtendedSessions: effectiveAllowExtendedSessions,
+      now: Date.now(),
+      playbackState,
+      sessionStartTime: sessionStartTimeRef.current,
+    })
+
+    if (nextSessionStartTime === null) {
+      clearSessionContinuityTimer()
+      return
     }
+
+    sessionStartTimeRef.current = nextSessionStartTime
 
     const checkTimer = () => {
       if (
@@ -1207,7 +1268,7 @@ export function Rayd8PlayerEngine({
   }, [
     clearSessionContinuityTimer,
     effectiveAllowExtendedSessions,
-    resetSessionContinuityTimer,
+    playbackState,
     triggerSessionContinuityCheck,
   ])
 
@@ -1237,24 +1298,14 @@ export function Rayd8PlayerEngine({
         }
 
         const video = primaryVideoRef.current
-        const standbyVideo = secondaryVideoRef.current
 
         if (!video) {
           return
         }
 
-        if (loopTransitionTimerRef.current !== null) {
-          window.clearTimeout(loopTransitionTimerRef.current)
-        }
-
-        loopTransitioningRef.current = false
         currentVideoSourceUrlRef.current = sourceUrl
-        activeVideoLayerRef.current = 0
-        setActiveVideoLayer(0)
 
         configureVideoElement(video)
-        configureVideoElement(standbyVideo)
-        resetMedia(standbyVideo)
         freezeCounterRef.current = 0
         lastObservedVideoTimeRef.current = null
         lastRecoveryTimestampRef.current = 0
@@ -1265,10 +1316,14 @@ export function Rayd8PlayerEngine({
           primaryVideoControllerProfileRef,
           video,
           sourceUrl,
-          playbackStabilityProfile,
+          playbackStabilityProfileRef.current,
+          `primary:${experience}:${sessionConfig.videoMode}`,
         )
 
-        const preloadThreshold = getStartupBufferThreshold(mobileViewport, tabletViewport)
+        const preloadThreshold = getStartupBufferThreshold(
+          mobileViewportRef.current,
+          tabletViewportRef.current,
+        )
         const readyToStart = await waitForPlaybackReady(
           video,
           preloadThreshold,
@@ -1320,47 +1375,16 @@ export function Rayd8PlayerEngine({
   }, [
     experience,
     fetchPlaybackUrl,
-    mobileViewport,
     playbackPlan,
-    playbackStabilityProfile,
     resetSessionContinuityTimer,
     sessionConfig.videoMode,
     sessionType,
-    tabletViewport,
   ])
-
-  useEffect(() => {
-    const activeVideo = getVideoElement(activeVideoLayer)
-
-    if (!activeVideo) {
-      return
-    }
-
-    const handleTimeUpdate = () => {
-      if (loopTransitioningRef.current || isVideoLoading) {
-        return
-      }
-
-      if (!Number.isFinite(activeVideo.duration) || activeVideo.duration <= 1.2) {
-        return
-      }
-
-      if (activeVideo.duration - activeVideo.currentTime <= 1.05) {
-        void startLoopCrossfade()
-      }
-    }
-
-    activeVideo.addEventListener('timeupdate', handleTimeUpdate)
-
-    return () => {
-      activeVideo.removeEventListener('timeupdate', handleTimeUpdate)
-    }
-  }, [activeVideoLayer, getVideoElement, isVideoLoading, startLoopCrossfade])
 
   useEffect(() => {
     freezeCounterRef.current = 0
     lastObservedVideoTimeRef.current = null
-  }, [activeVideoLayer, playbackState])
+  }, [playbackState])
 
   useEffect(() => {
     if (!shouldUsePlaybackStability) {
@@ -1368,7 +1392,7 @@ export function Rayd8PlayerEngine({
     }
 
     const intervalId = window.setInterval(() => {
-      const activeVideo = getVideoElement(activeVideoLayerRef.current)
+      const activeVideo = getVideoElement()
 
       if (!activeVideo) {
         freezeCounterRef.current = 0
@@ -1408,7 +1432,7 @@ export function Rayd8PlayerEngine({
       return
     }
 
-    const activeVideo = getVideoElement(activeVideoLayer)
+    const activeVideo = getVideoElement()
 
     if (!activeVideo) {
       return
@@ -1437,30 +1461,58 @@ export function Rayd8PlayerEngine({
 
     const handleEnded = () => {
       if (shouldVideoBePlaying(activeVideo)) {
-        void startLoopCrossfade()
+        try {
+          activeVideo.currentTime = 0
+        } catch {
+          // Native looping should handle HLS; this is only a single-pipeline fallback.
+        }
+        void tryPlay(activeVideo)
       }
     }
 
-    activeVideo.addEventListener('waiting', handleBufferEvent)
-    activeVideo.addEventListener('stalled', handleBufferEvent)
-    activeVideo.addEventListener('pause', handlePause)
-    activeVideo.addEventListener('error', handleError)
-    activeVideo.addEventListener('ended', handleEnded)
+    const removeWaitingListener = addTrackedEventListener(
+      activeVideo,
+      'waiting',
+      handleBufferEvent,
+      'video:primary:waiting',
+    )
+    const removeStalledListener = addTrackedEventListener(
+      activeVideo,
+      'stalled',
+      handleBufferEvent,
+      'video:primary:stalled',
+    )
+    const removePauseListener = addTrackedEventListener(
+      activeVideo,
+      'pause',
+      handlePause,
+      'video:primary:pause',
+    )
+    const removeErrorListener = addTrackedEventListener(
+      activeVideo,
+      'error',
+      handleError,
+      'video:primary:error',
+    )
+    const removeEndedListener = addTrackedEventListener(
+      activeVideo,
+      'ended',
+      handleEnded,
+      'video:primary:ended',
+    )
 
     return () => {
-      activeVideo.removeEventListener('waiting', handleBufferEvent)
-      activeVideo.removeEventListener('stalled', handleBufferEvent)
-      activeVideo.removeEventListener('pause', handlePause)
-      activeVideo.removeEventListener('error', handleError)
-      activeVideo.removeEventListener('ended', handleEnded)
+      removeWaitingListener()
+      removeStalledListener()
+      removePauseListener()
+      removeErrorListener()
+      removeEndedListener()
     }
   }, [
-    activeVideoLayer,
     getVideoElement,
     handlePlaybackRecovery,
     shouldUsePlaybackStability,
     shouldVideoBePlaying,
-    startLoopCrossfade,
   ])
 
   useEffect(() => {
@@ -1469,7 +1521,7 @@ export function Rayd8PlayerEngine({
     }
 
     const checkBufferHealth = () => {
-      const activeVideo = getVideoElement(activeVideoLayerRef.current)
+      const activeVideo = getVideoElement()
 
       if (
         activeVideo &&
@@ -1494,40 +1546,52 @@ export function Rayd8PlayerEngine({
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      const activeVideo = getVideoElement(activeVideoLayerRef.current)
+      const activeVideo = getVideoElement()
 
       if (!document.hidden && activeVideo && shouldVideoBePlaying(activeVideo) && activeVideo.paused) {
         void handlePlaybackRecovery('pause')
       }
     }
 
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    const removeVisibilityListener = addTrackedDomEventListener(
+      document,
+      'visibilitychange',
+      handleVisibilityChange,
+      'document:visibilitychange',
+    )
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      removeVisibilityListener()
     }
   }, [getVideoElement, handlePlaybackRecovery, shouldVideoBePlaying])
 
   useEffect(() => {
-    const primaryVideoController = primaryVideoControllerRef.current
-    const secondaryVideoController = secondaryVideoControllerRef.current
-    const primaryVideo = primaryVideoRef.current
-    const secondaryVideo = secondaryVideoRef.current
-
     return () => {
       clearTimers([
-        loopTransitionTimerRef.current,
         bufferHealthTimerRef.current,
         sessionWarningTimerRef.current,
+        manualGuideTimerRef.current,
       ])
       bufferHealthTimerRef.current = null
       sessionWarningTimerRef.current = null
-      primaryVideoController?.destroy()
-      secondaryVideoController?.destroy()
+      manualGuideTimerRef.current = null
+      if (brightnessUpdateFrameRef.current !== null) {
+        window.cancelAnimationFrame(brightnessUpdateFrameRef.current)
+        brightnessUpdateFrameRef.current = null
+      }
+      if (chromeActivityFrameRef.current !== null) {
+        window.cancelAnimationFrame(chromeActivityFrameRef.current)
+        chromeActivityFrameRef.current = null
+      }
+      releaseBodyScrollLockRef.current?.()
+      releaseBodyScrollLockRef.current = null
+      if (primaryVideoControllerRef.current) {
+        recordHlsController('primary:unmount', 'destroy')
+        primaryVideoControllerRef.current.destroy()
+        primaryVideoControllerRef.current = null
+      }
       primaryVideoControllerProfileRef.current = null
-      secondaryVideoControllerProfileRef.current = null
-      resetMedia(primaryVideo)
-      resetMedia(secondaryVideo)
+      resetMedia(primaryVideoRef.current)
     }
   }, [])
 
@@ -1556,17 +1620,14 @@ export function Rayd8PlayerEngine({
   const handleResumePlayback = useCallback(async () => {
     resetSessionContinuityTimer()
     systemPausedRef.current = false
-    const visibleVideo = getVideoElement(activeVideoLayerRef.current)
-    const standbyVideo = getVideoElement(activeVideoLayerRef.current === 0 ? 1 : 0)
+    const visibleVideo = getVideoElement()
     const videoStarted = await resumeMediaWithRetry(visibleVideo)
-    const standbyStarted =
-      standbyVideo && standbyVideo.currentSrc ? await resumeMediaWithRetry(standbyVideo) : true
     const audioStarted =
       audioTrack === 'none'
         ? true
         : (await resumeAudioPlayback()) || (await resumeAudioPlayback())
 
-    setPlaybackState(videoStarted && standbyStarted && audioStarted ? 'playing' : 'interaction-required')
+    setPlaybackState(videoStarted && audioStarted ? 'playing' : 'interaction-required')
   }, [audioTrack, getVideoElement, resetSessionContinuityTimer, resumeAudioPlayback, resumeMediaWithRetry])
 
   const setVideoMode = useCallback((videoMode: FreeTrialVideoMode) => {
@@ -1607,9 +1668,13 @@ export function Rayd8PlayerEngine({
   const audioIsSilent = audioTrack === 'none' || audioMuted
   const volumeActionLabel =
     audioTrack === 'none' ? 'Enable audio' : audioIsSilent ? 'Unmute' : 'Mute'
-  const videoBrightness = brightnessPercent / 100
   const brightnessFillPercent = `${brightnessPercent}%`
+  const debugChromePinned =
+    import.meta.env.DEV &&
+    typeof window !== 'undefined' &&
+    window.location.search.includes('rayd8PlayerDebug=true')
   const shouldShowChrome =
+    debugChromePinned ||
     chromeVisible ||
     activePanel !== null ||
     isVideoLoading ||
@@ -1627,7 +1692,20 @@ export function Rayd8PlayerEngine({
     const offset = rect.bottom - clientY
     const percent = (offset / rect.height) * 100
 
-    setBrightnessPercent(clampPercent(percent))
+    pendingBrightnessPercentRef.current = clampPercent(percent)
+
+    if (brightnessUpdateFrameRef.current !== null) {
+      return
+    }
+
+    brightnessUpdateFrameRef.current = window.requestAnimationFrame(() => {
+      brightnessUpdateFrameRef.current = null
+      setBrightnessPercent((currentValue) =>
+        currentValue === pendingBrightnessPercentRef.current
+          ? currentValue
+          : pendingBrightnessPercentRef.current,
+      )
+    })
   }, [])
 
   const handleBrightnessPointerDown = useCallback(
@@ -1651,14 +1729,29 @@ export function Rayd8PlayerEngine({
       brightnessDraggingRef.current = false
     }
 
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', stopDragging)
-    window.addEventListener('pointercancel', stopDragging)
+    const removeMoveListener = addTrackedDomEventListener(
+      window,
+      'pointermove',
+      handlePointerMove as EventListener,
+      'window:pointermove:brightness',
+    )
+    const removeUpListener = addTrackedDomEventListener(
+      window,
+      'pointerup',
+      stopDragging,
+      'window:pointerup:brightness',
+    )
+    const removeCancelListener = addTrackedDomEventListener(
+      window,
+      'pointercancel',
+      stopDragging,
+      'window:pointercancel:brightness',
+    )
 
     return () => {
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', stopDragging)
-      window.removeEventListener('pointercancel', stopDragging)
+      removeMoveListener()
+      removeUpListener()
+      removeCancelListener()
     }
   }, [updateBrightnessFromClientY])
 
@@ -1669,41 +1762,28 @@ export function Rayd8PlayerEngine({
           'relative flex h-[100dvh] w-screen items-center justify-center overflow-hidden bg-black transition-[opacity,transform] duration-300',
           isPseudoFullscreen ? 'touch-manipulation' : '',
         ].join(' ')}
+        onClick={pingChromeVisibility}
+        onPointerDown={pingChromeVisibility}
+        onPointerMove={scheduleChromeVisibilityPing}
         ref={playerRootRef}
       >
-        <div
-          className={[
-            'absolute inset-0 flex items-center justify-center overflow-hidden bg-black transition-[filter,transform] duration-300',
-            shouldBlurForTrialBlock ? 'scale-[1.02] blur-[6px]' : '',
-          ].join(' ')}
-          onPointerUp={handlePseudoFullscreenSurfacePointerUp}
-        >
-          <video
-            className={[
-              'absolute inset-0 h-full w-full bg-black transition-opacity duration-1000 ease-linear',
-              fitMode === 'contain' ? 'object-contain' : 'object-cover',
-              activeVideoLayer === 0 ? 'opacity-100' : 'opacity-0',
-            ].join(' ')}
-            muted
-            ref={primaryVideoRef}
-            style={{ filter: `brightness(${videoBrightness})` }}
-          />
-          <video
-            className={[
-              'absolute inset-0 h-full w-full bg-black transition-opacity duration-1000 ease-linear',
-              fitMode === 'contain' ? 'object-contain' : 'object-cover',
-              activeVideoLayer === 1 ? 'opacity-100' : 'opacity-0',
-            ].join(' ')}
-            muted
-            ref={secondaryVideoRef}
-            style={{ filter: `brightness(${videoBrightness})` }}
-          />
-        </div>
+        <VideoSurface
+          brightnessPercent={brightnessPercent}
+          fitMode={fitMode}
+          onPointerUp={handleVideoSurfacePointerUp}
+          videoRef={setPrimaryVideoElement}
+          shouldBlurForTrialBlock={shouldBlurForTrialBlock}
+        />
         <OverlayLayer
           amplifierMode={sessionConfig.amplification}
           blueLightEnabled={blueLightEnabled}
           circadianEnabled={circadianEnabled}
           nightModeEnabled={nightModeEnabled}
+        />
+        <PlayerPerformanceNotice
+          playbackState={playbackState}
+          smoothPlaybackMode={smoothPlaybackMode}
+          sourceUrl={currentVideoSourceUrlRef.current}
         />
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/22 via-black/[0.03] to-black/36" />
@@ -1770,51 +1850,10 @@ export function Rayd8PlayerEngine({
           </div>
         ) : null}
 
-        {isPreloading ? (
-          <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-black/42 p-6 text-center">
-            <div className="max-w-sm rounded-[2rem] border border-white/10 bg-slate-950/84 px-6 py-5 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-emerald-300" />
-              <p className="mt-4 text-[10px] uppercase tracking-[0.32em] text-emerald-200/60">
-                Preparing session
-              </p>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                Buffering the playback engine for a smoother start.
-              </p>
-              <p className="mt-3 text-2xl font-semibold text-white">{preloadPercent}%</p>
-            </div>
-          </div>
-        ) : null}
+        {isPreloading ? <PreloadOverlay preloadPercent={preloadPercent} /> : null}
 
         {interactionRequired ? (
-          <div
-            className="absolute inset-0 z-30 flex items-center justify-center bg-black/55 p-6 text-center"
-            onClick={() => void handleResumePlayback()}
-          >
-            <div
-              className="max-w-md rounded-[2rem] border border-white/10 bg-slate-950/90 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl"
-              onClick={(event: ReactMouseEvent<HTMLDivElement>) => {
-                event.stopPropagation()
-              }}
-            >
-              <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/60">
-                Session focus needed
-              </p>
-              <h3 className="mt-3 text-2xl font-semibold text-white">
-                Continue the active session
-              </h3>
-              <p className="mt-3 text-sm leading-6 text-slate-300">
-                Playback paused until you confirm the session is still active. Tap or click anywhere,
-                or use the resume button below, to continue instantly.
-              </p>
-              <button
-                className="mt-6 w-full rounded-2xl bg-emerald-300/20 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-300/30"
-                onClick={() => void handleResumePlayback()}
-                type="button"
-              >
-                Resume Session
-              </button>
-            </div>
-          </div>
+          <InteractionRequiredOverlay onResume={() => void handleResumePlayback()} />
         ) : null}
 
         {activeSoftDenialState ? (
@@ -1849,20 +1888,10 @@ export function Rayd8PlayerEngine({
         ) : null}
 
         {usageWarningState && !activeSoftDenialState ? (
-          <div
-            className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-4"
-            style={{ top: `calc(env(safe-area-inset-top) + ${smallScreenViewport ? 72 : 80}px)` }}
-          >
-            <div className="max-w-lg rounded-[1.35rem] border border-amber-200/20 bg-slate-950/88 px-4 py-3 text-center shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <p className="text-[10px] uppercase tracking-[0.32em] text-amber-100/70">
-                Usage warning
-              </p>
-              <p className="mt-2 text-sm font-medium text-white">{usageWarningState.title}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-300">
-                {usageWarningState.description}
-              </p>
-            </div>
-          </div>
+          <UsageWarningOverlay
+            smallScreenViewport={smallScreenViewport}
+            usageWarningState={usageWarningState}
+          />
         ) : null}
 
         {isFullscreen || showExitHint ? (

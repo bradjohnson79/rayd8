@@ -135,7 +135,13 @@ function persistAudioState(nextValue: AudioState) {
     return
   }
 
-  window.localStorage.setItem(AUDIO_STORAGE_KEY, JSON.stringify(nextValue))
+  const serializedValue = JSON.stringify(nextValue)
+
+  if (window.localStorage.getItem(AUDIO_STORAGE_KEY) === serializedValue) {
+    return
+  }
+
+  window.localStorage.setItem(AUDIO_STORAGE_KEY, serializedValue)
 }
 
 async function setMediaSource(
@@ -306,6 +312,33 @@ function toUsageWarningState(access: ExperienceAccessSummary): UsageWarningState
   }
 }
 
+function accessSummariesEqual(
+  currentValue: ExperienceAccessSummary | undefined,
+  nextValue: ExperienceAccessSummary,
+) {
+  return (
+    currentValue?.allowed === nextValue.allowed &&
+    currentValue?.blockReason === nextValue.blockReason &&
+    currentValue?.isBlocked === nextValue.isBlocked &&
+    currentValue?.limitSeconds === nextValue.limitSeconds &&
+    currentValue?.remainingSeconds === nextValue.remainingSeconds &&
+    currentValue?.state === nextValue.state &&
+    currentValue?.usagePercent === nextValue.usagePercent &&
+    currentValue?.usedSeconds === nextValue.usedSeconds &&
+    currentValue?.warningState === nextValue.warningState
+  )
+}
+
+function usageWarningStatesEqual(
+  currentValue: UsageWarningState | null,
+  nextValue: UsageWarningState | null,
+) {
+  return (
+    currentValue?.title === nextValue?.title &&
+    currentValue?.description === nextValue?.description
+  )
+}
+
 export function SessionProvider({ children }: PropsWithChildren) {
   const { getTokenSafe, status: authStatus } = useAuthReadiness()
   const [state, setState] = useState<SessionState>({
@@ -339,10 +372,16 @@ export function SessionProvider({ children }: PropsWithChildren) {
       return
     }
 
-    setExperienceAccess((currentValue) => ({
-      ...currentValue,
-      [nextValue.experience]: nextValue,
-    }))
+    setExperienceAccess((currentValue) => {
+      if (accessSummariesEqual(currentValue[nextValue.experience], nextValue)) {
+        return currentValue
+      }
+
+      return {
+        ...currentValue,
+        [nextValue.experience]: nextValue,
+      }
+    })
   }, [])
 
   const finalizeTrackedSession = useCallback(
@@ -457,7 +496,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
         }
 
         updateExperienceAccess(response.access)
-        setUsageWarningState(toUsageWarningState(response.access))
+        setUsageWarningState((currentValue) => {
+          const nextValue = toUsageWarningState(response.access)
+          return usageWarningStatesEqual(currentValue, nextValue) ? currentValue : nextValue
+        })
         trackUmamiEvent('start_session', {
           experience,
           sessionType: state.sessionType,
@@ -550,7 +592,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
         }
 
         updateExperienceAccess(response.access)
-        setUsageWarningState(toUsageWarningState(response.access))
+        setUsageWarningState((currentValue) => {
+          const nextValue = toUsageWarningState(response.access)
+          return usageWarningStatesEqual(currentValue, nextValue) ? currentValue : nextValue
+        })
         scheduleSoftDenialExit(toSoftDenialState(response.access))
       } catch (error) {
         if (error instanceof ApiRequestError && error.status === 401) {

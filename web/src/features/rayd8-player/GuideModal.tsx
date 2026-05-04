@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { acquireBodyScrollLock } from './bodyScrollLock'
 
 interface GuideModalProps {
   isClosing?: boolean
@@ -22,12 +23,7 @@ export function GuideModal({
   const isManual = mode === 'manual'
 
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    return () => {
-      document.body.style.overflow = previousOverflow
-    }
+    return acquireBodyScrollLock()
   }, [])
 
   return createPortal(

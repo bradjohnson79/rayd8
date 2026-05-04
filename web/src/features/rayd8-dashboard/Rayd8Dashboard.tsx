@@ -148,7 +148,7 @@ function MemberDashboardLaunchpad({
   user: ReturnType<typeof useAuthReadiness>['authUser']
 }) {
   const trialStatus = useTrialStatus()
-  const { experienceAccess, startSession, updateExperienceAccess } = useSession()
+  const { experienceAccess, isActive: sessionIsActive, startSession, updateExperienceAccess } = useSession()
   const [checkingExperience, setCheckingExperience] = useState<Experience | null>(null)
   const [experiencePrompts, setExperiencePrompts] = useState<Partial<Record<Experience, string>>>({})
   const [guidePendingExperience, setGuidePendingExperience] = useState<Experience | null>(null)
@@ -209,7 +209,7 @@ function MemberDashboardLaunchpad({
   }, [authStatus, effectivePlan, getTokenSafe, updateExperienceAccess])
 
   useEffect(() => {
-    if (isPreviewMode || authStatus !== 'signed-in') {
+    if (isPreviewMode || authStatus !== 'signed-in' || sessionIsActive) {
       if (authStatus !== 'signed-in') {
         setUsageSnapshot(null)
       }
@@ -250,7 +250,7 @@ function MemberDashboardLaunchpad({
       cancelled = true
       window.clearInterval(intervalId)
     }
-  }, [authStatus, getTokenSafe, isPreviewMode, updateExperienceAccess])
+  }, [authStatus, getTokenSafe, isPreviewMode, sessionIsActive, updateExperienceAccess])
 
   useEffect(() => {
     setCheckingExperience(null)

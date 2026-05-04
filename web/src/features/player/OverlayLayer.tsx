@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { AmplifierMode } from './playerTypes'
 
 interface OverlayLayerProps {
@@ -14,7 +15,7 @@ const amplifierColors: Record<AmplifierMode, string> = {
   '20x': 'rgba(96, 165, 250, 0.85)',
 }
 
-export function OverlayLayer({
+export const OverlayLayer = memo(function OverlayLayer({
   amplifierMode,
   blueLightEnabled,
   circadianEnabled,
@@ -72,4 +73,4 @@ export function OverlayLayer({
       />
     </div>
   )
-}
+})
