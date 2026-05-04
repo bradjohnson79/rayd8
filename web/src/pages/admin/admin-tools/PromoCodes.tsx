@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { AdminPageShell } from '../../../components/AdminPageShell'
 import { useAuthToken } from '../../../features/dashboard/useAuthToken'
 import {
@@ -55,6 +55,57 @@ function statusClass(status: string) {
   }
 
   return 'border-amber-200/30 bg-amber-300/10 text-amber-100'
+}
+
+function HelpTooltip({ label, text }: { label: string; text: string }) {
+  const tooltipId = useId()
+
+  return (
+    <span className="group/help relative inline-flex">
+      <button
+        aria-describedby={tooltipId}
+        aria-label={`Help for ${label}`}
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/20 bg-white/[0.07] text-[10px] font-semibold leading-none text-slate-300 shadow-[0_0_14px_rgba(167,139,250,0.12)] outline-none transition hover:border-violet-200/50 hover:bg-violet-200/12 hover:text-white focus-visible:border-violet-200/70 focus-visible:bg-violet-200/15 focus-visible:text-white focus-visible:ring-2 focus-visible:ring-violet-300/25"
+        type="button"
+      >
+        <svg aria-hidden="true" className="h-2.5 w-2.5" viewBox="0 0 16 16">
+          <path
+            d="M7.9 10.9a.8.8 0 0 1-.8-.8c0-1.5.9-2.1 1.6-2.6.6-.4 1-.7 1-1.4 0-.8-.6-1.3-1.6-1.3-.8 0-1.4.3-1.9.9a.8.8 0 1 1-1.2-1.1 4 4 0 0 1 3.2-1.4c1.9 0 3.2 1.1 3.2 2.8 0 1.5-.9 2.1-1.6 2.6-.6.4-1 .7-1 1.4a.8.8 0 0 1-.9.9Zm.1 2.7a1 1 0 1 1 0-2.1 1 1 0 0 1 0 2.1Z"
+            fill="currentColor"
+          />
+        </svg>
+      </button>
+      <span
+        className="pointer-events-none absolute left-1/2 top-6 z-30 w-[min(17rem,calc(100vw-3rem))] -translate-x-1/2 rounded-2xl border border-white/12 bg-slate-950/90 px-3 py-2 text-left text-xs font-normal leading-5 text-slate-200 opacity-0 shadow-[0_18px_55px_rgba(0,0,0,0.35)] backdrop-blur-xl transition duration-150 group-hover/help:opacity-100 group-focus-within/help:opacity-100 sm:left-0 sm:translate-x-0"
+        id={tooltipId}
+        role="tooltip"
+      >
+        {text}
+      </span>
+    </span>
+  )
+}
+
+function FieldWithHelp({
+  children,
+  className = '',
+  help,
+  label,
+}: {
+  children: ReactNode
+  className?: string
+  help: string
+  label: string
+}) {
+  return (
+    <div className={['space-y-2', className].filter(Boolean).join(' ')}>
+      <div className="flex items-center gap-1.5 px-1">
+        <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">{label}</span>
+        <HelpTooltip label={label} text={help} />
+      </div>
+      {children}
+    </div>
+  )
 }
 
 export function AdminPromoCodesPage() {
@@ -312,99 +363,150 @@ export function AdminPromoCodesPage() {
             REGEN is selected by default. Fixed amount discounts are entered as dollars and sent to Stripe as cents.
           </p>
         </div>
-        <input
-          className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
-          onChange={(event) => updateFormField('code', event.target.value)}
-          placeholder="Code, e.g. REGEN25"
-          required
-          value={formState.code}
-        />
-        <input
-          className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
-          onChange={(event) => updateFormField('name', event.target.value)}
-          placeholder="Name"
-          required
-          value={formState.name}
-        />
-        <select
-          className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-violet-200/60"
-          onChange={(event) => updateFormField('discountType', event.target.value as AdminPromoCodeDiscountType)}
-          value={formState.discountType}
+        <FieldWithHelp
+          help="The actual promo code customers will enter at checkout. This must be unique."
+          label="Code"
         >
-          <option value="percent">Percent off</option>
-          <option value="amount">Fixed amount off</option>
-        </select>
-        {formState.discountType === 'percent' ? (
           <input
-            className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
+            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
+            onChange={(event) => updateFormField('code', event.target.value)}
+            placeholder="Code, e.g. REGEN25"
+            required
+            value={formState.code}
+          />
+        </FieldWithHelp>
+        <FieldWithHelp
+          help="Internal or display name for this promo code. Useful for organization and tracking."
+          label="Name"
+        >
+          <input
+            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
+            onChange={(event) => updateFormField('name', event.target.value)}
+            placeholder="Name"
+            required
+            value={formState.name}
+          />
+        </FieldWithHelp>
+        <FieldWithHelp
+          help="Choose whether this code gives a percentage discount or a fixed dollar amount discount."
+          label="Discount Type"
+        >
+          <select
+            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-violet-200/60"
+            onChange={(event) => updateFormField('discountType', event.target.value as AdminPromoCodeDiscountType)}
+            value={formState.discountType}
+          >
+            <option value="percent">Percent off</option>
+            <option value="amount">Fixed amount off</option>
+          </select>
+        </FieldWithHelp>
+        <FieldWithHelp
+          help="Enter the discount amount. For percentage, use a number like 10 or 100. For fixed discounts, enter the dollar amount."
+          label="Discount Value"
+        >
+          {formState.discountType === 'percent' ? (
+            <input
+              className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
+              min="1"
+              max="100"
+              onChange={(event) => updateFormField('percentOff', event.target.value)}
+              placeholder="Percent, e.g. 25"
+              required
+              type="number"
+              value={formState.percentOff}
+            />
+          ) : (
+            <input
+              className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
+              min="0.01"
+              onChange={(event) => updateFormField('amountOffDollars', event.target.value)}
+              placeholder="Dollars off, e.g. 5"
+              required
+              step="0.01"
+              type="number"
+              value={formState.amountOffDollars}
+            />
+          )}
+        </FieldWithHelp>
+        <FieldWithHelp
+          help="Controls how long the discount applies: once, repeating for a set number of months, or forever."
+          label="Duration"
+        >
+          <select
+            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-violet-200/60"
+            onChange={(event) => updateFormField('duration', event.target.value as AdminPromoCodeDuration)}
+            value={formState.duration}
+          >
+            <option value="once">Once</option>
+            <option value="repeating">Repeating</option>
+            <option value="forever">Forever</option>
+          </select>
+        </FieldWithHelp>
+        <FieldWithHelp
+          help="Used only for repeating discounts. Enter how many billing cycles the discount should remain active."
+          label="Duration in Months"
+        >
+          <input
+            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60 disabled:opacity-45"
+            disabled={formState.duration !== 'repeating'}
             min="1"
-            max="100"
-            onChange={(event) => updateFormField('percentOff', event.target.value)}
-            placeholder="Percent, e.g. 25"
-            required
+            onChange={(event) => updateFormField('durationInMonths', event.target.value)}
+            placeholder="Duration months"
+            required={formState.duration === 'repeating'}
             type="number"
-            value={formState.percentOff}
+            value={formState.durationInMonths}
           />
-        ) : (
+        </FieldWithHelp>
+        <FieldWithHelp
+          help="Maximum number of times this promo code can be used. Leave blank if unlimited is supported."
+          label="Max Redemptions"
+        >
           <input
-            className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
-            min="0.01"
-            onChange={(event) => updateFormField('amountOffDollars', event.target.value)}
-            placeholder="Dollars off, e.g. 5"
-            required
-            step="0.01"
+            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
+            min="1"
+            onChange={(event) => updateFormField('maxRedemptions', event.target.value)}
+            placeholder="Max redemptions"
             type="number"
-            value={formState.amountOffDollars}
+            value={formState.maxRedemptions}
           />
-        )}
-        <select
-          className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-violet-200/60"
-          onChange={(event) => updateFormField('duration', event.target.value as AdminPromoCodeDuration)}
-          value={formState.duration}
+        </FieldWithHelp>
+        <FieldWithHelp
+          help="Optional expiration date and time. After this point, the promo code can no longer be redeemed."
+          label="Redeem By"
         >
-          <option value="once">Once</option>
-          <option value="repeating">Repeating</option>
-          <option value="forever">Forever</option>
-        </select>
-        <input
-          className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60 disabled:opacity-45"
-          disabled={formState.duration !== 'repeating'}
-          min="1"
-          onChange={(event) => updateFormField('durationInMonths', event.target.value)}
-          placeholder="Duration months"
-          required={formState.duration === 'repeating'}
-          type="number"
-          value={formState.durationInMonths}
-        />
-        <input
-          className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
-          min="1"
-          onChange={(event) => updateFormField('maxRedemptions', event.target.value)}
-          placeholder="Max redemptions"
-          type="number"
-          value={formState.maxRedemptions}
-        />
-        <input
-          className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
-          onChange={(event) => updateFormField('expiresAt', event.target.value)}
-          type="datetime-local"
-          value={formState.expiresAt}
-        />
-        <select
-          className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-violet-200/60"
-          onChange={(event) => updateFormField('appliesToPlan', event.target.value as AdminPromoCodePlan)}
-          value={formState.appliesToPlan}
+          <input
+            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
+            onChange={(event) => updateFormField('expiresAt', event.target.value)}
+            type="datetime-local"
+            value={formState.expiresAt}
+          />
+        </FieldWithHelp>
+        <FieldWithHelp
+          help="Select which product this promo code applies to, such as REGEN or Amrita."
+          label="Product / Plan"
         >
-          <option value="regen">REGEN</option>
-          <option value="amrita">AMRITA future</option>
-          <option value="all">All future plans</option>
-        </select>
-        <textarea
-          className="min-h-24 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60 lg:col-span-3"
-          onChange={(event) => updateFormField('description', event.target.value)}
-          placeholder="Description or campaign notes"
-          value={formState.description}
-        />
+          <select
+            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-violet-200/60"
+            onChange={(event) => updateFormField('appliesToPlan', event.target.value as AdminPromoCodePlan)}
+            value={formState.appliesToPlan}
+          >
+            <option value="regen">REGEN</option>
+            <option value="amrita">AMRITA future</option>
+            <option value="all">All future plans</option>
+          </select>
+        </FieldWithHelp>
+        <FieldWithHelp
+          className="lg:col-span-3"
+          help="Optional internal notes about the purpose of the code, campaign details, or contributor tier."
+          label="Description or Campaign Notes"
+        >
+          <textarea
+            className="min-h-24 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
+            onChange={(event) => updateFormField('description', event.target.value)}
+            placeholder="Description or campaign notes"
+            value={formState.description}
+          />
+        </FieldWithHelp>
         <button
           className="rounded-2xl border border-emerald-200/30 bg-emerald-300/16 px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-300/22 disabled:cursor-not-allowed disabled:opacity-55"
           disabled={creating}
@@ -416,38 +518,50 @@ export function AdminPromoCodesPage() {
 
       <div className="overflow-hidden rounded-[2rem] border border-white/12 bg-white/[0.045] shadow-[0_18px_60px_rgba(0,0,0,0.2)] backdrop-blur-2xl">
         <div className="grid gap-3 border-b border-white/10 px-5 py-4 md:grid-cols-3">
-          <input
-            className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search code, name, description"
-            value={query}
-          />
-          <select
-            className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-violet-200/60"
-            onChange={(event) => setStatus(event.target.value)}
-            value={status}
+          <FieldWithHelp help="Search promo codes by code, name, or description." label="Search">
+            <input
+              className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-200/60"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search code, name, description"
+              value={query}
+            />
+          </FieldWithHelp>
+          <FieldWithHelp
+            help="Filter promo codes by status, such as active or needs review."
+            label="Status Filter"
           >
-            <option value="all">All active view</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="expired">Expired</option>
-            <option value="synced">Synced</option>
-            <option value="pending">Pending</option>
-            <option value="mismatch">Mismatch</option>
-            <option value="missing">Missing</option>
-            <option value="error">Error</option>
-            <option value="archived">Archived</option>
-          </select>
-          <select
-            className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-violet-200/60"
-            onChange={(event) => setSort(event.target.value)}
-            value={sort}
+            <select
+              className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-violet-200/60"
+              onChange={(event) => setStatus(event.target.value)}
+              value={status}
+            >
+              <option value="all">All active view</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="expired">Expired</option>
+              <option value="synced">Synced</option>
+              <option value="pending">Pending</option>
+              <option value="mismatch">Mismatch</option>
+              <option value="missing">Missing</option>
+              <option value="error">Error</option>
+              <option value="archived">Archived</option>
+            </select>
+          </FieldWithHelp>
+          <FieldWithHelp
+            help="Sort promo codes by created date or other available sorting options."
+            label="Sort"
           >
-            <option value="created">Created date</option>
-            <option value="expires">Expiration</option>
-            <option value="redemptions">Redemptions</option>
-            <option value="status">Sync status</option>
-          </select>
+            <select
+              className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-violet-200/60"
+              onChange={(event) => setSort(event.target.value)}
+              value={sort}
+            >
+              <option value="created">Created date</option>
+              <option value="expires">Expiration</option>
+              <option value="redemptions">Redemptions</option>
+              <option value="status">Sync status</option>
+            </select>
+          </FieldWithHelp>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-white/10 text-left text-sm text-slate-300">
