@@ -11,6 +11,7 @@ import {
   validateAdminPromoCode,
   refreshAdminPromoCodeFromStripe,
   repairAdminPromoCodeSync,
+  restoreAdminPromoCode,
   type AdminPromoCodeCreatePayload,
   type AdminPromoCodeDiscountType,
   type AdminPromoCodeDuration,
@@ -46,6 +47,10 @@ function formatDiscount(promoCode: AdminPromoCodeRecord) {
 }
 
 function statusClass(status: string) {
+  if (status === 'archived') {
+    return 'border-slate-200/25 bg-slate-300/10 text-slate-100'
+  }
+
   if (status === 'synced') {
     return 'border-emerald-200/30 bg-emerald-300/10 text-emerald-100'
   }
@@ -110,6 +115,7 @@ function FieldWithHelp({
 
 export function AdminPromoCodesPage() {
   const getAuthToken = useAuthToken()
+  const [actionPendingId, setActionPendingId] = useState<string | null>(null)
   const [activePromoCode, setActivePromoCode] = useState<AdminPromoCodeRecord | null>(null)
   const [creating, setCreating] = useState(false)
   const [environment, setEnvironment] = useState('unknown')
@@ -256,13 +262,14 @@ export function AdminPromoCodesPage() {
   }
 
   async function runAction(
-    action: 'archive' | 'deactivate' | 'recreate' | 'refresh' | 'repair' | 'validate',
+    action: 'archive' | 'deactivate' | 'recreate' | 'refresh' | 'repair' | 'restore' | 'validate',
     promoCode: AdminPromoCodeRecord,
   ) {
     setError(null)
     setStatusMessage(null)
 
     try {
+      setActionPendingId(`${action}:${promoCode.id}`)
       const token = await getAuthToken()
 
       if (!token) {
@@ -304,7 +311,7 @@ export function AdminPromoCodesPage() {
 
       if (action === 'archive') {
         const confirmed = window.confirm(
-          `Archive ${promoCode.code}? This will deactivate it in Stripe and hide it from the active promo code table.`,
+          `Archive Promo Code?\n\nThis will hide ${promoCode.code} from the active admin view but will not delete it from Stripe. Existing Stripe records will remain intact.`,
         )
 
         if (!confirmed) {
@@ -312,12 +319,27 @@ export function AdminPromoCodesPage() {
         }
 
         const response = await archiveAdminPromoCode(promoCode.id, token)
-        setStatusMessage(`${response.promoCode.code} was deactivated in Stripe and archived locally.`)
+        setStatusMessage(`${response.promoCode.code} was archived locally. Stripe records were left intact.`)
+      }
+
+      if (action === 'restore') {
+        const confirmed = window.confirm(
+          `Restore Promo Code?\n\nThis will return ${promoCode.code} to the active admin view. Stripe records will remain unchanged.`,
+        )
+
+        if (!confirmed) {
+          return
+        }
+
+        const response = await restoreAdminPromoCode(promoCode.id, token)
+        setStatusMessage(`${response.promoCode.code} was restored to the active admin view.`)
       }
 
       await loadPromoCodes()
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Promo code action failed.')
+    } finally {
+      setActionPendingId(null)
     }
   }
 
@@ -588,40 +610,77 @@ export function AdminPromoCodesPage() {
               {loading ? (
                 <tr><td className="px-5 py-6 text-slate-400" colSpan={7}>Loading promo codes...</td></tr>
               ) : promoCodes.length ? (
-                promoCodes.map((promoCode) => (
-                  <tr key={promoCode.id}>
-                    <td className="px-5 py-4">
-                      <button className="text-left" onClick={() => void loadDetails(promoCode)} type="button">
-                        <span className="font-semibold text-white">{promoCode.code}</span>
-                        <span className="mt-1 block text-xs text-slate-500">{promoCode.name}</span>
-                      </button>
-                    </td>
-                    <td className="px-5 py-4">{formatDiscount(promoCode)}</td>
-                    <td className="px-5 py-4 capitalize">
-                      {promoCode.duration}
-                      {promoCode.duration_in_months ? ` • ${promoCode.duration_in_months} months` : ''}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={['rounded-full border px-3 py-1 text-xs uppercase tracking-[0.2em]', statusClass(promoCode.stripe_sync_status)].join(' ')}>
-                        {promoCode.stripe_sync_status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">{promoCode.times_redeemed}</td>
-                    <td className="px-5 py-4">{formatDate(promoCode.expires_at)}</td>
-                    <td className="px-5 py-4">
-                      <div className="flex flex-wrap gap-2">
-                        <button className="rounded-xl border border-white/12 px-3 py-2 text-xs text-white hover:bg-white/10" onClick={() => void runAction('validate', promoCode)} type="button">Validate</button>
-                        <button className="rounded-xl border border-white/12 px-3 py-2 text-xs text-white hover:bg-white/10" onClick={() => void runAction('refresh', promoCode)} type="button">Refresh</button>
-                        <button className="rounded-xl border border-white/12 px-3 py-2 text-xs text-white hover:bg-white/10" onClick={() => void runAction('repair', promoCode)} type="button">Repair</button>
-                        {(!promoCode.stripe_coupon_id || !promoCode.stripe_promotion_code_id || promoCode.stripe_sync_status === 'missing') ? (
-                          <button className="rounded-xl border border-white/12 px-3 py-2 text-xs text-white hover:bg-white/10" onClick={() => void runAction('recreate', promoCode)} type="button">Recreate</button>
-                        ) : null}
-                        <button className="rounded-xl border border-white/12 px-3 py-2 text-xs text-white hover:bg-white/10" onClick={() => void runAction('deactivate', promoCode)} type="button">Deactivate</button>
-                        <button className="rounded-xl border border-white/12 px-3 py-2 text-xs text-white hover:bg-white/10" onClick={() => void runAction('archive', promoCode)} type="button">Archive</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                promoCodes.map((promoCode) => {
+                  const isArchived = Boolean(promoCode.archived_at)
+                  const displayStatus = isArchived ? 'archived' : promoCode.stripe_sync_status
+                  const buttonClass =
+                    'rounded-xl border border-white/12 px-3 py-2 text-xs text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45'
+                  const isActionPending = (action: string) => actionPendingId === `${action}:${promoCode.id}`
+                  const hasPendingAction = actionPendingId !== null
+
+                  return (
+                    <tr key={promoCode.id}>
+                      <td className="px-5 py-4">
+                        <button className="text-left" onClick={() => void loadDetails(promoCode)} type="button">
+                          <span className="font-semibold text-white">{promoCode.code}</span>
+                          <span className="mt-1 block text-xs text-slate-500">{promoCode.name}</span>
+                        </button>
+                      </td>
+                      <td className="px-5 py-4">{formatDiscount(promoCode)}</td>
+                      <td className="px-5 py-4 capitalize">
+                        {promoCode.duration}
+                        {promoCode.duration_in_months ? ` • ${promoCode.duration_in_months} months` : ''}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={['rounded-full border px-3 py-1 text-xs uppercase tracking-[0.2em]', statusClass(displayStatus)].join(' ')}>
+                          {displayStatus}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">{promoCode.times_redeemed}</td>
+                      <td className="px-5 py-4">{formatDate(promoCode.expires_at)}</td>
+                      <td className="px-5 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          {isArchived ? (
+                            <>
+                              <button className={buttonClass} disabled={hasPendingAction} onClick={() => void runAction('restore', promoCode)} type="button">
+                                {isActionPending('restore') ? 'Restoring...' : 'Restore'}
+                              </button>
+                              <button className={buttonClass} disabled={hasPendingAction} onClick={() => void runAction('validate', promoCode)} type="button">
+                                {isActionPending('validate') ? 'Validating...' : 'Validate'}
+                              </button>
+                              <button className={buttonClass} disabled={hasPendingAction} onClick={() => void runAction('refresh', promoCode)} type="button">
+                                {isActionPending('refresh') ? 'Refreshing...' : 'Refresh'}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button className={buttonClass} disabled={hasPendingAction} onClick={() => void runAction('validate', promoCode)} type="button">
+                                {isActionPending('validate') ? 'Validating...' : 'Validate'}
+                              </button>
+                              <button className={buttonClass} disabled={hasPendingAction} onClick={() => void runAction('refresh', promoCode)} type="button">
+                                {isActionPending('refresh') ? 'Refreshing...' : 'Refresh'}
+                              </button>
+                              <button className={buttonClass} disabled={hasPendingAction} onClick={() => void runAction('repair', promoCode)} type="button">
+                                {isActionPending('repair') ? 'Repairing...' : 'Repair'}
+                              </button>
+                              {(!promoCode.stripe_coupon_id || !promoCode.stripe_promotion_code_id || promoCode.stripe_sync_status === 'missing') ? (
+                                <button className={buttonClass} disabled={hasPendingAction} onClick={() => void runAction('recreate', promoCode)} type="button">
+                                  {isActionPending('recreate') ? 'Recreating...' : 'Recreate'}
+                                </button>
+                              ) : null}
+                              <button className={buttonClass} disabled={hasPendingAction} onClick={() => void runAction('deactivate', promoCode)} type="button">
+                                {isActionPending('deactivate') ? 'Deactivating...' : 'Deactivate'}
+                              </button>
+                              <button className={buttonClass} disabled={hasPendingAction} onClick={() => void runAction('archive', promoCode)} type="button">
+                                {isActionPending('archive') ? 'Archiving...' : 'Archive'}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
               ) : (
                 <tr><td className="px-5 py-6 text-slate-400" colSpan={7}>No promo codes found.</td></tr>
               )}

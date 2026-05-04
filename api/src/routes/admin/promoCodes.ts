@@ -10,6 +10,7 @@ import {
   recreateMissingPromoCode,
   refreshPromoCodeFromStripe,
   repairPromoCodeSync,
+  restorePromoCode,
   updatePromoCode,
   validatePromoCodeWithStripe,
 } from '../../services/admin/promoCodes.js'
@@ -150,6 +151,17 @@ export const adminPromoCodeRoutes: FastifyPluginAsync = async (app) => {
   app.post('/:id/archive', { preHandler: requireAdminAccess }, async (request, reply) => {
     const { id } = promoCodeIdSchema.parse(request.params)
     const promoCode = await archivePromoCode(id)
+
+    if (!promoCode) {
+      return reply.code(404).send({ error: 'Promo code not found.' })
+    }
+
+    return { promoCode }
+  })
+
+  app.post('/:id/restore', { preHandler: requireAdminAccess }, async (request, reply) => {
+    const { id } = promoCodeIdSchema.parse(request.params)
+    const promoCode = await restorePromoCode(id)
 
     if (!promoCode) {
       return reply.code(404).send({ error: 'Promo code not found.' })

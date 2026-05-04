@@ -1000,3 +1000,11 @@ export async function archiveAdminPromoCode(id: string, token: string) {
     token,
   )
 }
+
+export async function restoreAdminPromoCode(id: string, token: string) {
+  return apiRequest<{ promoCode: AdminPromoCodeRecord }>(
+    `/api/admin/promo-codes/${encodeURIComponent(id)}/restore`,
+    { method: 'POST' },
+    token,
+  )
+}
