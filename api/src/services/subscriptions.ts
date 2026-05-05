@@ -569,7 +569,7 @@ function getAmountDiscounted(value: unknown) {
   return typeof amount === 'number' ? amount : null
 }
 
-function extractDiscountDetails(discount: unknown, amountDiscounted?: number | null) {
+export function extractDiscountDetails(discount: unknown, amountDiscounted?: number | null) {
   const record = asRecord(discount)
 
   if (!record) {
@@ -611,7 +611,7 @@ function getFirstDiscountDetailsFromArray(value: unknown, amountDiscounted?: num
   return null
 }
 
-function getCheckoutDiscountDetails(session: Stripe.Checkout.Session) {
+export function getCheckoutDiscountDetails(session: Stripe.Checkout.Session) {
   const checkoutSession = session as Stripe.Checkout.Session & {
     discount?: unknown
     discounts?: unknown

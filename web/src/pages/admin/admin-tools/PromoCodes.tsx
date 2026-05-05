@@ -188,7 +188,7 @@ export function AdminPromoCodesPage() {
       { label: 'Total codes', value: summary.total },
       { label: 'Active', value: summary.active },
       { label: 'Needs review', value: summary.errors },
-      { label: 'Redemptions', value: summary.totalRedemptions },
+      { label: 'Recorded redemptions', value: summary.totalRedemptions },
     ],
     [summary],
   )
@@ -285,7 +285,11 @@ export function AdminPromoCodesPage() {
 
       if (action === 'validate') {
         const response = await validateAdminPromoCode(promoCode.id, token)
-        setStatusMessage(response.validation.messages.join(' '))
+        const message = response.validation.messages.join(' ')
+        const redemptionCountNote = message.includes('Stripe reports')
+          ? ' Stripe lifetime count can be higher than recorded redemptions if webhook delivery was missed or the promo predates RAYD8 tracking.'
+          : ''
+        setStatusMessage(`${message}${redemptionCountNote}`)
       }
 
       if (action === 'refresh') {
@@ -398,6 +402,7 @@ export function AdminPromoCodesPage() {
           <h2 className="text-xl font-semibold text-white">Create Stripe Promo Code</h2>
           <p className="mt-2 text-sm leading-6 text-slate-400">
             REGEN is selected by default. Fixed amount discounts are entered as dollars and sent to Stripe as cents.
+            Amrita-scoped promos will be supported once Amrita has a Stripe price.
           </p>
         </div>
         <FieldWithHelp
@@ -519,7 +524,7 @@ export function AdminPromoCodesPage() {
           />
         </FieldWithHelp>
         <FieldWithHelp
-          help="Select which product this promo code applies to, such as REGEN or Amrita."
+          help="Promo code creation is currently limited to REGEN because Amrita does not have a Stripe price wired yet."
           label="Product / Plan"
         >
           <select
@@ -528,8 +533,6 @@ export function AdminPromoCodesPage() {
             value={formState.appliesToPlan}
           >
             <option value="regen">REGEN</option>
-            <option value="amrita">AMRITA future</option>
-            <option value="all">All future plans</option>
           </select>
         </FieldWithHelp>
         <FieldWithHelp
@@ -608,7 +611,7 @@ export function AdminPromoCodesPage() {
                 <th className="px-5 py-4">Discount</th>
                 <th className="px-5 py-4">Duration</th>
                 <th className="px-5 py-4">Status</th>
-                <th className="px-5 py-4">Redemptions</th>
+                <th className="px-5 py-4">Recorded redemptions</th>
                 <th className="px-5 py-4">Expires</th>
                 <th className="px-5 py-4">Actions</th>
               </tr>
@@ -710,6 +713,9 @@ export function AdminPromoCodesPage() {
             </div>
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <p className="md:col-span-3 text-sm leading-6 text-slate-400">
+              Redemptions only appear for promo codes created in this admin. Stripe-only coupons are intentionally not tracked here.
+            </p>
             {redemptions.length ? redemptions.map((redemption) => (
               <article className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-300" key={redemption.id}>
                 <p className="font-medium text-white">{new Date(redemption.created_at).toLocaleString()}</p>

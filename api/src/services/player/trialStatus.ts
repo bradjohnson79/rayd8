@@ -74,8 +74,12 @@ export function getTrialStatus(user: TrialUserRow, now = new Date()): TrialStatu
   const hoursExceeded = user.trialHoursUsed >= TRIAL_HOURS_BLOCK_THRESHOLD
 
   if (user.role === 'admin') {
+    const hasActiveTrialWindow = Boolean(user.trialStartedAt && user.trialEndsAt && !trialExpired)
+
     return {
       allowed: true,
+      days_remaining: hasActiveTrialWindow ? toDaysRemaining(user.trialEndsAt as Date, now) : undefined,
+      hours_remaining: hasActiveTrialWindow ? roundHours(TRIAL_HOURS_LIMIT - user.trialHoursUsed) : undefined,
       notification: null,
       plan: user.plan === 'free' ? 'free_trial' : user.plan,
       reason: null,
@@ -212,11 +216,11 @@ export async function getTrialStatusForUser(input: {
   role: 'admin' | 'member'
   userId: string
 }) {
-  if (input.role === 'admin') {
+  if (input.role === 'admin' && input.plan !== 'free') {
     return {
       allowed: true,
       notification: null,
-      plan: input.plan === 'free' ? 'free_trial' : input.plan,
+      plan: input.plan,
       reason: null,
     } satisfies TrialStatusPayload
   }

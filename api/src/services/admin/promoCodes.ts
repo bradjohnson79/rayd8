@@ -259,6 +259,38 @@ async function getActiveStripePromotionCodeByCode(code: string) {
   return promotionCodes.data[0] ?? null
 }
 
+function getPromotionCodeCouponId(promotionCode: Stripe.PromotionCode) {
+  const record = promotionCode as Stripe.PromotionCode & {
+    coupon?: string | { id?: string | null } | null
+    promotion?: { coupon?: string | { id?: string | null } | null } | null
+  }
+  const coupon = record.coupon ?? record.promotion?.coupon
+
+  if (typeof coupon === 'string') {
+    return coupon
+  }
+
+  if (coupon?.id) {
+    return coupon.id
+  }
+
+  throw new Error(`Unable to determine coupon for Stripe promotion code ${promotionCode.id}.`)
+}
+
+function couponMatchesPromoCode(
+  coupon: Stripe.Coupon,
+  promoCode: typeof rayd8PromoCodes.$inferSelect,
+) {
+  return (
+    (coupon.amount_off ?? null) === promoCode.amountOff &&
+    (coupon.percent_off ? Math.round(coupon.percent_off) : null) === promoCode.percentOff &&
+    coupon.duration === promoCode.duration &&
+    (coupon.duration_in_months ?? null) === promoCode.durationInMonths &&
+    (coupon.max_redemptions ?? null) === promoCode.maxRedemptions &&
+    (fromUnixSeconds(coupon.redeem_by)?.getTime() ?? null) === (promoCode.expiresAt?.getTime() ?? null)
+  )
+}
+
 async function getRegenProductId() {
   if (!stripeClient || !env.STRIPE_REGEN_PRICE_ID) {
     return null
@@ -888,50 +920,106 @@ export async function recreateMissingPromoCode(id: string) {
     }
   }
 
+  const activeStripePromotionCode = await getActiveStripePromotionCodeByCode(existing.code)
+
+  if (activeStripePromotionCode) {
+    const couponId = getPromotionCodeCouponId(activeStripePromotionCode)
+    const retrievedCoupon = await stripeClient.coupons.retrieve(couponId)
+
+    if ('deleted' in retrievedCoupon && retrievedCoupon.deleted) {
+      throw new Error(`An active Stripe promotion code with code ${existing.code} already exists, but its coupon is missing.`)
+    }
+
+    const coupon = retrievedCoupon as Stripe.Coupon
+
+    if (!couponMatchesPromoCode(coupon, existing)) {
+      throw new Error(
+        `Promo code ${existing.code} already exists in Stripe with different settings. Deactivate the existing Stripe promotion code or use a new code.`,
+      )
+    }
+
+    const localRedemptionCount = await getRedemptionCountForPromoCode(existing.id)
+    const [record] = await db
+      .update(rayd8PromoCodes)
+      .set({
+        stripeCouponId: coupon.id,
+        stripeEnvironment: stripeEnvironment(),
+        stripePromotionCodeId: activeStripePromotionCode.id,
+        stripeSyncError: null,
+        stripeSyncStatus: activeStripePromotionCode.active ? 'synced' : 'inactive',
+        timesRedeemed: localRedemptionCount,
+        updatedAt: new Date(),
+      })
+      .where(eq(rayd8PromoCodes.id, id))
+      .returning()
+
+    return serializePromoCode(record)
+  }
+
   const productId = existing.appliesToPlan === 'regen' ? await getRegenProductId() : null
   const metadata = {
     rayd8_applies_to_plan: existing.appliesToPlan,
     rayd8_code: existing.code,
     rayd8_recreated_from_local_id: existing.id,
   }
-  const coupon = await stripeClient.coupons.create({
-    applies_to: productId ? { products: [productId] } : undefined,
-    amount_off: existing.discountType === 'amount' ? existing.amountOff ?? undefined : undefined,
-    currency: existing.discountType === 'amount' ? existing.currency : undefined,
-    duration: existing.duration,
-    duration_in_months: existing.duration === 'repeating' ? existing.durationInMonths ?? undefined : undefined,
-    max_redemptions: existing.maxRedemptions ?? undefined,
-    metadata,
-    name: existing.name,
-    percent_off: existing.discountType === 'percent' ? existing.percentOff ?? undefined : undefined,
-    redeem_by: toUnixSeconds(existing.expiresAt),
-  })
-  const promotionCode = await stripeClient.promotionCodes.create({
-    active: existing.isActive,
-    code: existing.code,
-    expires_at: toUnixSeconds(existing.expiresAt),
-    max_redemptions: existing.maxRedemptions ?? undefined,
-    metadata,
-    promotion: {
-      coupon: coupon.id,
-      type: 'coupon',
-    },
-  })
-  const [record] = await db
-    .update(rayd8PromoCodes)
-    .set({
-      stripeCouponId: coupon.id,
-      stripeEnvironment: stripeEnvironment(),
-      stripePromotionCodeId: promotionCode.id,
-      stripeSyncError: null,
-      stripeSyncStatus: promotionCode.active ? 'synced' : 'inactive',
-      timesRedeemed: promotionCode.times_redeemed ?? 0,
-      updatedAt: new Date(),
-    })
-    .where(eq(rayd8PromoCodes.id, id))
-    .returning()
+  let coupon: Stripe.Coupon | null = null
+  let promotionCode: Stripe.PromotionCode | null = null
 
-  return serializePromoCode(record)
+  try {
+    coupon = await stripeClient.coupons.create({
+      applies_to: productId ? { products: [productId] } : undefined,
+      amount_off: existing.discountType === 'amount' ? existing.amountOff ?? undefined : undefined,
+      currency: existing.discountType === 'amount' ? existing.currency : undefined,
+      duration: existing.duration,
+      duration_in_months: existing.duration === 'repeating' ? existing.durationInMonths ?? undefined : undefined,
+      max_redemptions: existing.maxRedemptions ?? undefined,
+      metadata,
+      name: existing.name,
+      percent_off: existing.discountType === 'percent' ? existing.percentOff ?? undefined : undefined,
+      redeem_by: toUnixSeconds(existing.expiresAt),
+    })
+    promotionCode = await stripeClient.promotionCodes.create({
+      active: existing.isActive,
+      code: existing.code,
+      expires_at: toUnixSeconds(existing.expiresAt),
+      max_redemptions: existing.maxRedemptions ?? undefined,
+      metadata,
+      promotion: {
+        coupon: coupon.id,
+        type: 'coupon',
+      },
+    })
+    const [record] = await db
+      .update(rayd8PromoCodes)
+      .set({
+        stripeCouponId: coupon.id,
+        stripeEnvironment: stripeEnvironment(),
+        stripePromotionCodeId: promotionCode.id,
+        stripeSyncError: null,
+        stripeSyncStatus: promotionCode.active ? 'synced' : 'inactive',
+        timesRedeemed: promotionCode.times_redeemed ?? 0,
+        updatedAt: new Date(),
+      })
+      .where(eq(rayd8PromoCodes.id, id))
+      .returning()
+
+    return serializePromoCode(record)
+  } catch (error) {
+    if (promotionCode) {
+      await stripeClient.promotionCodes.update(promotionCode.id, { active: false }).catch(() => null)
+    }
+
+    if (coupon) {
+      await stripeClient.coupons.del(coupon.id).catch((cleanupError) => {
+        console.error('Unable to clean up orphaned Stripe coupon after promo code recreate failure.', {
+          couponId: coupon?.id,
+          error: cleanupError instanceof Error ? cleanupError.message : 'Unknown cleanup error',
+        })
+      })
+    }
+
+    throw error
+  }
 }
 
 export async function recordPromoCodeRedemption(input: {
@@ -966,6 +1054,14 @@ export async function recordPromoCodeRedemption(input: {
     .limit(1)
 
   if (!promoCode) {
+    console.warn('[promoCodes] redemption ignored: no matching admin promo', {
+      code: input.code ? normalizeCode(input.code) : null,
+      stripeCheckoutSessionId: input.stripeCheckoutSessionId ?? null,
+      stripeCouponId: input.stripeCouponId ?? null,
+      stripeInvoiceId: input.stripeInvoiceId ?? null,
+      stripePromotionCodeId: input.stripePromotionCodeId ?? null,
+      stripeSubscriptionId: input.stripeSubscriptionId ?? null,
+    })
     return
   }
 

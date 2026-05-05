@@ -57,7 +57,23 @@ describe('getTrialStatus', () => {
     })
   })
 
-  it('always allows admin users', () => {
+  it('allows admin users and includes countdown details when trial window exists', () => {
+    const status = getTrialStatus(
+      buildFreeUser({ role: 'admin' }),
+      new Date('2026-05-12T13:00:00.000Z'),
+    )
+
+    expect(status).toMatchObject({
+      allowed: true,
+      days_remaining: 18,
+      hours_remaining: 22.6,
+      notification: null,
+      plan: 'free_trial',
+      reason: null,
+    })
+  })
+
+  it('allows admin users even without a trial window', () => {
     const status = getTrialStatus(
       buildFreeUser({
         role: 'admin',
@@ -73,6 +89,7 @@ describe('getTrialStatus', () => {
       plan: 'free_trial',
       reason: null,
     })
+    expect(status.days_remaining).toBeUndefined()
   })
 })
 

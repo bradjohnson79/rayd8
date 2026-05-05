@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { FastifyReply } from 'fastify'
+import Stripe from 'stripe'
 import { z } from 'zod'
 import { requireAdminAccess } from '../../plugins/adminAuth.js'
 import {
@@ -39,7 +40,7 @@ const promoCodeListQuerySchema = z.object({
 
 const createPromoCodeSchema = z.object({
   amountOff: z.number().int().positive().optional().nullable(),
-  appliesToPlan: z.enum(['regen', 'amrita', 'all']).optional(),
+  appliesToPlan: z.literal('regen').optional(),
   code: z.string().min(3).max(40),
   description: z.string().max(1000).optional().nullable(),
   discountType: z.enum(['percent', 'amount']),
@@ -69,6 +70,20 @@ function respondWithPromoCodeError(reply: FastifyReply, error: unknown) {
 
   const message = error instanceof Error ? error.message : 'Promo code request failed.'
 
+  if (error instanceof Stripe.errors.StripeInvalidRequestError && error.code === 'resource_missing') {
+    return reply.code(404).send({
+      code: 'PROMO_CODE_STRIPE_MISSING',
+      error: message,
+    })
+  }
+
+  if (error instanceof Stripe.errors.StripeAuthenticationError) {
+    return reply.code(503).send({
+      code: 'PROMO_CODE_UNAVAILABLE',
+      error: message,
+    })
+  }
+
   if (message.includes('already exists')) {
     return reply.code(409).send({
       code: 'PROMO_CODE_DUPLICATE',
@@ -77,6 +92,7 @@ function respondWithPromoCodeError(reply: FastifyReply, error: unknown) {
   }
 
   if (
+    message.includes('Cannot repair sync') ||
     message.includes('Expiration date') ||
     message.includes('Fixed amount') ||
     message.includes('Max redemptions') ||
@@ -103,6 +119,24 @@ function respondWithPromoCodeError(reply: FastifyReply, error: unknown) {
     code: 'PROMO_CODE_ERROR',
     error: message,
   })
+}
+
+async function runPromoCodeAction<T>(
+  reply: FastifyReply,
+  action: () => Promise<T | null>,
+  wrap: (result: T) => unknown,
+) {
+  try {
+    const result = await action()
+
+    if (!result) {
+      return reply.code(404).send({ error: 'Promo code not found.' })
+    }
+
+    return wrap(result)
+  } catch (error) {
+    return respondWithPromoCodeError(reply, error)
+  }
 }
 
 export const adminPromoCodeRoutes: FastifyPluginAsync = async (app) => {
@@ -134,70 +168,44 @@ export const adminPromoCodeRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.patch('/:id', { preHandler: requireAdminAccess }, async (request, reply) => {
-    const { id } = promoCodeIdSchema.parse(request.params)
-    const payload = updatePromoCodeSchema.parse(request.body)
-    const promoCode = await updatePromoCode(id, payload)
+    try {
+      const { id } = promoCodeIdSchema.parse(request.params)
+      const payload = updatePromoCodeSchema.parse(request.body)
+      const promoCode = await updatePromoCode(id, payload)
 
-    if (!promoCode) {
-      return reply.code(404).send({ error: 'Promo code not found.' })
+      if (!promoCode) {
+        return reply.code(404).send({ error: 'Promo code not found.' })
+      }
+
+      return { promoCode }
+    } catch (error) {
+      return respondWithPromoCodeError(reply, error)
     }
-
-    return { promoCode }
   })
 
   app.post('/:id/validate-stripe', { preHandler: requireAdminAccess }, async (request, reply) => {
     const { id } = promoCodeIdSchema.parse(request.params)
-    const result = await validatePromoCodeWithStripe(id)
-
-    if (!result) {
-      return reply.code(404).send({ error: 'Promo code not found.' })
-    }
-
-    return { validation: result }
+    return runPromoCodeAction(reply, () => validatePromoCodeWithStripe(id), (validation) => ({ validation }))
   })
 
   app.post('/:id/deactivate', { preHandler: requireAdminAccess }, async (request, reply) => {
     const { id } = promoCodeIdSchema.parse(request.params)
-    const promoCode = await deactivatePromoCode(id)
-
-    if (!promoCode) {
-      return reply.code(404).send({ error: 'Promo code not found.' })
-    }
-
-    return { promoCode }
+    return runPromoCodeAction(reply, () => deactivatePromoCode(id), (promoCode) => ({ promoCode }))
   })
 
   app.post('/:id/refresh-from-stripe', { preHandler: requireAdminAccess }, async (request, reply) => {
     const { id } = promoCodeIdSchema.parse(request.params)
-    const promoCode = await refreshPromoCodeFromStripe(id)
-
-    if (!promoCode) {
-      return reply.code(404).send({ error: 'Promo code not found.' })
-    }
-
-    return { promoCode }
+    return runPromoCodeAction(reply, () => refreshPromoCodeFromStripe(id), (promoCode) => ({ promoCode }))
   })
 
   app.post('/:id/repair-sync', { preHandler: requireAdminAccess }, async (request, reply) => {
     const { id } = promoCodeIdSchema.parse(request.params)
-    const promoCode = await repairPromoCodeSync(id)
-
-    if (!promoCode) {
-      return reply.code(404).send({ error: 'Promo code not found.' })
-    }
-
-    return { promoCode }
+    return runPromoCodeAction(reply, () => repairPromoCodeSync(id), (promoCode) => ({ promoCode }))
   })
 
   app.post('/:id/recreate-if-missing', { preHandler: requireAdminAccess }, async (request, reply) => {
     const { id } = promoCodeIdSchema.parse(request.params)
-    const promoCode = await recreateMissingPromoCode(id)
-
-    if (!promoCode) {
-      return reply.code(404).send({ error: 'Promo code not found.' })
-    }
-
-    return { promoCode }
+    return runPromoCodeAction(reply, () => recreateMissingPromoCode(id), (promoCode) => ({ promoCode }))
   })
 
   app.post('/:id/archive', { preHandler: requireAdminAccess }, async (request, reply) => {
