@@ -46,6 +46,13 @@ function formatDiscount(promoCode: AdminPromoCodeRecord) {
   return `$${((promoCode.amount_off ?? 0) / 100).toFixed(2)} off`
 }
 
+function formatMoneyFromCents(amount: number | null, currency: string) {
+  return new Intl.NumberFormat('en-US', {
+    currency: currency.toUpperCase(),
+    style: 'currency',
+  }).format((amount ?? 0) / 100)
+}
+
 function statusClass(status: string) {
   if (status === 'archived') {
     return 'border-slate-200/25 bg-slate-300/10 text-slate-100'
@@ -706,8 +713,14 @@ export function AdminPromoCodesPage() {
             {redemptions.length ? redemptions.map((redemption) => (
               <article className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-300" key={redemption.id}>
                 <p className="font-medium text-white">{new Date(redemption.created_at).toLocaleString()}</p>
-                <p className="mt-2">Discount: ${((redemption.amount_discounted ?? 0) / 100).toFixed(2)}</p>
-                <p className="mt-1 text-xs text-slate-500">{redemption.stripe_checkout_session_id ?? redemption.stripe_subscription_id ?? 'Stripe reference unavailable'}</p>
+                <p className="mt-2">Customer: {redemption.customer_email ?? redemption.user_id ?? 'Unknown customer'}</p>
+                <p className="mt-1">Discount: {formatMoneyFromCents(redemption.amount_discounted, redemption.currency)}</p>
+                <p className="mt-1">Status: {redemption.status}</p>
+                <div className="mt-3 space-y-1 text-xs text-slate-500">
+                  <p>Checkout: {redemption.stripe_checkout_session_id ?? 'Unavailable'}</p>
+                  <p>Subscription: {redemption.stripe_subscription_id ?? 'Unavailable'}</p>
+                  <p>Invoice: {redemption.stripe_invoice_id ?? 'Unavailable'}</p>
+                </div>
               </article>
             )) : (
               <p className="text-sm text-slate-400">No recorded redemptions yet.</p>

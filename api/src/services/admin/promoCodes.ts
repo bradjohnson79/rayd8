@@ -231,12 +231,56 @@ function validateCreateInput(input: CreatePromoCodeInput) {
   }
 }
 
+async function getPromoCodeByCode(code: string) {
+  if (!db) {
+    return null
+  }
+
+  const [record] = await db
+    .select()
+    .from(rayd8PromoCodes)
+    .where(eq(rayd8PromoCodes.code, code))
+    .limit(1)
+
+  return record ?? null
+}
+
+async function getActiveStripePromotionCodeByCode(code: string) {
+  if (!stripeClient) {
+    return null
+  }
+
+  const promotionCodes = await stripeClient.promotionCodes.list({
+    active: true,
+    code,
+    limit: 1,
+  })
+
+  return promotionCodes.data[0] ?? null
+}
+
 async function getRegenProductId() {
   if (!stripeClient || !env.STRIPE_REGEN_PRICE_ID) {
     return null
   }
 
-  const price = await stripeClient.prices.retrieve(env.STRIPE_REGEN_PRICE_ID)
+  const price = await stripeClient.prices.retrieve(env.STRIPE_REGEN_PRICE_ID).catch((error) => {
+    const message = error instanceof Error ? error.message : ''
+
+    if (stripeEnvironment() === 'test' && message.includes('similar object exists in live mode')) {
+      console.warn(
+        'Skipping Stripe product restriction for test-mode promo code because STRIPE_REGEN_PRICE_ID belongs to live mode.',
+      )
+      return null
+    }
+
+    throw error
+  })
+
+  if (!price) {
+    return null
+  }
+
   return typeof price.product === 'string' ? price.product : price.product.id
 }
 
@@ -387,6 +431,18 @@ export async function createPromoCode(input: CreatePromoCodeInput, adminUserId?:
   }
 
   const payload = validateCreateInput(input)
+  const existingLocalCode = await getPromoCodeByCode(payload.code)
+
+  if (existingLocalCode) {
+    throw new Error(`Promo code ${payload.code} already exists in the Admin database.`)
+  }
+
+  const existingStripePromotionCode = await getActiveStripePromotionCodeByCode(payload.code)
+
+  if (existingStripePromotionCode) {
+    throw new Error(`An active Stripe promotion code with code ${payload.code} already exists.`)
+  }
+
   const productId = payload.appliesToPlan === 'regen' ? await getRegenProductId() : null
   const metadata = {
     rayd8_applies_to_plan: payload.appliesToPlan,
@@ -450,6 +506,15 @@ export async function createPromoCode(input: CreatePromoCodeInput, adminUserId?:
   } catch (error) {
     if (promotionCode) {
       await stripeClient.promotionCodes.update(promotionCode.id, { active: false }).catch(() => null)
+    }
+
+    if (coupon) {
+      await stripeClient.coupons.del(coupon.id).catch((cleanupError) => {
+        console.error('Unable to clean up orphaned Stripe coupon after promo code create failure.', {
+          couponId: coupon?.id,
+          error: cleanupError instanceof Error ? cleanupError.message : 'Unknown cleanup error',
+        })
+      })
     }
 
     throw error

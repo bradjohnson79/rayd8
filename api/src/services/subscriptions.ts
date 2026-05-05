@@ -577,7 +577,8 @@ function extractDiscountDetails(discount: unknown, amountDiscounted?: number | n
   }
 
   const source = asRecord(record.source)
-  const promotionCodeId = getStripeObjectId(record.promotion_code)
+  const promotionCodeId =
+    getStripeObjectId(record.promotion_code) ?? getStripeObjectId(source?.promotion_code)
   const couponId = getStripeObjectId(record.coupon) ?? getStripeObjectId(source?.coupon)
 
   if (!promotionCodeId && !couponId) {
@@ -655,6 +656,30 @@ function getCheckoutDiscountDetails(session: Stripe.Checkout.Session) {
   }
 
   return extractDiscountDetails(subscription?.discount, totalAmountDiscounted)
+}
+
+async function retrieveCheckoutSessionWithDiscounts(sessionId: string) {
+  if (!stripeClient) {
+    return null
+  }
+
+  try {
+    return await stripeClient.checkout.sessions.retrieve(sessionId, {
+      expand: [
+        'discounts',
+        'discounts.coupon',
+        'discounts.promotion_code',
+        'subscription',
+        'subscription.discounts',
+        'subscription.discounts.coupon',
+        'subscription.discounts.promotion_code',
+      ],
+    })
+  } catch {
+    return stripeClient.checkout.sessions.retrieve(sessionId, {
+      expand: ['subscription'],
+    })
+  }
 }
 
 async function recordCheckoutPromoCodeRedemption(session: Stripe.Checkout.Session) {
@@ -759,23 +784,10 @@ async function handleCheckoutCompleted(event: Stripe.CheckoutSessionCompletedEve
   let session = event.data.object
 
   if (stripeClient) {
-    try {
-      session = await stripeClient.checkout.sessions.retrieve(event.data.object.id, {
-        expand: [
-          'discounts',
-          'discounts.coupon',
-          'discounts.promotion_code',
-          'subscription',
-          'subscription.discounts',
-          'subscription.discounts.promotion_code',
-          'total_details.breakdown.discounts.discount',
-          'total_details.breakdown.discounts.discount.promotion_code',
-        ],
-      })
-    } catch {
-      session = await stripeClient.checkout.sessions.retrieve(event.data.object.id, {
-        expand: ['subscription'],
-      })
+    const retrievedSession = await retrieveCheckoutSessionWithDiscounts(event.data.object.id)
+
+    if (retrievedSession) {
+      session = retrievedSession
     }
   }
   const metadata = session.metadata ?? {}
@@ -919,7 +931,7 @@ async function handleSubscriptionDeleted(event: Stripe.CustomerSubscriptionDelet
 }
 
 async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceededEvent) {
-  const invoice = event.data.object as Stripe.Invoice & {
+  let invoice = event.data.object as Stripe.Invoice & {
     subscription?: string | Stripe.Subscription | null
   }
   const subscriptionId =
@@ -937,7 +949,20 @@ async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceed
     return
   }
 
-  const subscription = await stripeClient.subscriptions.retrieve(subscriptionId)
+  invoice = await stripeClient.invoices.retrieve(invoice.id, {
+    expand: [
+      'discounts',
+      'discounts.coupon',
+      'discounts.promotion_code',
+    ],
+  }).catch(() => invoice)
+  const subscription = await stripeClient.subscriptions.retrieve(subscriptionId, {
+    expand: [
+      'discounts',
+      'discounts.coupon',
+      'discounts.promotion_code',
+    ],
+  }).catch(() => stripeClient.subscriptions.retrieve(subscriptionId))
   await syncSubscriptionFromStripe(subscription)
   const existingSubscription = await findSubscriptionContext(subscription.id)
   const userId = subscription.metadata.userId ?? existingSubscription?.userId
