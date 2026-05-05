@@ -43,15 +43,20 @@ export async function apiRequest<T>(
   token?: string | null,
 ): Promise<T> {
   let response: Response
+  const headers = new Headers(init?.headers)
+
+  if (init?.body !== undefined && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
 
   try {
     response = await fetch(`${apiBaseUrl}${path}`, {
       ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(init?.headers ?? {}),
-      },
+      headers,
     })
   } catch {
     throw new ApiRequestError('Unable to reach the server. Please try again.', 0, 'NETWORK_ERROR')
