@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
 
 interface WrittenTestimonial {
@@ -13,7 +12,7 @@ interface WrittenTestimonialSliderProps {
 }
 
 export function WrittenTestimonialSlider({
-  reducedEffects = false,
+  reducedEffects: _reducedEffects = false,
   testimonials,
 }: WrittenTestimonialSliderProps) {
   const [activeIndex, setActiveIndex] = useState(0)
@@ -59,26 +58,17 @@ export function WrittenTestimonialSlider({
       </div>
 
       <div className="mt-8 min-h-[12rem]">
-        <AnimatePresence mode="wait">
-          <motion.div
-            animate={reducedEffects ? undefined : { opacity: 1, x: 0 }}
-            className="h-full"
-            exit={reducedEffects ? undefined : { opacity: 0, x: -18 }}
-            initial={reducedEffects ? false : { opacity: 0, x: 18 }}
-            key={`${active.name}-${activeIndex}`}
-            transition={{ duration: 0.24, ease: 'easeOut' }}
-          >
-            {active.context ? (
-              <p className="text-[11px] uppercase tracking-[0.32em] text-white/56">{active.context}</p>
-            ) : null}
-            <div className="mt-4 max-h-[min(55vh,26rem)] overflow-y-auto pr-0.5 [scrollbar-gutter:stable] sm:max-h-[min(60vh,30rem)]">
-              <blockquote className="text-base font-medium leading-[1.65] tracking-tight text-white/95 sm:text-lg sm:leading-[1.7]">
-                “{active.quote}”
-              </blockquote>
-            </div>
-            <p className="mt-6 text-sm uppercase tracking-[0.28em] text-emerald-100/70">{active.name}</p>
-          </motion.div>
-        </AnimatePresence>
+        <div className="h-full" key={`${active.name}-${activeIndex}`}>
+          {active.context ? (
+            <p className="text-[11px] uppercase tracking-[0.32em] text-white/56">{active.context}</p>
+          ) : null}
+          <div className="mt-4 max-h-[min(55vh,26rem)] overflow-y-auto pr-0.5 [scrollbar-gutter:stable] sm:max-h-[min(60vh,30rem)]">
+            <blockquote className="text-base font-medium leading-[1.65] tracking-tight text-white/95 sm:text-lg sm:leading-[1.7]">
+              “{active.quote}”
+            </blockquote>
+          </div>
+          <p className="mt-6 text-sm uppercase tracking-[0.28em] text-emerald-100/70">{active.name}</p>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-2">

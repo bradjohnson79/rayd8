@@ -52,7 +52,7 @@ function LandingSectionFallback({
   return (
     <div className={`px-4 py-12 sm:px-6 lg:px-8 ${className}`.trim()}>
       <div
-        className={`mx-auto max-w-7xl rounded-[2rem] border border-white/8 bg-white/[0.03] ${minHeightClassName} animate-pulse backdrop-blur-xl`}
+        className={`mx-auto max-w-7xl rounded-[2rem] border border-white/8 bg-white/[0.03] ${minHeightClassName} backdrop-blur-xl`}
       />
     </div>
   )

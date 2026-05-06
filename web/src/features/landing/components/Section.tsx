@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion'
 import type { PropsWithChildren, ReactNode } from 'react'
 import { LandingBackToTop } from './LandingBackToTop'
 
@@ -22,18 +21,14 @@ export function Section({
   eyebrow,
   eyebrowClassName,
   id,
-  reducedEffects = false,
+  reducedEffects: _reducedEffects = false,
   showBackToTop = false,
   title,
 }: SectionProps) {
   return (
-    <motion.section
+    <section
       className={`relative scroll-mt-32 px-4 py-18 sm:scroll-mt-40 sm:px-6 lg:px-8 ${className}`.trim()}
       id={id}
-      initial={reducedEffects ? false : { opacity: 0, y: 36 }}
-      transition={{ duration: 0.8, ease: 'easeOut' }}
-      viewport={{ amount: 0.2, once: true }}
-      whileInView={reducedEffects ? undefined : { opacity: 1, y: 0 }}
     >
       <div className={`mx-auto max-w-7xl ${childrenClassName}`.trim()}>
         {eyebrow || title || description ? (
@@ -57,6 +52,6 @@ export function Section({
         {children}
         {showBackToTop ? <LandingBackToTop className="mt-10 sm:mt-12" /> : null}
       </div>
-    </motion.section>
+    </section>
   )
 }
