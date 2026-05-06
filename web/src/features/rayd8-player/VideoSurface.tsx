@@ -36,6 +36,7 @@ export const VideoSurface = memo(function VideoSurface({
         ].join(' ')}
         loop
         muted
+        preload="metadata"
         ref={videoRef}
         style={videoStyle}
       />

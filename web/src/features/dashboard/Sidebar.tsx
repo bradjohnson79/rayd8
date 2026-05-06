@@ -16,21 +16,39 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
   const navigate = useNavigate()
   const navigateToUpgrade = useUpgradeNavigation()
   const items = getSidebarItems(user.plan)
-  const [activeSection, setActiveSection] = useState<DashboardSectionId>('expansion')
+  const [observerActiveSection, setObserverActiveSection] =
+    useState<DashboardSectionId>('expansion')
+  const [isMdBreakpoint, setIsMdBreakpoint] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : false,
+  )
 
   const isDashboardRoute = location.pathname === '/dashboard'
 
-  useEffect(() => {
+  const hashSyncedSection = useMemo((): DashboardSectionId | null => {
     if (!isDashboardRoute) {
-      return
+      return null
     }
 
     const nextHash = location.hash.replace('#', '') as DashboardSectionId
 
-    if (dashboardSectionIds.includes(nextHash)) {
-      setActiveSection(nextHash)
-    }
+    return dashboardSectionIds.includes(nextHash) ? nextHash : null
   }, [isDashboardRoute, location.hash])
+
+  const activeSection = hashSyncedSection ?? observerActiveSection
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 768px)')
+
+    const handleChange = () => {
+      setIsMdBreakpoint(mediaQuery.matches)
+    }
+
+    mediaQuery.addEventListener('change', handleChange)
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange)
+    }
+  }, [])
 
   useEffect(() => {
     if (!isDashboardRoute) {
@@ -63,7 +81,7 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
 
           const topEntry = visibleEntries[0]
           const nextSection = topEntry.target.id as DashboardSectionId
-          setActiveSection(nextSection)
+          setObserverActiveSection(nextSection)
         },
         {
           root: rootElement,
@@ -115,7 +133,7 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
 
     const sectionId = item.sectionId ?? 'expansion'
     const targetPath = item.to
-    setActiveSection(sectionId)
+    setObserverActiveSection(sectionId)
 
     if (location.pathname !== '/dashboard') {
       navigate(targetPath)
@@ -140,6 +158,8 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
     onClose()
   }
 
+  const mobileDrawerClosed = !isMdBreakpoint && !open
+
   return (
     <>
       {open ? (
@@ -152,11 +172,14 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
       ) : null}
 
       <aside
+        aria-hidden={mobileDrawerClosed}
         className={[
-          'fixed inset-y-0 left-0 z-30 flex w-72 flex-col bg-[rgba(7,12,16,0.82)] shadow-[0_18px_80px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition-transform duration-300',
+          'fixed inset-y-0 left-0 z-30 flex w-72 flex-col bg-[rgba(7,12,16,0.82)] shadow-[0_18px_80px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition-[transform,visibility] duration-300',
           open ? 'translate-x-0' : '-translate-x-full',
+          mobileDrawerClosed ? 'max-md:invisible max-md:pointer-events-none' : '',
           'md:w-[25vw] md:bg-transparent md:shadow-none md:backdrop-blur-0 md:translate-x-0',
         ].join(' ')}
+        inert={mobileDrawerClosed ? true : undefined}
       >
         <div className="px-5 py-6 md:px-4 md:py-8">
           <p className="text-2xl uppercase tracking-[0.24em] text-emerald-200/80 md:text-[22px] md:leading-[1.4rem]">

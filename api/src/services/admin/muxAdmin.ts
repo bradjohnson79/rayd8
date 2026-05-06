@@ -78,6 +78,27 @@ function isMissingMuxAssetError(error: unknown) {
   return error instanceof Error && /404|not found/i.test(error.message)
 }
 
+/** Decode JWT `exp` (seconds) for client-side refresh scheduling; optional fields stay backward-compatible. */
+function decodeMuxJwtExpiryMs(token: string): number | null {
+  try {
+    const segments = token.split('.')
+    const payloadSegment = segments[1]
+
+    if (!payloadSegment) {
+      return null
+    }
+
+    const normalized = payloadSegment.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=')
+    const json = Buffer.from(padded, 'base64').toString('utf8')
+    const payload = JSON.parse(json) as { exp?: number }
+
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null
+  } catch {
+    return null
+  }
+}
+
 async function signPlaybackId(playbackId: string, assetId = playbackId) {
   if (!muxClient) {
     return null
@@ -89,16 +110,23 @@ async function signPlaybackId(playbackId: string, assetId = playbackId) {
     return null
   }
 
+  const expiresInMinutes = 10
+
   const token = await muxClient.jwt.signPlaybackId(playbackId, {
-    expiration: '10m',
+    expiration: `${expiresInMinutes}m`,
     keyId: signingConfig.keyId,
     keySecret: signingConfig.keySecret,
   })
 
+  const expiresAtMs =
+    decodeMuxJwtExpiryMs(token) ?? Date.now() + expiresInMinutes * 60 * 1000
+
   return {
     asset_id: assetId,
     playback_id: playbackId,
-    expires_in_minutes: 10,
+    expires_at: new Date(expiresAtMs).toISOString(),
+    expires_at_ms: expiresAtMs,
+    expires_in_minutes: expiresInMinutes,
     token,
     signed_url: `https://stream.mux.com/${playbackId}.m3u8?token=${token}`,
   }

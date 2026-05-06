@@ -20,14 +20,38 @@ export interface UsagePeriodSummary {
   totalUsedSeconds: number
 }
 
+export interface MuxPlaybackPayload {
+  asset_id: string
+  /** ISO-8601 wall time when the signed playback JWT expires (server-derived). */
+  expires_at?: string
+  /** Epoch ms when the signed JWT expires; preferred for scheduling refresh. */
+  expires_at_ms?: number
+  expires_in_minutes: number
+  playback_id: string
+  signed_url: string
+  token: string
+}
+
 export interface PlaybackTokenResponse {
-  playback: {
-    asset_id: string
-    expires_in_minutes: number
-    playback_id: string
-    signed_url: string
-    token: string
+  playback: MuxPlaybackPayload
+}
+
+export function computeMuxPlaybackExpiryMs(playback: MuxPlaybackPayload): number {
+  if (typeof playback.expires_at_ms === 'number' && Number.isFinite(playback.expires_at_ms)) {
+    return playback.expires_at_ms
   }
+
+  if (playback.expires_at) {
+    const parsed = Date.parse(playback.expires_at)
+
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+
+  const minutes = playback.expires_in_minutes > 0 ? playback.expires_in_minutes : 10
+
+  return Date.now() + minutes * 60 * 1000
 }
 
 export interface ExperienceAccessSummary {

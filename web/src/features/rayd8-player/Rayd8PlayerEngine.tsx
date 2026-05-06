@@ -38,7 +38,11 @@ import {
 import { resolvePlaybackAsset } from '../../lib/resolvePlaybackAsset'
 import { loadHls, type HlsController } from '../../lib/loadHls'
 import { getAdminMuxPlaybackToken } from '../../services/admin'
-import { getMemberPlaybackToken } from '../../services/player'
+import {
+  computeMuxPlaybackExpiryMs,
+  getMemberPlaybackToken,
+  type MuxPlaybackPayload,
+} from '../../services/player'
 import type { ExperienceAccessSummary } from '../../services/player'
 import { getSettings } from '../../services/settings'
 import { trackUmamiEvent } from '../../services/umami'
@@ -171,21 +175,41 @@ async function setMediaSource(
   sourceUrl: string,
   stabilityProfile: PlaybackStabilityProfile,
   diagnosticsLabel: string,
-){
+  generationRef: MutableRefObject<number>,
+  requestGeneration: number,
+  options?: { pauseBeforeLoad?: boolean },
+): Promise<boolean> {
   if (!media) {
-    return
+    return false
   }
 
-  media.pause()
+  if (generationRef.current !== requestGeneration) {
+    return false
+  }
+
+  const pauseBeforeLoad = options?.pauseBeforeLoad ?? true
+
+  if (pauseBeforeLoad) {
+    media.pause()
+  }
+
   recordSourceLoad(diagnosticsLabel, sourceUrl)
 
   if (media.canPlayType('application/vnd.apple.mpegurl')) {
+    if (generationRef.current !== requestGeneration) {
+      return false
+    }
+
     media.src = sourceUrl
     media.load()
-    return
+    return true
   }
 
   const Hls = await loadHls()
+
+  if (generationRef.current !== requestGeneration) {
+    return false
+  }
 
   if (!Hls.isSupported()) {
     throw new Error('This browser cannot play the current RAYD8® session stream.')
@@ -203,9 +227,10 @@ async function setMediaSource(
   if (!controllerRef.current) {
     recordHlsController(diagnosticsLabel, 'create')
     controllerRef.current = new Hls({
+      backBufferLength: stabilityProfile.backBufferLength,
       capLevelToPlayerSize: true,
       enableWorker: true,
-      lowLatencyMode: true,
+      lowLatencyMode: false,
       maxBufferLength: stabilityProfile.maxBufferLength,
       maxMaxBufferLength: stabilityProfile.maxMaxBufferLength,
       startLevel: stabilityProfile.startLevel,
@@ -214,7 +239,12 @@ async function setMediaSource(
     controllerRef.current.attachMedia(media)
   }
 
+  if (generationRef.current !== requestGeneration) {
+    return false
+  }
+
   controllerRef.current.loadSource(sourceUrl)
+  return true
 }
 
 async function tryPlay(media: HTMLMediaElement | null) {
@@ -251,7 +281,7 @@ function configureVideoElement(video: HTMLVideoElement | null) {
   video.volume = 0
   video.playsInline = true
   video.setAttribute('playsinline', 'true')
-  video.preload = 'auto'
+  video.preload = 'metadata'
 }
 
 interface Rayd8PlayerEngineProps {
@@ -269,6 +299,8 @@ const FREEZE_CHECK_INTERVAL_MS = 1000
 const FREEZE_THRESHOLD = 3
 const RECOVERY_COOLDOWN_MS = 5000
 const BUFFER_HEALTH_CHECK_MS = 20_000
+/** Refresh Mux signed URLs this long before JWT expiry so playback never hits 403 mid-stream. */
+const MUX_REFRESH_LEAD_MS = 90_000
 const SESSION_WARNING_CHECK_MS = 10_000
 const FULLSCREEN_EXIT_HINT_MS = 2500
 const DOUBLE_TAP_EXIT_WINDOW_MS = 300
@@ -276,6 +308,7 @@ const DESKTOP_FULLSCREEN_EXIT_HINT_STORAGE_KEY = 'rayd8_fullscreen_exit_hint_des
 const MOBILE_FULLSCREEN_EXIT_HINT_STORAGE_KEY = 'rayd8_fullscreen_exit_hint_mobile'
 
 interface PlaybackStabilityProfile {
+  backBufferLength: number
   mobileOptimized: boolean
   maxBufferLength: number
   maxMaxBufferLength: number
@@ -285,19 +318,30 @@ interface PlaybackStabilityProfile {
 function getPlaybackStabilityProfile(mobileOptimized: boolean): PlaybackStabilityProfile {
   if (mobileOptimized) {
     return {
+      backBufferLength: 60,
       mobileOptimized: true,
-      maxBufferLength: 20,
-      maxMaxBufferLength: 40,
+      maxBufferLength: 24,
+      maxMaxBufferLength: 72,
       startLevel: 1,
     }
   }
 
   return {
+    backBufferLength: 90,
     mobileOptimized: false,
-    maxBufferLength: 30,
-    maxMaxBufferLength: 60,
+    maxBufferLength: 40,
+    maxMaxBufferLength: 120,
     startLevel: -1,
   }
+}
+
+/** Reduce false-positive freeze recovery: time must stall *and* the element looks starved or loading. */
+function isPlaybackStallCorroborated(video: HTMLVideoElement) {
+  if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+    return true
+  }
+
+  return video.networkState === HTMLMediaElement.NETWORK_LOADING
 }
 
 function clampPercent(value: number) {
@@ -518,7 +562,7 @@ export function Rayd8PlayerEngine({
   const brightnessTrackRef = useRef<HTMLDivElement | null>(null)
   const brightnessDraggingRef = useRef(false)
   const controlDockRef = useRef<HTMLDivElement | null>(null)
-  const currentVideoSourceUrlRef = useRef<string | null>(null)
+  const [currentVideoSignedUrl, setCurrentVideoSignedUrl] = useState<string | null>(null)
   const chromeHideTimerRef = useRef<number | null>(null)
   const fullscreenHintTimerRef = useRef<number | null>(null)
   const videoRequestRef = useRef(0)
@@ -531,6 +575,7 @@ export function Rayd8PlayerEngine({
   const sessionStartTimeRef = useRef<number | null>(null)
   const sessionWarningTimerRef = useRef<number | null>(null)
   const bufferHealthTimerRef = useRef<number | null>(null)
+  const muxRefreshTimerRef = useRef<number | null>(null)
   const manualGuideTimerRef = useRef<number | null>(null)
   const chromeActivityFrameRef = useRef<number | null>(null)
   const brightnessUpdateFrameRef = useRef<number | null>(null)
@@ -1062,8 +1107,8 @@ export function Rayd8PlayerEngine({
     }
   }, [pingChromeVisibility, scheduleChromeVisibilityPing])
 
-  const fetchPlaybackUrl = useCallback(
-    async (assetId: string) => {
+  const fetchPlaybackPayload = useCallback(
+    async (assetId: string): Promise<MuxPlaybackPayload> => {
       const tokenResult = await getTokenSafe()
 
       if (!tokenResult.token) {
@@ -1081,7 +1126,7 @@ export function Rayd8PlayerEngine({
               tokenResult.token,
             )
 
-      return response.playback.signed_url
+      return response.playback
     },
     [getTokenSafe, playbackMode, sessionType],
   )
@@ -1103,6 +1148,11 @@ export function Rayd8PlayerEngine({
   }, [effectiveAllowExtendedSessions, getVideoElement, pingChromeVisibility, resetSessionContinuityTimer])
 
   const destroyPrimaryVideoPipeline = useCallback((diagnosticsLabel: string) => {
+    if (muxRefreshTimerRef.current !== null) {
+      window.clearTimeout(muxRefreshTimerRef.current)
+      muxRefreshTimerRef.current = null
+    }
+
     if (primaryVideoControllerRef.current) {
       recordHlsController(diagnosticsLabel, 'destroy')
       primaryVideoControllerRef.current.destroy()
@@ -1111,16 +1161,19 @@ export function Rayd8PlayerEngine({
 
     primaryVideoControllerProfileRef.current = null
     resetMedia(primaryVideoRef.current)
+    setCurrentVideoSignedUrl(null)
   }, [])
 
   const endSession = useCallback(() => {
     void exitFullscreen()
     clearTimers([
       bufferHealthTimerRef.current,
+      muxRefreshTimerRef.current,
       sessionWarningTimerRef.current,
       manualGuideTimerRef.current,
     ])
     bufferHealthTimerRef.current = null
+    muxRefreshTimerRef.current = null
     sessionWarningTimerRef.current = null
     manualGuideTimerRef.current = null
     systemPausedRef.current = true
@@ -1173,7 +1226,9 @@ export function Rayd8PlayerEngine({
 
       const storedTime = Number.isFinite(activeVideo.currentTime) ? activeVideo.currentTime : 0
 
-      console.warn(`[RAYD8] Recovering playback after ${reason}.`)
+      if (import.meta.env.DEV) {
+        console.warn(`[RAYD8] Recovering playback after ${reason}.`)
+      }
 
       try {
         activeVideo.muted = true
@@ -1187,7 +1242,9 @@ export function Rayd8PlayerEngine({
             const nextLevel = Math.max(0, currentLevel - 1)
             activeController.currentLevel = nextLevel
             activeController.nextLevel = nextLevel
-            console.info(`[RAYD8] Downgrading HLS level from ${currentLevel} to ${nextLevel}.`)
+            if (import.meta.env.DEV) {
+              console.info(`[RAYD8] Downgrading HLS level from ${currentLevel} to ${nextLevel}.`)
+            }
           }
         }
 
@@ -1215,7 +1272,9 @@ export function Rayd8PlayerEngine({
         setPlaybackState('interaction-required')
         return false
       } catch (error) {
-        console.warn('[RAYD8] Playback recovery failed.', error)
+        if (import.meta.env.DEV) {
+          console.warn('[RAYD8] Playback recovery failed.', error)
+        }
         setPlaybackState('interaction-required')
         return false
       }
@@ -1279,6 +1338,13 @@ export function Rayd8PlayerEngine({
 
     videoRequestRef.current = requestId
 
+    const clearMuxRefreshTimer = () => {
+      if (muxRefreshTimerRef.current !== null) {
+        window.clearTimeout(muxRefreshTimerRef.current)
+        muxRefreshTimerRef.current = null
+      }
+    }
+
     async function syncVideoMode() {
       resetSessionContinuityTimer()
       setPlaybackState('preloading')
@@ -1291,7 +1357,7 @@ export function Rayd8PlayerEngine({
           plan: playbackPlan,
           speed: sessionConfig.videoMode,
         })
-        const sourceUrl = await fetchPlaybackUrl(assetId)
+        const playback = await fetchPlaybackPayload(assetId)
 
         if (cancelled || requestId !== videoRequestRef.current) {
           return
@@ -1303,7 +1369,7 @@ export function Rayd8PlayerEngine({
           return
         }
 
-        currentVideoSourceUrlRef.current = sourceUrl
+        setCurrentVideoSignedUrl(playback.signed_url)
 
         configureVideoElement(video)
         freezeCounterRef.current = 0
@@ -1311,14 +1377,92 @@ export function Rayd8PlayerEngine({
         lastRecoveryTimestampRef.current = 0
         systemPausedRef.current = true
 
-        await setMediaSource(
+        clearMuxRefreshTimer()
+
+        const applied = await setMediaSource(
           primaryVideoControllerRef,
           primaryVideoControllerProfileRef,
           video,
-          sourceUrl,
+          playback.signed_url,
           playbackStabilityProfileRef.current,
           `primary:${experience}:${sessionConfig.videoMode}`,
+          videoRequestRef,
+          requestId,
         )
+
+        if (!applied || cancelled || requestId !== videoRequestRef.current) {
+          return
+        }
+
+        function scheduleMuxRefreshFromPayload(payload: MuxPlaybackPayload) {
+          clearMuxRefreshTimer()
+          const delay = Math.max(
+            4000,
+            computeMuxPlaybackExpiryMs(payload) - Date.now() - MUX_REFRESH_LEAD_MS,
+          )
+
+          muxRefreshTimerRef.current = window.setTimeout(() => {
+            muxRefreshTimerRef.current = null
+
+            if (cancelled || requestId !== videoRequestRef.current) {
+              return
+            }
+
+            void (async () => {
+              try {
+                const tokenResult = await getTokenSafe()
+
+                if (!tokenResult.token || requestId !== videoRequestRef.current) {
+                  return
+                }
+
+                const response =
+                  playbackMode === 'admin'
+                    ? await getAdminMuxPlaybackToken(assetId, tokenResult.token)
+                    : await getMemberPlaybackToken(
+                        assetId,
+                        getExperienceFromSessionType(sessionType),
+                        tokenResult.token,
+                      )
+
+                const nextPlayback = response.playback
+
+                if (cancelled || requestId !== videoRequestRef.current) {
+                  return
+                }
+
+                const activeVideo = primaryVideoRef.current
+
+                if (!activeVideo) {
+                  return
+                }
+
+                const refreshed = await setMediaSource(
+                  primaryVideoControllerRef,
+                  primaryVideoControllerProfileRef,
+                  activeVideo,
+                  nextPlayback.signed_url,
+                  playbackStabilityProfileRef.current,
+                  `primary:mux-refresh:${experience}:${sessionConfig.videoMode}`,
+                  videoRequestRef,
+                  requestId,
+                  { pauseBeforeLoad: false },
+                )
+
+                if (!refreshed || requestId !== videoRequestRef.current) {
+                  return
+                }
+
+                setCurrentVideoSignedUrl(nextPlayback.signed_url)
+                scheduleMuxRefreshFromPayload(nextPlayback)
+              } catch {
+                // Best-effort refresh; next mode change or recovery path may reload.
+              }
+            })()
+          }, delay)
+        }
+
+        scheduleMuxRefreshFromPayload(playback)
 
         const preloadThreshold = getStartupBufferThreshold(
           mobileViewportRef.current,
@@ -1370,11 +1514,14 @@ export function Rayd8PlayerEngine({
 
     return () => {
       cancelled = true
+      clearMuxRefreshTimer()
       preloadAbortController.abort()
     }
   }, [
     experience,
-    fetchPlaybackUrl,
+    fetchPlaybackPayload,
+    getTokenSafe,
+    playbackMode,
     playbackPlan,
     resetSessionContinuityTimer,
     sessionConfig.videoMode,
@@ -1409,7 +1556,11 @@ export function Rayd8PlayerEngine({
       const currentTime = activeVideo.currentTime
       const previousTime = lastObservedVideoTimeRef.current
 
-      if (previousTime !== null && currentTime === previousTime) {
+      if (
+        previousTime !== null &&
+        currentTime === previousTime &&
+        isPlaybackStallCorroborated(activeVideo)
+      ) {
         freezeCounterRef.current += 1
 
         if (freezeCounterRef.current >= FREEZE_THRESHOLD) {
@@ -1443,7 +1594,13 @@ export function Rayd8PlayerEngine({
         return
       }
 
-      console.info(`[RAYD8] Detected ${event.type} on the active video element.`)
+      if (!isPlaybackStallCorroborated(activeVideo)) {
+        return
+      }
+
+      if (import.meta.env.DEV) {
+        console.info(`[RAYD8] Detected ${event.type} on the active video element.`)
+      }
       void handlePlaybackRecovery('stalled')
     }
 
@@ -1569,10 +1726,12 @@ export function Rayd8PlayerEngine({
     return () => {
       clearTimers([
         bufferHealthTimerRef.current,
+        muxRefreshTimerRef.current,
         sessionWarningTimerRef.current,
         manualGuideTimerRef.current,
       ])
       bufferHealthTimerRef.current = null
+      muxRefreshTimerRef.current = null
       sessionWarningTimerRef.current = null
       manualGuideTimerRef.current = null
       if (brightnessUpdateFrameRef.current !== null) {
@@ -1592,6 +1751,7 @@ export function Rayd8PlayerEngine({
       }
       primaryVideoControllerProfileRef.current = null
       resetMedia(primaryVideoRef.current)
+      setCurrentVideoSignedUrl(null)
     }
   }, [])
 
@@ -1783,7 +1943,7 @@ export function Rayd8PlayerEngine({
         <PlayerPerformanceNotice
           playbackState={playbackState}
           smoothPlaybackMode={smoothPlaybackMode}
-          sourceUrl={currentVideoSourceUrlRef.current}
+          sourceUrl={currentVideoSignedUrl}
         />
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/22 via-black/[0.03] to-black/36" />

@@ -20,11 +20,13 @@ import {
 } from '../../config/rayd8Expansion'
 import { getAdminMuxPlaybackToken } from '../../services/admin'
 import {
+  computeMuxPlaybackExpiryMs,
   endPlaybackSession,
   getMemberPlaybackToken,
   heartbeatPlaybackSession,
   startPlaybackSession,
   type ExperienceAccessSummary,
+  type MuxPlaybackPayload,
 } from '../../services/player'
 import { ApiRequestError } from '../../services/api'
 import { loadHls, type HlsController } from '../../lib/loadHls'
@@ -78,6 +80,9 @@ const SOFT_DENIAL_EXIT_MS = 3_500
 const UPGRADE_PATH = '/subscription?plan=regen'
 const AUDIO_RECOVERY_COOLDOWN_MS = 5_000
 const AUDIO_HEALTH_CHECK_MS = 20_000
+const AUDIO_PAUSE_RECOVERY_DEBOUNCE_MS = 450
+/** Align with primary video: refresh Mux JWT before streaming endpoints reject the old token. */
+const MUX_AUDIO_REFRESH_LEAD_MS = 90_000
 
 const SessionContext = createContext<SessionContextValue | null>(null)
 
@@ -148,20 +153,39 @@ async function setMediaSource(
   controllerRef: MutableRefObject<HlsController | null>,
   media: HTMLMediaElement | null,
   sourceUrl: string,
-) {
+  generationRef: MutableRefObject<number>,
+  requestGeneration: number,
+  options?: { pauseBeforeLoad?: boolean },
+): Promise<boolean> {
   if (!media) {
-    return
+    return false
   }
 
-  media.pause()
+  if (generationRef.current !== requestGeneration) {
+    return false
+  }
+
+  const pauseBeforeLoad = options?.pauseBeforeLoad ?? true
+
+  if (pauseBeforeLoad) {
+    media.pause()
+  }
 
   if (media.canPlayType('application/vnd.apple.mpegurl')) {
+    if (generationRef.current !== requestGeneration) {
+      return false
+    }
+
     media.src = sourceUrl
     media.load()
-    return
+    return true
   }
 
   const Hls = await loadHls()
+
+  if (generationRef.current !== requestGeneration) {
+    return false
+  }
 
   if (!Hls.isSupported()) {
     throw new Error('This browser cannot play the current RAYD8® session stream.')
@@ -169,13 +193,21 @@ async function setMediaSource(
 
   if (!controllerRef.current) {
     controllerRef.current = new Hls({
+      backBufferLength: 90,
       enableWorker: true,
-      lowLatencyMode: true,
+      lowLatencyMode: false,
+      maxBufferLength: 40,
+      maxMaxBufferLength: 120,
     })
     controllerRef.current.attachMedia(media)
   }
 
+  if (generationRef.current !== requestGeneration) {
+    return false
+  }
+
   controllerRef.current.loadSource(sourceUrl)
+  return true
 }
 
 async function tryPlay(media: HTMLMediaElement | null) {
@@ -748,6 +780,9 @@ function GlobalAudioRail({
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const audioRequestRef = useRef(0)
   const audioHealthTimerRef = useRef<number | null>(null)
+  const muxAudioRefreshTimerRef = useRef<number | null>(null)
+  const pauseRecoveryTimerRef = useRef<number | null>(null)
+  const currentAudioAssetIdRef = useRef<string | null>(null)
   const currentAudioSourceUrlRef = useRef<string | null>(null)
   const lastAudioRecoveryTimestampRef = useRef(0)
   const lastKnownVolumeRef = useRef(audioVolume)
@@ -800,6 +835,14 @@ function GlobalAudioRail({
         return false
       }
 
+      if (
+        typeof document !== 'undefined' &&
+        document.hidden &&
+        reason !== 'error'
+      ) {
+        return false
+      }
+
       const now = Date.now()
 
       if (now - lastAudioRecoveryTimestampRef.current < AUDIO_RECOVERY_COOLDOWN_MS) {
@@ -817,7 +860,13 @@ function GlobalAudioRail({
         if (reason === 'error' && currentAudioSourceUrlRef.current) {
           const storedTime = Number.isFinite(audio.currentTime) ? audio.currentTime : 0
 
-          await setMediaSource(audioControllerRef, audio, currentAudioSourceUrlRef.current)
+          await setMediaSource(
+            audioControllerRef,
+            audio,
+            currentAudioSourceUrlRef.current,
+            audioRequestRef,
+            audioRequestRef.current,
+          )
 
           try {
             audio.currentTime = storedTime
@@ -841,10 +890,19 @@ function GlobalAudioRail({
 
   useEffect(() => {
     if (!isActive || !currentExperience || audioTrack === 'none') {
+      if (muxAudioRefreshTimerRef.current !== null) {
+        window.clearTimeout(muxAudioRefreshTimerRef.current)
+        muxAudioRefreshTimerRef.current = null
+      }
+      if (pauseRecoveryTimerRef.current !== null) {
+        window.clearTimeout(pauseRecoveryTimerRef.current)
+        pauseRecoveryTimerRef.current = null
+      }
       onAudioErrorChange(null)
       onAudioLoadingChange(false)
       resetMedia(audioRef.current)
       destroyHlsController(audioControllerRef)
+      currentAudioAssetIdRef.current = null
       currentAudioSourceUrlRef.current = null
       return
     }
@@ -853,6 +911,13 @@ function GlobalAudioRail({
     const experience = currentExperience
     const requestId = audioRequestRef.current + 1
     audioRequestRef.current = requestId
+
+    const clearMuxAudioRefreshTimer = () => {
+      if (muxAudioRefreshTimerRef.current !== null) {
+        window.clearTimeout(muxAudioRefreshTimerRef.current)
+        muxAudioRefreshTimerRef.current = null
+      }
+    }
 
     async function loadAudioTrack() {
       try {
@@ -882,8 +947,97 @@ function GlobalAudioRail({
           return
         }
 
-        currentAudioSourceUrlRef.current = playback.playback.signed_url
-        await setMediaSource(audioControllerRef, audioRef.current, playback.playback.signed_url)
+        const payload = playback.playback
+
+        currentAudioAssetIdRef.current = trackAssetId
+        currentAudioSourceUrlRef.current = payload.signed_url
+
+        clearMuxAudioRefreshTimer()
+
+        const applied = await setMediaSource(
+          audioControllerRef,
+          audioRef.current,
+          payload.signed_url,
+          audioRequestRef,
+          requestId,
+        )
+
+        if (!applied || cancelled || audioRequestRef.current !== requestId) {
+          return
+        }
+
+        function scheduleMuxAudioRefreshFromPayload(nextPayload: MuxPlaybackPayload) {
+          clearMuxAudioRefreshTimer()
+          const delay = Math.max(
+            4000,
+            computeMuxPlaybackExpiryMs(nextPayload) - Date.now() - MUX_AUDIO_REFRESH_LEAD_MS,
+          )
+
+          muxAudioRefreshTimerRef.current = window.setTimeout(() => {
+            muxAudioRefreshTimerRef.current = null
+
+            if (cancelled || audioRequestRef.current !== requestId) {
+              return
+            }
+
+            void (async () => {
+              try {
+                const refreshTokenResult = await getTokenSafe()
+
+                if (
+                  !refreshTokenResult.token ||
+                  cancelled ||
+                  audioRequestRef.current !== requestId
+                ) {
+                  return
+                }
+
+                const assetId = currentAudioAssetIdRef.current
+
+                if (!assetId) {
+                  return
+                }
+
+                const refreshResponse =
+                  sessionSource === 'admin'
+                    ? await getAdminMuxPlaybackToken(assetId, refreshTokenResult.token)
+                    : await getMemberPlaybackToken(assetId, experience, refreshTokenResult.token)
+
+                const refreshedPayload = refreshResponse.playback
+
+                if (cancelled || audioRequestRef.current !== requestId) {
+                  return
+                }
+
+                const audioElement = audioRef.current
+
+                if (!audioElement) {
+                  return
+                }
+
+                const refreshed = await setMediaSource(
+                  audioControllerRef,
+                  audioElement,
+                  refreshedPayload.signed_url,
+                  audioRequestRef,
+                  requestId,
+                  { pauseBeforeLoad: false },
+                )
+
+                if (!refreshed || cancelled || audioRequestRef.current !== requestId) {
+                  return
+                }
+
+                currentAudioSourceUrlRef.current = refreshedPayload.signed_url
+                scheduleMuxAudioRefreshFromPayload(refreshedPayload)
+              } catch {
+                // Best-effort; session audio may recover on next user interaction.
+              }
+            })()
+          }, delay)
+        }
+
+        scheduleMuxAudioRefreshFromPayload(payload)
 
         if (audioRef.current) {
           audioRef.current.currentTime = 0
@@ -917,6 +1071,7 @@ function GlobalAudioRail({
 
     return () => {
       cancelled = true
+      clearMuxAudioRefreshTimer()
     }
   }, [
     audioMuted,
@@ -938,9 +1093,22 @@ function GlobalAudioRail({
     }
 
     const handlePause = () => {
-      if (shouldAudioBePlaying()) {
-        void recoverAudioPlayback('pause')
+      if (!shouldAudioBePlaying()) {
+        return
       }
+
+      if (typeof document !== 'undefined' && document.hidden) {
+        return
+      }
+
+      if (pauseRecoveryTimerRef.current !== null) {
+        window.clearTimeout(pauseRecoveryTimerRef.current)
+      }
+
+      pauseRecoveryTimerRef.current = window.setTimeout(() => {
+        pauseRecoveryTimerRef.current = null
+        void recoverAudioPlayback('pause')
+      }, AUDIO_PAUSE_RECOVERY_DEBOUNCE_MS)
     }
 
     const handleStall = () => {
@@ -955,12 +1123,21 @@ function GlobalAudioRail({
       }
     }
 
+    const handlePlaying = () => {
+      if (pauseRecoveryTimerRef.current !== null) {
+        window.clearTimeout(pauseRecoveryTimerRef.current)
+        pauseRecoveryTimerRef.current = null
+      }
+    }
+
+    audio.addEventListener('playing', handlePlaying)
     audio.addEventListener('pause', handlePause)
     audio.addEventListener('stalled', handleStall)
     audio.addEventListener('waiting', handleStall)
     audio.addEventListener('error', handleError)
 
     return () => {
+      audio.removeEventListener('playing', handlePlaying)
       audio.removeEventListener('pause', handlePause)
       audio.removeEventListener('stalled', handleStall)
       audio.removeEventListener('waiting', handleStall)
@@ -981,6 +1158,11 @@ function GlobalAudioRail({
       const audio = audioRef.current
 
       if (audio && shouldAudioBePlaying()) {
+        if (typeof document !== 'undefined' && document.hidden) {
+          audioHealthTimerRef.current = window.setTimeout(checkAudioHealth, AUDIO_HEALTH_CHECK_MS)
+          return
+        }
+
         if (!audio.paused && !audioMuted && audio.volume === 0) {
           audio.volume = lastKnownVolumeRef.current
         }
@@ -1011,8 +1193,17 @@ function GlobalAudioRail({
         window.clearTimeout(audioHealthTimerRef.current)
         audioHealthTimerRef.current = null
       }
+      if (muxAudioRefreshTimerRef.current !== null) {
+        window.clearTimeout(muxAudioRefreshTimerRef.current)
+        muxAudioRefreshTimerRef.current = null
+      }
+      if (pauseRecoveryTimerRef.current !== null) {
+        window.clearTimeout(pauseRecoveryTimerRef.current)
+        pauseRecoveryTimerRef.current = null
+      }
       resetMedia(audioRef.current)
       destroyHlsController(audioControllerRef)
+      currentAudioAssetIdRef.current = null
       currentAudioSourceUrlRef.current = null
     },
     [],

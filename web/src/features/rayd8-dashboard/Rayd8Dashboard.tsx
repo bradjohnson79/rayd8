@@ -1172,7 +1172,10 @@ function SectionLayout({
   id: string
 }) {
   return (
-    <section className="relative min-h-screen overflow-hidden transition-opacity duration-500" id={id}>
+    <section
+      className="relative min-h-screen overflow-hidden transition-opacity duration-500 [contain-intrinsic-size:auto_920px] [content-visibility:auto]"
+      id={id}
+    >
       <div className="absolute inset-0">{background}</div>
       <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/22 to-black/38" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/14 via-transparent to-black/42" />

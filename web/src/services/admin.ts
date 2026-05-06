@@ -456,8 +456,10 @@ export async function getAdminMuxPlaybackToken(assetId: string, token: string) {
   return apiRequest<{
     playback: {
       asset_id: string
-      playback_id: string
+      expires_at?: string
+      expires_at_ms?: number
       expires_in_minutes: number
+      playback_id: string
       signed_url: string
       token: string
     }
