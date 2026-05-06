@@ -15,6 +15,7 @@ export function useTrialStatus(refreshMs = DEFAULT_REFRESH_MS) {
     }
 
     let cancelled = false
+    let intervalId: number | null = null
 
     const hydrateTrialStatus = async () => {
       try {
@@ -36,14 +37,49 @@ export function useTrialStatus(refreshMs = DEFAULT_REFRESH_MS) {
       }
     }
 
+    const startInterval = () => {
+      if (intervalId !== null) {
+        return
+      }
+      intervalId = window.setInterval(() => {
+        void hydrateTrialStatus()
+      }, refreshMs)
+    }
+
+    const stopInterval = () => {
+      if (intervalId !== null) {
+        window.clearInterval(intervalId)
+        intervalId = null
+      }
+    }
+
+    const isVisible = () =>
+      typeof document === 'undefined' ? true : document.visibilityState === 'visible'
+
     void hydrateTrialStatus()
-    const intervalId = window.setInterval(() => {
-      void hydrateTrialStatus()
-    }, refreshMs)
+
+    if (isVisible()) {
+      startInterval()
+    }
+
+    const handleVisibilityChange = () => {
+      if (cancelled) {
+        return
+      }
+      if (isVisible()) {
+        void hydrateTrialStatus()
+        startInterval()
+      } else {
+        stopInterval()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       cancelled = true
-      window.clearInterval(intervalId)
+      stopInterval()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [authUser?.plan, getTokenSafe, refreshMs, status])
 

@@ -20,13 +20,32 @@
         `${baseUrl.replace(/\/+$/, '').replace(/\/api$/, '')}/script.js`
 
       if (websiteId && !document.querySelector('script[data-r8-umami="true"]')) {
-        const script = document.createElement('script')
-        script.async = true
-        script.defer = true
-        script.src = scriptUrl
-        script.setAttribute('data-website-id', websiteId)
-        script.setAttribute('data-r8-umami', 'true')
-        document.head.appendChild(script)
+        const injectUmami = () => {
+          if (document.querySelector('script[data-r8-umami="true"]')) {
+            return
+          }
+          const script = document.createElement('script')
+          script.async = true
+          script.defer = true
+          script.src = scriptUrl
+          script.setAttribute('data-website-id', websiteId)
+          script.setAttribute('data-r8-umami', 'true')
+          document.head.appendChild(script)
+        }
+
+        const scheduleUmami = () => {
+          if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(injectUmami, { timeout: 4000 })
+          } else {
+            window.setTimeout(injectUmami, 1500)
+          }
+        }
+
+        if (document.readyState === 'complete') {
+          scheduleUmami()
+        } else {
+          window.addEventListener('load', scheduleUmami, { once: true })
+        }
       }
     </script>
     <script type="module" src="/src/main.tsx"></script>

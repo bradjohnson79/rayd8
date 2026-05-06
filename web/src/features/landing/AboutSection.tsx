@@ -42,8 +42,10 @@ export function AboutSection({ reducedEffects = false }: AboutSectionProps) {
                 alt="Brad with RAYD8® Premium on a tablet"
                 className="h-full w-full object-contain object-top"
                 decoding="async"
+                height={1500}
                 loading="lazy"
                 src={BRAD_IMAGE}
+                width={1200}
               />
             </div>
           </div>

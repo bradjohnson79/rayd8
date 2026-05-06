@@ -247,9 +247,11 @@ export const TestimonialsSection = memo(function TestimonialsSection({
                     alt={video.title}
                     className="aspect-video w-full object-cover"
                     decoding="async"
+                    height={360}
                     loading="lazy"
                     referrerPolicy="strict-origin-when-cross-origin"
                     src={video.thumbnailUrl}
+                    width={480}
                   />
                   <div className="px-3 py-2.5">
                     <p className="text-xs font-medium uppercase tracking-[0.26em] text-white/76">

@@ -1,8 +1,7 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { memo } from 'react'
 import { ConversionButton } from './components/ConversionButton'
 import { LandingBackToTop } from './components/LandingBackToTop'
 
-const HERO_VIDEO_PATH = '/hero/RAYD8_Hero.mp4'
 const HERO_STILL = '/hero/RAYD8-Premium.png'
 
 interface HeroSectionProps {
@@ -10,139 +9,19 @@ interface HeroSectionProps {
 }
 
 export const HeroSection = memo(function HeroSection({ reducedEffects = false }: HeroSectionProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const [videoFailed, setVideoFailed] = useState(false)
-  const [isVideoReady, setIsVideoReady] = useState(false)
-  const shouldRenderVideo = !reducedEffects && !videoFailed
-
-  const tryPlay = useCallback((video: HTMLVideoElement) => {
-    video.muted = true
-    void video.play().catch(() => undefined)
-  }, [])
-
-  const markPlayable = useCallback(
-    (video: HTMLVideoElement) => {
-      setIsVideoReady(true)
-      tryPlay(video)
-    },
-    [tryPlay],
-  )
-
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video || !shouldRenderVideo) {
-      return
-    }
-
-    const syncPlayback = () => {
-      if (document.visibilityState !== 'visible') {
-        video.pause()
-        return
-      }
-      tryPlay(video)
-    }
-
-    video.loop = true
-    if (document.visibilityState === 'visible') {
-      tryPlay(video)
-    }
-    document.addEventListener('visibilitychange', syncPlayback)
-    return () => document.removeEventListener('visibilitychange', syncPlayback)
-  }, [isVideoReady, shouldRenderVideo, tryPlay])
-
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video || !shouldRenderVideo) {
-      return
-    }
-
-    video.loop = true
-
-    const onEnded = () => {
-      video.currentTime = 0
-      tryPlay(video)
-    }
-
-    const onPause = () => {
-      if (document.visibilityState !== 'visible' || !video) {
-        return
-      }
-      if (video.seeking) {
-        return
-      }
-      const playAttempt = () => {
-        if (document.visibilityState !== 'visible' || !video) {
-          return
-        }
-        if (video.paused && !video.ended) {
-          tryPlay(video)
-        }
-      }
-      requestAnimationFrame(() => requestAnimationFrame(playAttempt))
-    }
-
-    video.addEventListener('ended', onEnded)
-    video.addEventListener('pause', onPause)
-    return () => {
-      video.removeEventListener('ended', onEnded)
-      video.removeEventListener('pause', onPause)
-    }
-  }, [isVideoReady, shouldRenderVideo, tryPlay])
-
   return (
     <section className="relative min-h-[100svh] w-full overflow-hidden" id="hero">
-      {shouldRenderVideo ? (
-        <>
-          <img
-            alt=""
-            aria-hidden
-            className="absolute inset-0 z-0 h-full w-full min-h-full min-w-full object-cover"
-            decoding="async"
-            draggable={false}
-            fetchPriority="high"
-            height={1080}
-            src={HERO_STILL}
-            width={1920}
-          />
-          <video
-            ref={videoRef}
-            aria-hidden
-            autoPlay
-            className={[
-              'absolute inset-0 z-[1] h-full w-full min-h-full min-w-full object-cover',
-              isVideoReady ? 'opacity-100' : 'opacity-0',
-              'transition-opacity duration-500',
-            ].join(' ')}
-            loop
-            muted
-            onCanPlay={(e) => markPlayable(e.currentTarget)}
-            onError={() => setVideoFailed(true)}
-            onLoadStart={() => setIsVideoReady(false)}
-            onLoadedData={(e) => markPlayable(e.currentTarget)}
-            onStalled={() => {
-              const v = videoRef.current
-              if (v) {
-                tryPlay(v)
-              }
-            }}
-            playsInline
-            preload="metadata"
-          >
-            <source src={HERO_VIDEO_PATH} type="video/mp4" />
-          </video>
-        </>
-      ) : (
-        <img
-          alt=""
-          className="absolute inset-0 z-0 h-full w-full object-cover"
-          decoding="async"
-          draggable={false}
-          fetchPriority="high"
-          height={1080}
-          src={HERO_STILL}
-          width={1920}
-        />
-      )}
+      <img
+        alt=""
+        aria-hidden
+        className="absolute inset-0 z-0 h-full w-full object-cover"
+        decoding="async"
+        draggable={false}
+        fetchPriority="high"
+        height={1080}
+        src={HERO_STILL}
+        width={1920}
+      />
 
       <div
         className={[

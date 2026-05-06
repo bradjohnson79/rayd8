@@ -98,9 +98,12 @@ export function AffiliatePromoSection({
                     <img
                       alt="RAYD8 affiliate promo"
                       className="h-full w-full object-contain object-center"
+                      decoding="async"
+                      height={900}
                       loading="lazy"
                       onError={() => setImageFailed(true)}
                       src={PROMO_IMAGE}
+                      width={1600}
                     />
                   </div>
                 ) : (

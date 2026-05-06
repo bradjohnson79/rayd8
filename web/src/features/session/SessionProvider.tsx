@@ -201,6 +201,17 @@ function resetMedia(media: HTMLMediaElement | null) {
   media.load()
 }
 
+function destroyHlsController(controllerRef: MutableRefObject<HlsController | null>) {
+  if (controllerRef.current) {
+    try {
+      controllerRef.current.destroy()
+    } catch {
+      // Best-effort: HLS.js may already be torn down on this element.
+    }
+    controllerRef.current = null
+  }
+}
+
 async function fadeTo(media: HTMLMediaElement | null, targetVolume: number, durationMs: number) {
   if (!media) {
     return
@@ -833,6 +844,8 @@ function GlobalAudioRail({
       onAudioErrorChange(null)
       onAudioLoadingChange(false)
       resetMedia(audioRef.current)
+      destroyHlsController(audioControllerRef)
+      currentAudioSourceUrlRef.current = null
       return
     }
 
@@ -956,6 +969,14 @@ function GlobalAudioRail({
   }, [recoverAudioPlayback, shouldAudioBePlaying])
 
   useEffect(() => {
+    if (!shouldAudioBePlaying()) {
+      if (audioHealthTimerRef.current !== null) {
+        window.clearTimeout(audioHealthTimerRef.current)
+        audioHealthTimerRef.current = null
+      }
+      return
+    }
+
     const checkAudioHealth = () => {
       const audio = audioRef.current
 
@@ -967,9 +988,11 @@ function GlobalAudioRail({
         if (audio.paused) {
           void recoverAudioPlayback('health-check')
         }
-      }
 
-      audioHealthTimerRef.current = window.setTimeout(checkAudioHealth, AUDIO_HEALTH_CHECK_MS)
+        audioHealthTimerRef.current = window.setTimeout(checkAudioHealth, AUDIO_HEALTH_CHECK_MS)
+      } else {
+        audioHealthTimerRef.current = null
+      }
     }
 
     audioHealthTimerRef.current = window.setTimeout(checkAudioHealth, AUDIO_HEALTH_CHECK_MS)
@@ -989,8 +1012,8 @@ function GlobalAudioRail({
         audioHealthTimerRef.current = null
       }
       resetMedia(audioRef.current)
-      audioControllerRef.current?.destroy()
-      audioControllerRef.current = null
+      destroyHlsController(audioControllerRef)
+      currentAudioSourceUrlRef.current = null
     },
     [],
   )

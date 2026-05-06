@@ -158,6 +158,7 @@ function MemberDashboardLaunchpad({
   const [usageSnapshot, setUsageSnapshot] = useState<UsageResponse | null>(null)
   const [trialBlockReason, setTrialBlockReason] = useState<TrialBlockReason | null>(null)
   const guideConfirmedRef = useRef(false)
+  const usageHydratedFromMeRef = useRef(false)
 
   useEffect(() => {
     if (authStatus !== 'signed-in') {
@@ -167,6 +168,7 @@ function MemberDashboardLaunchpad({
       setIsSubmittingGuide(false)
       setMemberGuideSeenAt(undefined)
       setUsageSnapshot(null)
+      usageHydratedFromMeRef.current = false
       return
     }
 
@@ -192,6 +194,7 @@ function MemberDashboardLaunchpad({
             plan: response.user?.plan ?? effectivePlan,
             usage: response.usage,
           })
+          usageHydratedFromMeRef.current = true
         }
       } finally {
         if (!cancelled) {
@@ -212,11 +215,13 @@ function MemberDashboardLaunchpad({
     if (isPreviewMode || authStatus !== 'signed-in' || sessionIsActive) {
       if (authStatus !== 'signed-in') {
         setUsageSnapshot(null)
+        usageHydratedFromMeRef.current = false
       }
       return
     }
 
     let cancelled = false
+    let intervalId: number | null = null
 
     const hydrateUsage = async () => {
       const tokenResult = await getTokenSafe()
@@ -241,14 +246,53 @@ function MemberDashboardLaunchpad({
       }
     }
 
-    void hydrateUsage()
-    const intervalId = window.setInterval(() => {
+    const startInterval = () => {
+      if (intervalId !== null) {
+        return
+      }
+      intervalId = window.setInterval(() => {
+        void hydrateUsage()
+      }, 15_000)
+    }
+
+    const stopInterval = () => {
+      if (intervalId !== null) {
+        window.clearInterval(intervalId)
+        intervalId = null
+      }
+    }
+
+    const isVisible = () =>
+      typeof document === 'undefined' ? true : document.visibilityState === 'visible'
+
+    if (!usageHydratedFromMeRef.current) {
       void hydrateUsage()
-    }, 15_000)
+    } else {
+      usageHydratedFromMeRef.current = false
+    }
+
+    if (isVisible()) {
+      startInterval()
+    }
+
+    const handleVisibilityChange = () => {
+      if (cancelled) {
+        return
+      }
+      if (isVisible()) {
+        void hydrateUsage()
+        startInterval()
+      } else {
+        stopInterval()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       cancelled = true
-      window.clearInterval(intervalId)
+      stopInterval()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [authStatus, getTokenSafe, isPreviewMode, sessionIsActive, updateExperienceAccess])
 
@@ -364,6 +408,235 @@ function MemberDashboardLaunchpad({
     [memberGuideSeenAt, openGuideModal, startGuideApprovedSession, user?.role],
   )
 
+  const handleExpansionClick = useCallback(async () => {
+    setCheckingExperience('expansion')
+    setExperiencePrompts((currentValue) => ({
+      ...currentValue,
+      expansion: undefined,
+    }))
+
+    try {
+      if (authStatus !== 'signed-in') {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          expansion: getAuthPromptMessage(authStatus),
+        }))
+        return
+      }
+
+      const tokenResult = await getTokenSafe()
+
+      if (!tokenResult.token) {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          expansion: getAuthPromptMessage(authStatus),
+        }))
+        return
+      }
+
+      const response = await getPlaybackAccess('expansion', tokenResult.token)
+      updateExperienceAccess(response.access)
+
+      if (!response.access.allowed) {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          expansion:
+            effectivePlan === 'free'
+              ? 'You have used your Expansion preview time. Upgrade to continue.'
+              : 'Expansion access could not be verified right now.',
+        }))
+        return
+      }
+
+      await maybeStartGuideCheckedSession('expansion', tokenResult.token)
+    } catch (error) {
+      const trialReason = getTrialBlockReasonFromError(error)
+
+      if (trialReason) {
+        setTrialBlockReason(trialReason)
+        return
+      }
+
+      if (error instanceof ApiRequestError && error.status === 401) {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          expansion: SESSION_RESUME_MESSAGE,
+        }))
+        return
+      }
+
+      setExperiencePrompts((currentValue) => ({
+        ...currentValue,
+        expansion:
+          error instanceof Error ? error.message : 'Expansion access could not be verified right now.',
+      }))
+    } finally {
+      setCheckingExperience(null)
+    }
+  }, [authStatus, effectivePlan, getTokenSafe, maybeStartGuideCheckedSession, updateExperienceAccess])
+
+  const handlePremiumClick = useCallback(async () => {
+    setCheckingExperience('premium')
+    setExperiencePrompts((currentValue) => ({
+      ...currentValue,
+      premium: undefined,
+    }))
+
+    try {
+      if (authStatus !== 'signed-in') {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          premium: getAuthPromptMessage(authStatus),
+        }))
+        return
+      }
+
+      const tokenResult = await getTokenSafe()
+
+      if (!tokenResult.token) {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          premium: getAuthPromptMessage(authStatus),
+        }))
+        return
+      }
+
+      const response = await getPlaybackAccess('premium', tokenResult.token)
+      updateExperienceAccess(response.access)
+
+      if (isPreviewMode && !previewPremiumAllowed && !premiumTrialAvailable) {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          premium: 'This preview plan does not unlock Premium. Upgrade to continue.',
+        }))
+        return
+      }
+
+      if (!response.access.allowed && !premiumTrialAvailable) {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          premium: 'Your Premium allowance is unavailable for this plan. Upgrade to continue.',
+        }))
+        return
+      }
+
+      await maybeStartGuideCheckedSession('premium', tokenResult.token)
+    } catch (error) {
+      const trialReason = getTrialBlockReasonFromError(error)
+
+      if (trialReason) {
+        setTrialBlockReason(trialReason)
+        return
+      }
+
+      if (error instanceof ApiRequestError && error.status === 401) {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          premium: SESSION_RESUME_MESSAGE,
+        }))
+        return
+      }
+
+      setExperiencePrompts((currentValue) => ({
+        ...currentValue,
+        premium:
+          error instanceof Error
+            ? error.message
+            : 'Premium access could not be verified right now.',
+      }))
+    } finally {
+      setCheckingExperience(null)
+    }
+  }, [
+    authStatus,
+    getTokenSafe,
+    isPreviewMode,
+    maybeStartGuideCheckedSession,
+    premiumTrialAvailable,
+    previewPremiumAllowed,
+    updateExperienceAccess,
+  ])
+
+  const handleRegenClick = useCallback(async () => {
+    setCheckingExperience('regen')
+    setExperiencePrompts((currentValue) => ({
+      ...currentValue,
+      regen: undefined,
+    }))
+
+    try {
+      if (authStatus !== 'signed-in') {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          regen: getAuthPromptMessage(authStatus),
+        }))
+        return
+      }
+
+      const tokenResult = await getTokenSafe()
+
+      if (!tokenResult.token) {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          regen: getAuthPromptMessage(authStatus),
+        }))
+        return
+      }
+
+      const response = await getPlaybackAccess('regen', tokenResult.token)
+      updateExperienceAccess(response.access)
+
+      if (isPreviewMode && !previewRegenAllowed && !regenTrialAvailable) {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          regen: 'This preview plan does not unlock REGEN. Upgrade to continue.',
+        }))
+        return
+      }
+
+      if (!response.access.allowed && !regenTrialAvailable) {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          regen: 'Your REGEN allowance is unavailable for this plan. Upgrade to continue.',
+        }))
+        return
+      }
+
+      await maybeStartGuideCheckedSession('regen', tokenResult.token)
+    } catch (error) {
+      const trialReason = getTrialBlockReasonFromError(error)
+
+      if (trialReason) {
+        setTrialBlockReason(trialReason)
+        return
+      }
+
+      if (error instanceof ApiRequestError && error.status === 401) {
+        setExperiencePrompts((currentValue) => ({
+          ...currentValue,
+          regen: SESSION_RESUME_MESSAGE,
+        }))
+        return
+      }
+
+      setExperiencePrompts((currentValue) => ({
+        ...currentValue,
+        regen:
+          error instanceof Error ? error.message : 'REGEN access could not be verified right now.',
+      }))
+    } finally {
+      setCheckingExperience(null)
+    }
+  }, [
+    authStatus,
+    getTokenSafe,
+    isPreviewMode,
+    maybeStartGuideCheckedSession,
+    previewRegenAllowed,
+    regenTrialAvailable,
+    updateExperienceAccess,
+  ])
+
   const handleGuidePrimary = useCallback(() => {
     if (!guidePendingExperience || isSubmittingGuide) {
       return
@@ -464,72 +737,7 @@ function MemberDashboardLaunchpad({
               disabled={isPreviewMode ? false : checkingExperience === 'expansion' && !expansionAccess}
               key={experience}
               prompt={experiencePrompts.expansion ?? null}
-              onClick={async () => {
-                setCheckingExperience('expansion')
-                setExperiencePrompts((currentValue) => ({
-                  ...currentValue,
-                  expansion: undefined,
-                }))
-
-                try {
-                  if (authStatus !== 'signed-in') {
-                    setExperiencePrompts((currentValue) => ({
-                      ...currentValue,
-                      expansion: getAuthPromptMessage(authStatus),
-                    }))
-                    return
-                  }
-
-                  const tokenResult = await getTokenSafe()
-
-                  if (!tokenResult.token) {
-                    setExperiencePrompts((currentValue) => ({
-                      ...currentValue,
-                      expansion: getAuthPromptMessage(authStatus),
-                    }))
-                    return
-                  }
-
-                  const response = await getPlaybackAccess('expansion', tokenResult.token)
-                  updateExperienceAccess(response.access)
-
-                  if (!response.access.allowed) {
-                    setExperiencePrompts((currentValue) => ({
-                      ...currentValue,
-                      expansion:
-                        effectivePlan === 'free'
-                          ? 'You have used your Expansion preview time. Upgrade to continue.'
-                          : 'Expansion access could not be verified right now.',
-                    }))
-                    return
-                  }
-
-                  await maybeStartGuideCheckedSession('expansion', tokenResult.token)
-                } catch (error) {
-                  const trialReason = getTrialBlockReasonFromError(error)
-
-                  if (trialReason) {
-                    setTrialBlockReason(trialReason)
-                    return
-                  }
-
-                  if (error instanceof ApiRequestError && error.status === 401) {
-                    setExperiencePrompts((currentValue) => ({
-                      ...currentValue,
-                      expansion: SESSION_RESUME_MESSAGE,
-                    }))
-                    return
-                  }
-
-                  setExperiencePrompts((currentValue) => ({
-                    ...currentValue,
-                    expansion:
-                      error instanceof Error ? error.message : 'Expansion access could not be verified right now.',
-                  }))
-                } finally {
-                  setCheckingExperience(null)
-                }
-              }}
+              onClick={handleExpansionClick}
             />
           )
         }
@@ -544,79 +752,7 @@ function MemberDashboardLaunchpad({
               key={experience}
               prompt={experiencePrompts.premium ?? null}
               trialAvailable={premiumTrialAvailable}
-              onClick={async () => {
-                setCheckingExperience('premium')
-                setExperiencePrompts((currentValue) => ({
-                  ...currentValue,
-                  premium: undefined,
-                }))
-
-                try {
-                  if (authStatus !== 'signed-in') {
-                    setExperiencePrompts((currentValue) => ({
-                      ...currentValue,
-                      premium: getAuthPromptMessage(authStatus),
-                    }))
-                    return
-                  }
-
-                  const tokenResult = await getTokenSafe()
-
-                  if (!tokenResult.token) {
-                    setExperiencePrompts((currentValue) => ({
-                      ...currentValue,
-                      premium: getAuthPromptMessage(authStatus),
-                    }))
-                    return
-                  }
-
-                  const response = await getPlaybackAccess('premium', tokenResult.token)
-                  updateExperienceAccess(response.access)
-
-                  if (isPreviewMode && !previewPremiumAllowed && !premiumTrialAvailable) {
-                    setExperiencePrompts((currentValue) => ({
-                      ...currentValue,
-                      premium: 'This preview plan does not unlock Premium. Upgrade to continue.',
-                    }))
-                    return
-                  }
-
-                  if (!response.access.allowed && !premiumTrialAvailable) {
-                    setExperiencePrompts((currentValue) => ({
-                      ...currentValue,
-                      premium: 'Your Premium allowance is unavailable for this plan. Upgrade to continue.',
-                    }))
-                    return
-                  }
-
-                  await maybeStartGuideCheckedSession('premium', tokenResult.token)
-                } catch (error) {
-                  const trialReason = getTrialBlockReasonFromError(error)
-
-                  if (trialReason) {
-                    setTrialBlockReason(trialReason)
-                    return
-                  }
-
-                  if (error instanceof ApiRequestError && error.status === 401) {
-                    setExperiencePrompts((currentValue) => ({
-                      ...currentValue,
-                      premium: SESSION_RESUME_MESSAGE,
-                    }))
-                    return
-                  }
-
-                  setExperiencePrompts((currentValue) => ({
-                    ...currentValue,
-                    premium:
-                      error instanceof Error
-                        ? error.message
-                        : 'Premium access could not be verified right now.',
-                  }))
-                } finally {
-                  setCheckingExperience(null)
-                }
-              }}
+              onClick={handlePremiumClick}
             />
           )
         }
@@ -630,77 +766,7 @@ function MemberDashboardLaunchpad({
             key={experience}
             prompt={experiencePrompts.regen ?? null}
             trialAvailable={regenTrialAvailable}
-            onClick={async () => {
-              setCheckingExperience('regen')
-              setExperiencePrompts((currentValue) => ({
-                ...currentValue,
-                regen: undefined,
-              }))
-
-              try {
-                if (authStatus !== 'signed-in') {
-                  setExperiencePrompts((currentValue) => ({
-                    ...currentValue,
-                    regen: getAuthPromptMessage(authStatus),
-                  }))
-                  return
-                }
-
-                const tokenResult = await getTokenSafe()
-
-                if (!tokenResult.token) {
-                  setExperiencePrompts((currentValue) => ({
-                    ...currentValue,
-                    regen: getAuthPromptMessage(authStatus),
-                  }))
-                  return
-                }
-
-                const response = await getPlaybackAccess('regen', tokenResult.token)
-                updateExperienceAccess(response.access)
-
-                if (isPreviewMode && !previewRegenAllowed && !regenTrialAvailable) {
-                  setExperiencePrompts((currentValue) => ({
-                    ...currentValue,
-                    regen: 'This preview plan does not unlock REGEN. Upgrade to continue.',
-                  }))
-                  return
-                }
-
-                if (!response.access.allowed && !regenTrialAvailable) {
-                  setExperiencePrompts((currentValue) => ({
-                    ...currentValue,
-                    regen: 'Your REGEN allowance is unavailable for this plan. Upgrade to continue.',
-                  }))
-                  return
-                }
-
-                await maybeStartGuideCheckedSession('regen', tokenResult.token)
-              } catch (error) {
-                const trialReason = getTrialBlockReasonFromError(error)
-
-                if (trialReason) {
-                  setTrialBlockReason(trialReason)
-                  return
-                }
-
-                if (error instanceof ApiRequestError && error.status === 401) {
-                  setExperiencePrompts((currentValue) => ({
-                    ...currentValue,
-                    regen: SESSION_RESUME_MESSAGE,
-                  }))
-                  return
-                }
-
-                setExperiencePrompts((currentValue) => ({
-                  ...currentValue,
-                  regen:
-                    error instanceof Error ? error.message : 'REGEN access could not be verified right now.',
-                }))
-              } finally {
-                setCheckingExperience(null)
-              }
-            }}
+            onClick={handleRegenClick}
           />
         )
       })}

@@ -72,7 +72,7 @@ export function Rayd8SessionOverlay() {
       className={[
         'fixed inset-0 z-[9000] h-[100dvh] w-screen bg-black',
         'transition-opacity duration-300 ease-out',
-        visible ? 'opacity-100' : 'opacity-0',
+        visible ? 'opacity-100' : 'pointer-events-none opacity-0',
       ].join(' ')}
     >
       <Rayd8PlayerEngine
