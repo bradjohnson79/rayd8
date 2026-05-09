@@ -110,7 +110,7 @@ async function signPlaybackId(playbackId: string, assetId = playbackId) {
     return null
   }
 
-  const expiresInMinutes = 10
+  const expiresInMinutes = 12 * 60
 
   const token = await muxClient.jwt.signPlaybackId(playbackId, {
     expiration: `${expiresInMinutes}m`,

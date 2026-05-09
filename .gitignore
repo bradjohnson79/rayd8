@@ -17,3 +17,10 @@ api/node_modules
 api/dist
 web/public/testimonials/*.mp4
 .vercel
+
+# Root-level QA captures and misplaced static dirs (Vite assets live under web/public/)
+/geny-*.png
+/phone-dashboard*.png
+/prod-phone-*.png
+/phone-window-dump*.xml
+/public/
