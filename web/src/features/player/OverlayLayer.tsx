@@ -6,6 +6,7 @@ interface OverlayLayerProps {
   blueLightEnabled: boolean
   circadianEnabled: boolean
   nightModeEnabled?: boolean
+  performanceMode?: boolean
 }
 
 const amplifierColors: Record<AmplifierMode, string> = {
@@ -20,6 +21,7 @@ export const OverlayLayer = memo(function OverlayLayer({
   blueLightEnabled,
   circadianEnabled,
   nightModeEnabled = false,
+  performanceMode = false,
 }: OverlayLayerProps) {
   const overlayTone = [
     blueLightEnabled ? 'bg-[rgba(14,38,78,0.16)]' : '',
@@ -30,6 +32,7 @@ export const OverlayLayer = memo(function OverlayLayer({
     .join(' ')
 
   const edgeColor = amplifierColors[amplifierMode]
+  const edgeBackground = performanceMode ? edgeColor : null
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -41,7 +44,7 @@ export const OverlayLayer = memo(function OverlayLayer({
           background:
             amplifierMode === 'off'
               ? 'transparent'
-              : `linear-gradient(to bottom, ${edgeColor}, transparent)`,
+              : edgeBackground ?? `linear-gradient(to bottom, ${edgeColor}, transparent)`,
         }}
       />
       <div
@@ -50,7 +53,7 @@ export const OverlayLayer = memo(function OverlayLayer({
           background:
             amplifierMode === 'off'
               ? 'transparent'
-              : `linear-gradient(to top, ${edgeColor}, transparent)`,
+              : edgeBackground ?? `linear-gradient(to top, ${edgeColor}, transparent)`,
         }}
       />
       <div
@@ -59,7 +62,7 @@ export const OverlayLayer = memo(function OverlayLayer({
           background:
             amplifierMode === 'off'
               ? 'transparent'
-              : `linear-gradient(to right, ${edgeColor}, transparent)`,
+              : edgeBackground ?? `linear-gradient(to right, ${edgeColor}, transparent)`,
         }}
       />
       <div
@@ -68,7 +71,7 @@ export const OverlayLayer = memo(function OverlayLayer({
           background:
             amplifierMode === 'off'
               ? 'transparent'
-              : `linear-gradient(to left, ${edgeColor}, transparent)`,
+              : edgeBackground ?? `linear-gradient(to left, ${edgeColor}, transparent)`,
         }}
       />
     </div>

@@ -4,6 +4,7 @@ interface VideoSurfaceProps {
   brightnessPercent: number
   fitMode: 'contain' | 'cover'
   onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void
+  performanceMode: boolean
   videoRef: (node: HTMLVideoElement | null) => void
   shouldBlurForTrialBlock: boolean
 }
@@ -12,20 +13,25 @@ export const VideoSurface = memo(function VideoSurface({
   brightnessPercent,
   fitMode,
   onPointerUp,
+  performanceMode,
   videoRef,
   shouldBlurForTrialBlock,
 }: VideoSurfaceProps) {
   const videoStyle = useMemo(
-    () => ({ filter: `brightness(${brightnessPercent / 100})` }),
-    [brightnessPercent],
+    () => (performanceMode ? undefined : { filter: `brightness(${brightnessPercent / 100})` }),
+    [brightnessPercent, performanceMode],
   )
   const objectFitClass = fitMode === 'contain' ? 'object-contain' : 'object-cover'
+  const wrapperMotionClass = performanceMode
+    ? ''
+    : 'transition-[filter,transform] duration-300 ease-out'
 
   return (
     <div
       className={[
-        'absolute inset-0 flex items-center justify-center overflow-hidden bg-black transition-[filter,transform] duration-300',
-        shouldBlurForTrialBlock ? 'scale-[1.02] blur-[6px]' : '',
+        'absolute inset-0 flex items-center justify-center overflow-hidden bg-black',
+        wrapperMotionClass,
+        shouldBlurForTrialBlock && !performanceMode ? 'scale-[1.02] blur-[6px]' : '',
       ].join(' ')}
       onPointerUp={onPointerUp}
     >
@@ -40,6 +46,12 @@ export const VideoSurface = memo(function VideoSurface({
         ref={videoRef}
         style={videoStyle}
       />
+      {performanceMode && brightnessPercent < 100 ? (
+        <div
+          className="pointer-events-none absolute inset-0 bg-black"
+          style={{ opacity: 1 - brightnessPercent / 100 }}
+        />
+      ) : null}
     </div>
   )
 })

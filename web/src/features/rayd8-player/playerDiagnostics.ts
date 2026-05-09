@@ -1,3 +1,8 @@
+import {
+  getPlaybackSoakMetricsSnapshot,
+  resetPlaybackSoakMetrics,
+} from '../playback-authority/playbackSoakMetrics'
+
 type DiagnosticCounter = Record<string, number>
 
 interface PlayerDiagnosticsSnapshot {
@@ -6,6 +11,7 @@ interface PlayerDiagnosticsSnapshot {
   eventListeners: DiagnosticCounter
   hlsControllers: DiagnosticCounter
   renders: DiagnosticCounter
+  soak?: ReturnType<typeof getPlaybackSoakMetricsSnapshot>
   sourceLoads: DiagnosticCounter
   timers: DiagnosticCounter
   videoMounts: DiagnosticCounter
@@ -22,23 +28,39 @@ declare global {
   }
 }
 
-const counters: PlayerDiagnosticsSnapshot = {
-  activeHlsInstances: {},
-  activeVideoLayers: {},
-  eventListeners: {},
-  hlsControllers: {},
-  renders: {},
-  sourceLoads: {},
-  timers: {},
-  videoMounts: {},
+function createCounters(): PlayerDiagnosticsSnapshot {
+  return {
+    activeHlsInstances: {},
+    activeVideoLayers: {},
+    eventListeners: {},
+    hlsControllers: {},
+    renders: {},
+    sourceLoads: {},
+    timers: {},
+    videoMounts: {},
+  }
 }
 
-function isDevDiagnosticsAvailable() {
-  return typeof window !== 'undefined' && import.meta.env.DEV
+let counters: PlayerDiagnosticsSnapshot | null = null
+
+/** Local dev, or staging/production when explicitly enabled (soak / QA only — never default-on in prod). */
+function isPlaybackEngineeringDiagnosticsEnabled() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  if (import.meta.env.DEV) {
+    return true
+  }
+
+  return (
+    window.location.search.includes('rayd8PlayerDebug=true') ||
+    window.localStorage.getItem('rayd8-player-debug') === 'true'
+  )
 }
 
 function shouldLogDiagnostics() {
-  if (!isDevDiagnosticsAvailable()) {
+  if (!isPlaybackEngineeringDiagnosticsEnabled()) {
     return false
   }
 
@@ -46,6 +68,11 @@ function shouldLogDiagnostics() {
     window.localStorage.getItem('rayd8-player-debug') === 'true' ||
     window.location.search.includes('rayd8PlayerDebug=true')
   )
+}
+
+function getCounters() {
+  counters ??= createCounters()
+  return counters
 }
 
 function increment(group: DiagnosticCounter, key: string) {
@@ -57,37 +84,45 @@ function decrement(group: DiagnosticCounter, key: string) {
 }
 
 function exposeDebugApi() {
-  if (!isDevDiagnosticsAvailable() || window.__RAYD8_PLAYER_DEBUG__) {
+  if (!isPlaybackEngineeringDiagnosticsEnabled() || window.__RAYD8_PLAYER_DEBUG__) {
     return
   }
 
+  const counters = getCounters()
   window.__RAYD8_PLAYER_DEBUG__ = {
-    getSnapshot: () => JSON.parse(JSON.stringify(counters)) as PlayerDiagnosticsSnapshot,
+    getSnapshot: () => {
+      const base = JSON.parse(JSON.stringify(counters)) as PlayerDiagnosticsSnapshot
+      base.soak = getPlaybackSoakMetricsSnapshot()
+      return base
+    },
     reset: () => {
       Object.values(counters).forEach((group) => {
         Object.keys(group).forEach((key) => {
           delete group[key]
         })
       })
+      resetPlaybackSoakMetrics()
     },
   }
 }
 
 export function recordPlayerRender(label: string) {
-  if (!isDevDiagnosticsAvailable()) {
+  if (!isPlaybackEngineeringDiagnosticsEnabled()) {
     return
   }
 
   exposeDebugApi()
+  const counters = getCounters()
   increment(counters.renders, label)
 }
 
 export function recordVideoMount(label: string, mounted: boolean) {
-  if (!isDevDiagnosticsAvailable()) {
+  if (!isPlaybackEngineeringDiagnosticsEnabled()) {
     return
   }
 
   exposeDebugApi()
+  const counters = getCounters()
   increment(counters.videoMounts, `${label}:${mounted ? 'mount' : 'unmount'}`)
 
   if (mounted) {
@@ -102,11 +137,12 @@ export function recordVideoMount(label: string, mounted: boolean) {
 }
 
 export function recordSourceLoad(label: string, sourceUrl: string) {
-  if (!isDevDiagnosticsAvailable()) {
+  if (!isPlaybackEngineeringDiagnosticsEnabled()) {
     return
   }
 
   exposeDebugApi()
+  const counters = getCounters()
   increment(counters.sourceLoads, label)
 
   if (shouldLogDiagnostics()) {
@@ -115,11 +151,12 @@ export function recordSourceLoad(label: string, sourceUrl: string) {
 }
 
 export function recordHlsController(label: string, action: 'create' | 'destroy') {
-  if (!isDevDiagnosticsAvailable()) {
+  if (!isPlaybackEngineeringDiagnosticsEnabled()) {
     return
   }
 
   exposeDebugApi()
+  const counters = getCounters()
   increment(counters.hlsControllers, `${label}:${action}`)
 
   if (action === 'create') {
@@ -141,15 +178,17 @@ export function addTrackedEventListener<K extends keyof HTMLElementEventMap>(
 ) {
   target.addEventListener(type, listener as EventListener)
 
-  if (isDevDiagnosticsAvailable()) {
+  if (isPlaybackEngineeringDiagnosticsEnabled()) {
     exposeDebugApi()
+    const counters = getCounters()
     increment(counters.eventListeners, label)
   }
 
   return () => {
     target.removeEventListener(type, listener as EventListener)
 
-    if (isDevDiagnosticsAvailable()) {
+    if (isPlaybackEngineeringDiagnosticsEnabled()) {
+      const counters = getCounters()
       decrement(counters.eventListeners, label)
     }
   }
@@ -163,15 +202,17 @@ export function addTrackedDomEventListener(
 ) {
   target.addEventListener(type, listener)
 
-  if (isDevDiagnosticsAvailable()) {
+  if (isPlaybackEngineeringDiagnosticsEnabled()) {
     exposeDebugApi()
+    const counters = getCounters()
     increment(counters.eventListeners, label)
   }
 
   return () => {
     target.removeEventListener(type, listener)
 
-    if (isDevDiagnosticsAvailable()) {
+    if (isPlaybackEngineeringDiagnosticsEnabled()) {
+      const counters = getCounters()
       decrement(counters.eventListeners, label)
     }
   }
@@ -182,13 +223,15 @@ export function setTrackedTimeout(
   delay: number,
   label: string,
 ) {
-  if (isDevDiagnosticsAvailable()) {
+  if (isPlaybackEngineeringDiagnosticsEnabled()) {
     exposeDebugApi()
+    const counters = getCounters()
     increment(counters.timers, label)
   }
 
   const timerId = window.setTimeout(() => {
-    if (isDevDiagnosticsAvailable()) {
+    if (isPlaybackEngineeringDiagnosticsEnabled()) {
+      const counters = getCounters()
       decrement(counters.timers, label)
     }
 
@@ -205,7 +248,8 @@ export function clearTrackedTimeout(timerId: number | null, label: string) {
 
   window.clearTimeout(timerId)
 
-  if (isDevDiagnosticsAvailable()) {
+  if (isPlaybackEngineeringDiagnosticsEnabled()) {
+    const counters = getCounters()
     decrement(counters.timers, label)
   }
 }
