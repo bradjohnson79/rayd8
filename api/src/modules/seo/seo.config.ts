@@ -63,6 +63,44 @@ export const seoRouteManifest: SeoRouteManifestEntry[] = [
     routeType: 'conversion',
     title: 'Subscription Success | RAYD8®',
   },
+  {
+    canonicalUrl: buildAbsoluteUrl('/privacy'),
+    description:
+      'How ANOINT Inc. collects, uses, and protects information when you use RAYD8®, a digital wellness and immersive playback experience at rayd8.app.',
+    follow: true,
+    index: true,
+    keywords: ['RAYD8 privacy', 'ANOINT Inc.', 'data protection', 'Clerk', 'Stripe', 'Mux'],
+    openGraph: {
+      description:
+        'Privacy practices for RAYD8®—account data, payments, cookies, streaming delivery, and your choices.',
+      title: 'Privacy Policy | RAYD8®',
+      type: 'website',
+      url: buildAbsoluteUrl('/privacy'),
+    },
+    path: '/privacy',
+    priority: 72,
+    routeType: 'support',
+    title: 'Privacy Policy | RAYD8®',
+  },
+  {
+    canonicalUrl: buildAbsoluteUrl('/terms'),
+    description:
+      'Terms and conditions for using RAYD8®—subscriptions, acceptable use, intellectual property, disclaimers, and limitations.',
+    follow: true,
+    index: true,
+    keywords: ['RAYD8 terms', 'terms of service', 'ANOINT Inc.', 'subscription terms'],
+    openGraph: {
+      description:
+        'Terms governing use of the RAYD8® experiential wellness platform, billing, and acceptable use.',
+      title: 'Terms & Conditions | RAYD8®',
+      type: 'website',
+      url: buildAbsoluteUrl('/terms'),
+    },
+    path: '/terms',
+    priority: 71,
+    routeType: 'support',
+    title: 'Terms & Conditions | RAYD8®',
+  },
 ]
 
 const seoRouteManifestMap = new Map(seoRouteManifest.map((route) => [route.path, route]))

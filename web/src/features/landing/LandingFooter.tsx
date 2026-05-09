@@ -84,7 +84,9 @@ export function LandingFooter() {
 
         <div className="mt-4 max-w-5xl border-t border-white/8 pt-4 sm:mt-5 sm:pt-5">
           <p className="text-xs leading-6 text-white/56">{disclaimer}</p>
-          <p className="mt-3 text-xs text-white/50">Copyright 2026 - AetherX Inc - RAYD8</p>
+          <p className="mt-3 text-xs text-white/50">
+            © {new Date().getFullYear()} ANOINT Inc. RAYD8® is a trademark of ANOINT Inc.
+          </p>
         </div>
       </div>
     </footer>

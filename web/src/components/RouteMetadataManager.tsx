@@ -4,7 +4,7 @@ import type { SeoMetadataPayload } from '../services/admin'
 import { getSeoMetadata } from '../services/seo'
 
 const seoMetadataCache = new Map<string, SeoMetadataPayload>()
-const publicSeoPaths = new Set(['/', '/subscription', '/success'])
+const publicSeoPaths = new Set(['/', '/subscription', '/success', '/privacy', '/terms'])
 
 function ensureMetaTag(selector: string, attributes: Record<string, string>) {
   let element = document.head.querySelector<HTMLMetaElement>(selector)

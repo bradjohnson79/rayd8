@@ -44,6 +44,12 @@ const SignupReferralPage = lazy(() =>
 const SuccessPage = lazy(() =>
   import('../pages/SuccessPage').then((module) => ({ default: module.SuccessPage })),
 )
+const PrivacyPolicyPage = lazy(() =>
+  import('../pages/PrivacyPolicyPage').then((module) => ({ default: module.PrivacyPolicyPage })),
+)
+const TermsOfServicePage = lazy(() =>
+  import('../pages/TermsOfServicePage').then((module) => ({ default: module.TermsOfServicePage })),
+)
 const Rayd8AffiliatePage = lazy(() =>
   import('../pages/Rayd8AffiliatePage').then((module) => ({
     default: module.Rayd8AffiliatePage,
@@ -97,6 +103,16 @@ export const router = createBrowserRouter([
         path: 'success',
         errorElement: <AppRouteErrorBoundary scope="public" />,
         element: lazyElement(<SuccessPage />),
+      },
+      {
+        path: 'privacy',
+        errorElement: <AppRouteErrorBoundary scope="public" />,
+        element: lazyElement(<PrivacyPolicyPage />),
+      },
+      {
+        path: 'terms',
+        errorElement: <AppRouteErrorBoundary scope="public" />,
+        element: lazyElement(<TermsOfServicePage />),
       },
       {
         path: '/',
