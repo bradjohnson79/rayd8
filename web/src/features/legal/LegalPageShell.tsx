@@ -9,13 +9,14 @@ type LegalPageShellProps = {
 
 export function LegalPageShell({ children }: LegalPageShellProps) {
   return (
-    <div className="relative flex min-h-screen flex-col bg-[#04070a] text-slate-100">
-      <Rayd8Background />
-      <LandingNavbar />
-      <main className="relative z-10 flex-1">{children}</main>
-      <div className="relative z-10 mt-auto">
-        <LandingFooter />
+    <Rayd8Background reducedEffects variant="landing">
+      <div className="relative z-10 flex min-h-screen flex-col bg-[#04070a]/45 text-slate-100">
+        <LandingNavbar />
+        <main className="relative z-10 flex-1">{children}</main>
+        <div className="relative z-10 mt-auto">
+          <LandingFooter />
+        </div>
       </div>
-    </div>
+    </Rayd8Background>
   )
 }
