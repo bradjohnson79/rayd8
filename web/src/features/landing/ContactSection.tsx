@@ -4,6 +4,7 @@ import {
   type PublicContactAttachment,
   type PublicContactTopic,
 } from '../../services/contact'
+import { useLandingBackdropStrong, useLandingCardShadow } from './landingBackdropHooks'
 import { Section } from './components/Section'
 import { MarketingButton } from './components/MarketingButton'
 
@@ -38,6 +39,9 @@ async function fileToBase64(file: File) {
 export const ContactSection = memo(function ContactSection({
   reducedEffects = false,
 }: ContactSectionProps) {
+  const backdropStrong = useLandingBackdropStrong()
+  const cardShadow = useLandingCardShadow()
+
   const [formState, setFormState] = useState({
     attachment: null as PublicContactAttachment | null,
     company: '',
@@ -124,7 +128,7 @@ export const ContactSection = memo(function ContactSection({
       title="Start the conversation."
     >
       <div
-        className="scroll-mt-32 rounded-[2rem] border border-white/10 bg-[rgba(7,12,16,0.52)] p-6 backdrop-blur-2xl sm:scroll-mt-40 sm:p-8"
+        className={`scroll-mt-32 rounded-[2rem] border border-white/10 bg-[rgba(7,12,16,0.52)] p-6 sm:scroll-mt-40 sm:p-8 ${cardShadow} ${backdropStrong}`}
         id="contact-form"
       >
         {submitted ? (

@@ -2,6 +2,7 @@ import { Suspense, useEffect, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Rayd8Background } from '../components/Rayd8Background'
 import { LandingNavbar } from '../features/landing/LandingNavbar'
+import { LandingPerformanceProfileProvider } from '../features/landing/LandingPerformanceProfileProvider'
 import { DeferredRender } from '../features/landing/components/DeferredRender'
 import { lazyWithPreload } from '../features/landing/lazyWithPreload'
 import { useLandingPerformanceMode } from '../features/landing/useLandingPerformanceMode'
@@ -60,16 +61,26 @@ function LandingSectionFallback({
 
 export function LandingPage() {
   const location = useLocation()
-  const { isMobileViewport, reducedEffects } = useLandingPerformanceMode()
+  const { isMobileViewport, reducedEffects, profile } = useLandingPerformanceMode()
   const shouldEagerRenderDeferredSections = Boolean(location.hash)
-  const deferredRootMargin = useMemo(
-    () => (isMobileViewport ? '160px 0px' : '320px 0px'),
-    [isMobileViewport],
-  )
+
+  const deferredRootMargin = useMemo(() => {
+    if (profile === 'cinematic') {
+      return isMobileViewport ? '160px 0px' : '320px 0px'
+    }
+    if (profile === 'balanced') {
+      return isMobileViewport ? '80px 0px' : '160px 0px'
+    }
+    return isMobileViewport ? '48px 0px' : '96px 0px'
+  }, [isMobileViewport, profile])
 
   useEffect(() => {
+    if (shouldEagerRenderDeferredSections) {
+      return undefined
+    }
+
     const windowWithIdle = window as Window & {
-      requestIdleCallback?: (callback: IdleRequestCallback) => number
+      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
       cancelIdleCallback?: (handle: number) => void
     }
 
@@ -87,11 +98,16 @@ export function LandingPage() {
       void LandingFooter.preload()
     }
 
+    const nearFoldFallbackMs = profile === 'minimal' ? 1400 : profile === 'balanced' ? 1000 : 800
+    const lowerIdleDelayMs = profile === 'minimal' ? 4200 : profile === 'balanced' ? 2800 : 2000
+
     if (windowWithIdle.requestIdleCallback) {
       const nearFoldIdleId = windowWithIdle.requestIdleCallback(preloadNearFoldSections)
       const lowerPriorityTimeoutId = window.setTimeout(() => {
-        windowWithIdle.requestIdleCallback?.(preloadLowerPrioritySections)
-      }, 2000)
+        windowWithIdle.requestIdleCallback?.(preloadLowerPrioritySections, {
+          timeout: profile === 'minimal' ? 8000 : 4000,
+        })
+      }, lowerIdleDelayMs)
 
       return () => {
         windowWithIdle.cancelIdleCallback?.(nearFoldIdleId)
@@ -99,14 +115,17 @@ export function LandingPage() {
       }
     }
 
-    const nearFoldTimeoutId = window.setTimeout(preloadNearFoldSections, 800)
-    const lowerPriorityTimeoutId = window.setTimeout(preloadLowerPrioritySections, 2400)
+    const nearFoldTimeoutId = window.setTimeout(preloadNearFoldSections, nearFoldFallbackMs)
+    const lowerPriorityTimeoutId = window.setTimeout(
+      preloadLowerPrioritySections,
+      lowerIdleDelayMs + (profile === 'minimal' ? 2200 : profile === 'balanced' ? 1200 : 800),
+    )
 
     return () => {
       window.clearTimeout(nearFoldTimeoutId)
       window.clearTimeout(lowerPriorityTimeoutId)
     }
-  }, [])
+  }, [profile, shouldEagerRenderDeferredSections])
 
   useEffect(() => {
     const hashId = location.hash.replace('#', '')
@@ -166,110 +185,123 @@ export function LandingPage() {
   }, [location.hash])
 
   return (
-    <Rayd8Background intensity="low" reducedEffects={reducedEffects} variant="landing">
-      <div className="relative z-10">
-        <LandingNavbar />
-        <Suspense fallback={<LandingSectionFallback className="pt-4" minHeightClassName="min-h-[100svh]" />}>
-          <HeroSection reducedEffects={reducedEffects} />
-        </Suspense>
-        {shouldEagerRenderDeferredSections ? (
-          <>
-            <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
-              <BenefitsImageSection />
-            </Suspense>
-            <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
-              <NewsletterSignup reducedEffects={reducedEffects} />
-            </Suspense>
-            <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
-              <TeaserSection reducedEffects={reducedEffects} />
-            </Suspense>
-            <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
-              <AffiliatePromoSection reducedEffects={reducedEffects} />
-            </Suspense>
-            <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
-              <AboutSection reducedEffects={reducedEffects} />
-            </Suspense>
-            <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[76svh]" />}>
-              <TestimonialsSection reducedEffects={reducedEffects} />
-            </Suspense>
-            <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
-              <ContactSection reducedEffects={reducedEffects} />
-            </Suspense>
-            <Suspense fallback={<LandingSectionFallback className="pb-10 pt-0" minHeightClassName="min-h-[14rem]" />}>
-              <LandingFooter />
-            </Suspense>
-          </>
-        ) : (
-          <>
-            <DeferredRender
-              fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}
-              rootMargin={deferredRootMargin}
-            >
+    <Rayd8Background
+      ambientProfile={profile}
+      intensity="low"
+      reducedEffects={reducedEffects}
+      variant="landing"
+    >
+      <LandingPerformanceProfileProvider profile={profile}>
+        <div className="relative z-10">
+          <LandingNavbar />
+          <Suspense
+            fallback={<LandingSectionFallback className="pt-4" minHeightClassName="min-h-[100svh]" />}
+          >
+            <HeroSection reducedEffects={reducedEffects} />
+          </Suspense>
+          {shouldEagerRenderDeferredSections ? (
+            <>
               <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
                 <BenefitsImageSection />
               </Suspense>
-            </DeferredRender>
-            <DeferredRender
-              fallback={<LandingSectionFallback minHeightClassName="min-h-[26svh]" />}
-              rootMargin={deferredRootMargin}
-            >
-              <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[26svh]" />}>
+              <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
                 <NewsletterSignup reducedEffects={reducedEffects} />
               </Suspense>
-            </DeferredRender>
-            <DeferredRender
-              fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}
-              rootMargin={deferredRootMargin}
-            >
               <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
                 <TeaserSection reducedEffects={reducedEffects} />
               </Suspense>
-            </DeferredRender>
-            <DeferredRender
-              fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}
-              rootMargin={deferredRootMargin}
-            >
               <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
                 <AffiliatePromoSection reducedEffects={reducedEffects} />
               </Suspense>
-            </DeferredRender>
-            <DeferredRender
-              fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}
-              rootMargin={deferredRootMargin}
-            >
               <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
                 <AboutSection reducedEffects={reducedEffects} />
               </Suspense>
-            </DeferredRender>
-            <DeferredRender
-              fallback={<LandingSectionFallback minHeightClassName="min-h-[76svh]" />}
-              rootMargin={deferredRootMargin}
-            >
               <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[76svh]" />}>
                 <TestimonialsSection reducedEffects={reducedEffects} />
               </Suspense>
-            </DeferredRender>
-            <DeferredRender
-              fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}
-              rootMargin={deferredRootMargin}
-            >
               <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
                 <ContactSection reducedEffects={reducedEffects} />
               </Suspense>
-            </DeferredRender>
-            <DeferredRender
-              fallback={<LandingSectionFallback className="pb-10 pt-0" minHeightClassName="min-h-[14rem]" />}
-              rootMargin={deferredRootMargin}
-            >
               <Suspense
                 fallback={<LandingSectionFallback className="pb-10 pt-0" minHeightClassName="min-h-[14rem]" />}
               >
                 <LandingFooter />
               </Suspense>
-            </DeferredRender>
-          </>
-        )}
-      </div>
+            </>
+          ) : (
+            <>
+              <DeferredRender
+                fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}
+                rootMargin={deferredRootMargin}
+              >
+                <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
+                  <BenefitsImageSection />
+                </Suspense>
+              </DeferredRender>
+              <DeferredRender
+                fallback={<LandingSectionFallback minHeightClassName="min-h-[26svh]" />}
+                rootMargin={deferredRootMargin}
+              >
+                <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[26svh]" />}>
+                  <NewsletterSignup reducedEffects={reducedEffects} />
+                </Suspense>
+              </DeferredRender>
+              <DeferredRender
+                fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}
+                rootMargin={deferredRootMargin}
+              >
+                <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
+                  <TeaserSection reducedEffects={reducedEffects} />
+                </Suspense>
+              </DeferredRender>
+              <DeferredRender
+                fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}
+                rootMargin={deferredRootMargin}
+              >
+                <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
+                  <AffiliatePromoSection reducedEffects={reducedEffects} />
+                </Suspense>
+              </DeferredRender>
+              <DeferredRender
+                fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}
+                rootMargin={deferredRootMargin}
+              >
+                <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
+                  <AboutSection reducedEffects={reducedEffects} />
+                </Suspense>
+              </DeferredRender>
+              <DeferredRender
+                fallback={<LandingSectionFallback minHeightClassName="min-h-[76svh]" />}
+                rootMargin={deferredRootMargin}
+              >
+                <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[76svh]" />}>
+                  <TestimonialsSection reducedEffects={reducedEffects} />
+                </Suspense>
+              </DeferredRender>
+              <DeferredRender
+                fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}
+                rootMargin={deferredRootMargin}
+              >
+                <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
+                  <ContactSection reducedEffects={reducedEffects} />
+                </Suspense>
+              </DeferredRender>
+              <DeferredRender
+                fallback={<LandingSectionFallback className="pb-10 pt-0" minHeightClassName="min-h-[14rem]" />}
+                rootMargin={deferredRootMargin}
+              >
+                <Suspense
+                  fallback={
+                    <LandingSectionFallback className="pb-10 pt-0" minHeightClassName="min-h-[14rem]" />
+                  }
+                >
+                  <LandingFooter />
+                </Suspense>
+              </DeferredRender>
+            </>
+          )}
+        </div>
+      </LandingPerformanceProfileProvider>
     </Rayd8Background>
   )
 }

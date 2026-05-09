@@ -80,6 +80,24 @@ function loadYouTubeIframeApi(): Promise<YouTubeNamespace> {
     }
 
     if (existingScript) {
+      if (window.YT?.Player) {
+        resolve(window.YT)
+        return
+      }
+
+      const started = performance.now()
+      const poll = () => {
+        if (window.YT?.Player) {
+          resolve(window.YT)
+          return
+        }
+        if (performance.now() - started > 12000) {
+          reject(new Error('YouTube IFrame API did not initialize in time.'))
+          return
+        }
+        window.setTimeout(poll, 48)
+      }
+      poll()
       return
     }
 

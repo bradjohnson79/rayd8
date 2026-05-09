@@ -2,6 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MarketingButton } from '../../features/landing/components/MarketingButton'
 import { Section } from '../../features/landing/components/Section'
+import { useLandingPerformanceProfile } from '../../features/landing/useLandingPerformanceProfile'
+import {
+  useLandingBackdropStrong,
+  useLandingPromoShadow,
+} from '../../features/landing/landingBackdropHooks'
 import { trackUmamiEvent } from '../../services/umami'
 
 const PROMO_IMAGE = '/affiliate/RAYD8-Affiliate-Promo-1.png'
@@ -36,6 +41,16 @@ export function AffiliatePromoSection({
 }: AffiliatePromoSectionProps) {
   const navigate = useNavigate()
   const [imageFailed, setImageFailed] = useState(false)
+  const backdropStrong = useLandingBackdropStrong()
+  const promoShadow = useLandingPromoShadow()
+  const { profile } = useLandingPerformanceProfile()
+
+  const affiliateHoverTail =
+    profile === 'minimal'
+      ? 'hover:shadow-[0_18px_52px_rgba(16,185,129,0.08)]'
+      : profile === 'balanced'
+        ? 'hover:shadow-[0_26px_84px_rgba(16,185,129,0.1)]'
+        : 'hover:shadow-[0_34px_110px_rgba(16,185,129,0.12)]'
 
   function handleCtaClick(target: 'dashboard_affiliate' | 'signup') {
     trackUmamiEvent('affiliate_cta_click', { target })
@@ -50,7 +65,9 @@ export function AffiliatePromoSection({
       reducedEffects={reducedEffects}
       showBackToTop
     >
-      <div className="group relative overflow-hidden rounded-[2rem] border border-emerald-200/18 bg-[linear-gradient(135deg,rgba(12,22,28,0.9),rgba(14,24,40,0.92)_48%,rgba(36,20,58,0.9))] px-6 py-7 shadow-[0_24px_90px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition duration-300 hover:-translate-y-1 hover:border-emerald-200/26 hover:shadow-[0_34px_110px_rgba(16,185,129,0.12)] sm:px-8 sm:py-9 lg:px-10 lg:py-10">
+      <div
+        className={`group relative overflow-hidden rounded-[2rem] border border-emerald-200/18 bg-[linear-gradient(135deg,rgba(12,22,28,0.9),rgba(14,24,40,0.92)_48%,rgba(36,20,58,0.9))] px-6 py-7 transition duration-300 hover:-translate-y-1 hover:border-emerald-200/26 sm:px-8 sm:py-9 lg:px-10 lg:py-10 ${promoShadow} ${backdropStrong} ${affiliateHoverTail}`}
+      >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_34%),radial-gradient(circle_at_80%_20%,rgba(96,165,250,0.16),transparent_26%),radial-gradient(circle_at_70%_80%,rgba(168,85,247,0.12),transparent_24%)]" />
         <div className="pointer-events-none absolute inset-y-8 left-0 w-px bg-[linear-gradient(180deg,transparent,rgba(167,243,208,0.7),transparent)] opacity-80 sm:left-6 lg:left-8" />
 

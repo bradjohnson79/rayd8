@@ -1,7 +1,17 @@
-import { memo, useCallback, useMemo, useState } from 'react'
+import { lazy, memo, Suspense, useCallback, useMemo, useState } from 'react'
+import {
+  useLandingBackdropMedium,
+  useLandingBackdropStrong,
+  useLandingCardShadow,
+} from './landingBackdropHooks'
 import { Section } from './components/Section'
-import { TestimonialVideoPlayer } from './components/TestimonialVideoPlayer'
 import { WrittenTestimonialSlider } from './components/WrittenTestimonialSlider'
+
+const TestimonialVideoPlayer = lazy(() =>
+  import('./components/TestimonialVideoPlayer').then((module) => ({
+    default: module.TestimonialVideoPlayer,
+  })),
+)
 
 interface TestimonialsSectionProps {
   reducedEffects?: boolean
@@ -140,9 +150,14 @@ const writtenTestimonials = [
 export const TestimonialsSection = memo(function TestimonialsSection({
   reducedEffects = false,
 }: TestimonialsSectionProps) {
+  const backdropStrong = useLandingBackdropStrong()
+  const backdropMedium = useLandingBackdropMedium()
+  const cardShadow = useLandingCardShadow()
+
   const [activeVideoIndex, setActiveVideoIndex] = useState(0)
   const [hasUserStartedPlayback, setHasUserStartedPlayback] = useState(false)
   const [shouldAutoplayActiveVideo, setShouldAutoplayActiveVideo] = useState(false)
+  const [videoPlayerGateOpen, setVideoPlayerGateOpen] = useState(false)
 
   const activeVideo = useMemo(
     () => testimonialVideos[activeVideoIndex] ?? testimonialVideos[0],
@@ -170,6 +185,11 @@ export const TestimonialsSection = memo(function TestimonialsSection({
   const handleSelectVideo = useCallback((index: number) => {
     setActiveVideoIndex(index)
     setShouldAutoplayActiveVideo(false)
+    setVideoPlayerGateOpen(true)
+  }, [])
+
+  const handleOpenVideoPlayer = useCallback(() => {
+    setVideoPlayerGateOpen(true)
   }, [])
 
   return (
@@ -184,7 +204,7 @@ export const TestimonialsSection = memo(function TestimonialsSection({
     >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)] xl:gap-8">
         <div
-          className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-2xl sm:rounded-[2.25rem] sm:p-6"
+          className={`rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 ${cardShadow} ${backdropStrong} sm:rounded-[2.25rem] sm:p-6`}
           id="video-testimonials"
         >
           <div className="flex items-center justify-between gap-4">
@@ -198,14 +218,57 @@ export const TestimonialsSection = memo(function TestimonialsSection({
 
           <div className="mt-6 flex justify-center">
             <div className={activeVideoFrameClass}>
-              <div className="aspect-[9/16] overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#05080c] shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
-                <TestimonialVideoPlayer
-                  key={`${activeVideo.youtubeId}-${shouldAutoplayActiveVideo ? 'autoplay' : 'manual'}`}
-                  onPlaybackStarted={handlePlaybackStarted}
-                  onVideoEnded={handleVideoEnded}
-                  shouldAutoplay={shouldAutoplayActiveVideo}
-                  video={activeVideo}
-                />
+              <div
+                className={`aspect-[9/16] overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#05080c] ${cardShadow}`}
+              >
+                {videoPlayerGateOpen ? (
+                  <Suspense
+                    fallback={
+                      <div className="flex h-full min-h-[12rem] w-full items-center justify-center px-4 text-center text-sm text-slate-400">
+                        Loading player…
+                      </div>
+                    }
+                  >
+                    <TestimonialVideoPlayer
+                      key={`${activeVideo.youtubeId}-${shouldAutoplayActiveVideo ? 'autoplay' : 'manual'}`}
+                      onPlaybackStarted={handlePlaybackStarted}
+                      onVideoEnded={handleVideoEnded}
+                      shouldAutoplay={shouldAutoplayActiveVideo}
+                      video={activeVideo}
+                    />
+                  </Suspense>
+                ) : (
+                  <button
+                    className="relative flex h-full w-full flex-col items-stretch text-left outline-none ring-emerald-300/40 focus-visible:ring-2"
+                    onClick={handleOpenVideoPlayer}
+                    type="button"
+                  >
+                    <span className="sr-only">
+                      Load and play testimonial video: {activeVideo.title}
+                    </span>
+                    {activeVideo.isLiveLab ? (
+                      <span className="absolute left-3 top-3 z-10 rounded-md bg-[linear-gradient(90deg,#00d4ff,#8a5cff)] px-2 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white shadow-[0_8px_22px_rgba(0,0,0,0.22)]">
+                        Live Lab
+                      </span>
+                    ) : null}
+                    <img
+                      alt=""
+                      aria-hidden
+                      className="h-full w-full object-cover"
+                      decoding="async"
+                      height={720}
+                      loading="lazy"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      src={activeVideo.thumbnailUrl}
+                      width={405}
+                    />
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40">
+                      <span className="rounded-full border border-white/25 bg-black/55 px-6 py-3 text-sm font-medium text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+                        Play video
+                      </span>
+                    </span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -216,7 +279,9 @@ export const TestimonialsSection = memo(function TestimonialsSection({
               <p className="mt-1 text-xs leading-6 text-slate-400">
                 {hasUserStartedPlayback
                   ? 'Auto-advance is enabled after you manually start playback.'
-                  : 'No autoplay on load. Start any testimonial to enable auto-advance.'}
+                  : videoPlayerGateOpen
+                    ? 'No autoplay on load. Press play on the video to start.'
+                    : 'Tap Play or a thumbnail below to load the player (no third-party scripts until then).'}
               </p>
             </div>
           </div>
@@ -272,7 +337,7 @@ export const TestimonialsSection = memo(function TestimonialsSection({
             />
           </div>
 
-          <div className="flex flex-col rounded-[1.7rem] border border-white/8 bg-white/[0.03] p-5 backdrop-blur-xl">
+          <div className={`flex flex-col rounded-[1.7rem] border border-white/8 bg-white/[0.03] p-5 ${backdropMedium}`}>
             <h3 className="text-lg font-semibold text-white">Live Labs Analysis</h3>
             <p className="mt-2 text-sm leading-7 text-slate-300">
               Independent live blood observations following a RAYD8 session.

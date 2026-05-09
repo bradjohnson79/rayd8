@@ -1,3 +1,5 @@
+import { useLandingPerformanceProfile } from './useLandingPerformanceProfile'
+import { useLandingBackdropMedium } from './landingBackdropHooks'
 import { ConversionButton } from './components/ConversionButton'
 import { Section } from './components/Section'
 
@@ -10,6 +12,16 @@ const featureLi =
 const featureBullet = 'mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/45'
 
 export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
+  const backdropMedium = useLandingBackdropMedium()
+  const { profile } = useLandingPerformanceProfile()
+
+  const regenShellShadow =
+    profile === 'minimal'
+      ? 'shadow-[0_14px_44px_rgba(16,185,129,0.09)] hover:shadow-[0_18px_52px_rgba(16,185,129,0.12)]'
+      : profile === 'balanced'
+        ? 'shadow-[0_17px_58px_rgba(16,185,129,0.1)] hover:shadow-[0_21px_68px_rgba(16,185,129,0.16)]'
+        : 'shadow-[0_20px_70px_rgba(16,185,129,0.12)] hover:shadow-[0_24px_80px_rgba(16,185,129,0.2)]'
+
   return (
     <Section
       childrenClassName="max-w-4xl"
@@ -23,7 +35,9 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
       title="Turn Your Screen Into a Living Field"
     >
       <div className="space-y-8 sm:space-y-10">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-7 py-8 backdrop-blur-xl sm:rounded-3xl sm:px-9 sm:py-10">
+        <div
+          className={`rounded-2xl border border-white/10 bg-white/[0.04] px-7 py-8 sm:rounded-3xl sm:px-9 sm:py-10 ${backdropMedium}`}
+        >
           <p className="text-lg font-medium leading-8 text-slate-100 sm:text-xl sm:leading-9">
             <strong className="font-semibold text-white">
               RAYD8® transforms your space into a living regeneration center.
@@ -77,7 +91,9 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
             </div>
           </article>
 
-          <article className="relative flex flex-col rounded-2xl border border-emerald-200/25 bg-[linear-gradient(165deg,rgba(16,185,129,0.16),rgba(8,14,22,0.94))] p-8 shadow-[0_20px_70px_rgba(16,185,129,0.12)] backdrop-blur-xl transition-[border-color,box-shadow] duration-300 hover:border-emerald-200/40 hover:shadow-[0_24px_80px_rgba(16,185,129,0.2)] sm:rounded-3xl sm:p-9 md:ring-1 md:ring-emerald-200/15">
+          <article
+            className={`relative flex flex-col rounded-2xl border border-emerald-200/25 bg-[linear-gradient(165deg,rgba(16,185,129,0.16),rgba(8,14,22,0.94))] p-8 transition-[border-color,box-shadow] duration-300 hover:border-emerald-200/40 sm:rounded-3xl sm:p-9 md:ring-1 md:ring-emerald-200/15 ${regenShellShadow} ${backdropMedium}`}
+          >
             <h3 className="text-lg font-semibold tracking-tight text-white sm:text-xl">REGEN</h3>
             <ul className="mt-6 flex flex-1 flex-col gap-3.5">
               <li className={featureLi}>

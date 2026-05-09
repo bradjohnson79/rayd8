@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { useLandingBackdropMedium } from './landingBackdropHooks'
 import { ConversionButton } from './components/ConversionButton'
 import { LandingBackToTop } from './components/LandingBackToTop'
 
@@ -9,6 +10,8 @@ interface HeroSectionProps {
 }
 
 export const HeroSection = memo(function HeroSection({ reducedEffects = false }: HeroSectionProps) {
+  const heroCardBackdrop = useLandingBackdropMedium()
+
   return (
     <section className="relative min-h-[100svh] w-full overflow-hidden" id="hero">
       <img
@@ -39,7 +42,9 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
       />
 
       <div className="relative z-[3] mx-auto flex w-full max-w-7xl flex-col px-4 pb-20 pt-10 sm:px-6 sm:pb-24 sm:pt-14 lg:px-8 lg:pt-16">
-        <div className="max-w-3xl rounded-[2rem] border border-black/45 bg-[linear-gradient(180deg,rgba(14,20,30,0.48),rgba(7,10,16,0.3))] px-5 py-6 shadow-[0_20px_70px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:px-7 sm:py-8">
+        <div
+          className={`max-w-3xl rounded-[2rem] border border-black/45 bg-[linear-gradient(180deg,rgba(14,20,30,0.48),rgba(7,10,16,0.3))] px-5 py-6 shadow-[0_20px_70px_rgba(0,0,0,0.24)] sm:px-7 sm:py-8 ${heroCardBackdrop}`}
+        >
           <p className="text-[10px] font-medium uppercase leading-relaxed tracking-[0.36em] text-emerald-200/80 sm:text-[11px] sm:tracking-[0.4em]">
             Next Level Digital Wellness System
           </p>

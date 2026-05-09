@@ -25,30 +25,20 @@ export const LandingBackToTop = memo(function LandingBackToTop({
       root.style.scrollBehavior = 'auto'
       document.body.style.scrollBehavior = 'auto'
 
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+
+      const scrolling = document.scrollingElement
+      if (scrolling) {
+        scrolling.scrollTop = 0
+        scrolling.scrollLeft = 0
+      }
+      document.documentElement.scrollTop = 0
+      document.documentElement.scrollLeft = 0
+      document.body.scrollTop = 0
+      document.body.scrollLeft = 0
+
       const header = document.querySelector('header')
       header?.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' })
-      window.scrollTo(0, 0)
-      const scrollRoots = [
-        document.scrollingElement,
-        document.documentElement,
-        document.body,
-        ...Array.from(document.querySelectorAll<HTMLElement>('*')).filter(
-          (element) =>
-            element.scrollTop > 0 ||
-            element.scrollLeft > 0 ||
-            element.scrollHeight > element.clientHeight ||
-            element.scrollWidth > element.clientWidth,
-        ),
-      ]
-
-      for (const scrollRoot of scrollRoots) {
-        if (!scrollRoot) {
-          continue
-        }
-
-        scrollRoot.scrollTop = 0
-        scrollRoot.scrollLeft = 0
-      }
 
       window.requestAnimationFrame(() => {
         root.style.scrollBehavior = previousRootScrollBehavior
@@ -65,12 +55,9 @@ export const LandingBackToTop = memo(function LandingBackToTop({
     }
 
     scrollToAbsoluteTop()
-
-    // Enforce the final position after native fragment scrolling or focus restoration
-    // has had a chance to run.
-    for (const delayMs of [0, 75, 175, 350, 700]) {
-      window.setTimeout(() => scrollToAbsoluteTop(), delayMs)
-    }
+    window.requestAnimationFrame(() => scrollToAbsoluteTop())
+    window.setTimeout(() => scrollToAbsoluteTop(), 120)
+    window.setTimeout(() => scrollToAbsoluteTop(), 320)
   }, [])
 
   return (

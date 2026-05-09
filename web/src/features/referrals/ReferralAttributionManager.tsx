@@ -74,10 +74,37 @@ export function ReferralAttributionManager() {
       }
     }
 
-    void attachPendingReferral()
+    const windowWithIdle = window as Window & {
+      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+      cancelIdleCallback?: (handle: number) => void
+    }
+
+    let idleHandle: number | undefined
+    let rafId = 0
+
+    const runAttach = () => {
+      if (!cancelled) {
+        void attachPendingReferral()
+      }
+    }
+
+    if (windowWithIdle.requestIdleCallback) {
+      idleHandle = windowWithIdle.requestIdleCallback(
+        () => {
+          rafId = window.requestAnimationFrame(runAttach)
+        },
+        { timeout: 2000 },
+      )
+    } else {
+      rafId = window.requestAnimationFrame(() => window.setTimeout(runAttach, 0))
+    }
 
     return () => {
       cancelled = true
+      if (idleHandle !== undefined && windowWithIdle.cancelIdleCallback) {
+        windowWithIdle.cancelIdleCallback(idleHandle)
+      }
+      window.cancelAnimationFrame(rafId)
     }
   }, [getTokenSafe, status])
 

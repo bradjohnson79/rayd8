@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useLandingBackdropStrong, useLandingCardShadow } from '../landingBackdropHooks'
 
 interface WrittenTestimonial {
   context?: string
@@ -15,6 +16,8 @@ export function WrittenTestimonialSlider({
   reducedEffects: _reducedEffects = false,
   testimonials,
 }: WrittenTestimonialSliderProps) {
+  const backdropStrong = useLandingBackdropStrong()
+  const cardShadow = useLandingCardShadow()
   const [activeIndex, setActiveIndex] = useState(0)
 
   const active = useMemo(() => testimonials[activeIndex], [activeIndex, testimonials])
@@ -32,7 +35,9 @@ export function WrittenTestimonialSlider({
   }
 
   return (
-    <article className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-2xl sm:rounded-[2.25rem] sm:p-7">
+    <article
+      className={`rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-6 sm:rounded-[2.25rem] sm:p-7 ${cardShadow} ${backdropStrong}`}
+    >
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-[11px] uppercase tracking-[0.36em] text-emerald-200/70">Written stories</p>

@@ -1,10 +1,10 @@
-import { memo } from 'react'
-import { Show, SignInButton, UserButton, useClerk } from '@clerk/react'
-import { useEffect, useState } from 'react'
+import { lazy, memo, Suspense, useEffect, useState } from 'react'
+import { useClerk } from '@clerk/react'
 import { Link } from 'react-router-dom'
 import { MobileMenu } from '../../components/MobileMenu'
 import { useAuthUser } from '../dashboard/useAuthUser'
-import { ConversionButton } from './components/ConversionButton'
+
+const NavbarAuthCluster = lazy(() => import('./NavbarAuthCluster'))
 
 /** Same order and labels for desktop nav and mobile drawer. */
 const navigationItems = [
@@ -15,9 +15,22 @@ const navigationItems = [
   { href: '/#contact-form', label: 'Contact' },
 ]
 
+function AuthClusterFallback() {
+  return (
+    <div
+      aria-hidden
+      className="flex min-h-11 min-w-[10rem] items-center justify-end gap-2 sm:min-w-[14rem]"
+    >
+      <div className="hidden h-10 flex-1 max-w-[13rem] animate-pulse rounded-full bg-white/[0.06] sm:block" />
+      <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-white/[0.06] sm:hidden" />
+    </div>
+  )
+}
+
 export const LandingNavbar = memo(function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mountAuthCluster, setMountAuthCluster] = useState(false)
   const { openSignIn, openSignUp } = useClerk()
   const user = useAuthUser()
 
@@ -29,6 +42,38 @@ export const LandingNavbar = memo(function LandingNavbar() {
     handleScroll()
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  useEffect(() => {
+    const kick = () => setMountAuthCluster(true)
+    const w = window as Window & {
+      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+      cancelIdleCallback?: (handle: number) => void
+    }
+
+    let idleHandle: number | undefined
+    let timeoutHandle: number | undefined
+
+    if (w.requestIdleCallback) {
+      idleHandle = w.requestIdleCallback(kick, { timeout: 2800 })
+    } else {
+      timeoutHandle = window.setTimeout(kick, 1500)
+    }
+
+    const onEarlyInteraction = () => kick()
+    window.addEventListener('pointerdown', onEarlyInteraction, { capture: true, passive: true })
+    window.addEventListener('scroll', onEarlyInteraction, { capture: true, passive: true })
+
+    return () => {
+      if (idleHandle !== undefined && w.cancelIdleCallback) {
+        w.cancelIdleCallback(idleHandle)
+      }
+      if (timeoutHandle !== undefined) {
+        window.clearTimeout(timeoutHandle)
+      }
+      window.removeEventListener('pointerdown', onEarlyInteraction, true)
+      window.removeEventListener('scroll', onEarlyInteraction, true)
+    }
   }, [])
 
   return (
@@ -72,7 +117,7 @@ export const LandingNavbar = memo(function LandingNavbar() {
           <button
             aria-expanded={mobileMenuOpen}
             aria-label="Open navigation menu"
-            className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] text-white/82 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition hover:border-emerald-200/35 hover:bg-white/[0.08] hover:text-white hover:shadow-[0_0_28px_rgba(16,185,129,0.22)] lg:hidden"
+            className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] text-white/82 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition hover:border-emerald-200/35 hover:bg-white/[0.08] hover:text-white hover:shadow-[0_0_28px_rgba(16,185,129,0.22)] lg:hidden"
             onClick={() => setMobileMenuOpen(true)}
             type="button"
           >
@@ -82,43 +127,12 @@ export const LandingNavbar = memo(function LandingNavbar() {
               <span className="block h-0.5 w-5 rounded-full bg-current" />
             </span>
           </button>
-          {user.isAuthenticated ? (
-            <>
-              <ConversionButton
-                className="hidden sm:inline-flex"
-                guestMode="signIn"
-                label="Go to Dashboard"
-                to="/dashboard"
-                variant="ghost"
-              />
-              <div className="rounded-full border border-white/12 bg-white/[0.06] p-1">
-                <UserButton />
-              </div>
-            </>
+          {mountAuthCluster ? (
+            <Suspense fallback={<AuthClusterFallback />}>
+              <NavbarAuthCluster />
+            </Suspense>
           ) : (
-            <>
-              <div className="hidden items-center gap-2 sm:flex">
-                <SignInButton mode="modal">
-                  <button
-                    className="rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-sm text-white/80 transition hover:bg-white/[0.08] hover:text-white"
-                    type="button"
-                  >
-                    Sign in
-                  </button>
-                </SignInButton>
-                <Link
-                  className="rounded-full bg-white px-4 py-2 text-sm font-medium !text-slate-950 transition hover:bg-emerald-50 hover:!text-slate-950 visited:!text-slate-950"
-                  to="/subscription?plan=free"
-                >
-                  Start Free Trial
-                </Link>
-              </div>
-              <Show when="signed-in">
-                <div className="rounded-full border border-white/12 bg-white/[0.06] p-1">
-                  <UserButton />
-                </div>
-              </Show>
-            </>
+            <AuthClusterFallback />
           )}
         </div>
       </div>

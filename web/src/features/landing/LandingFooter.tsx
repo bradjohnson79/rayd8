@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useLandingBackdropStrong, useLandingFooterShadow } from './landingBackdropHooks'
 import { LandingBackToTop } from './components/LandingBackToTop'
 
 const SOCIAL = {
@@ -39,9 +40,14 @@ function YouTubeIcon() {
 }
 
 export function LandingFooter() {
+  const backdropStrong = useLandingBackdropStrong()
+  const footerShadow = useLandingFooterShadow()
+
   return (
     <footer className="px-4 pb-10 pt-6 text-sm sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl rounded-[2rem] border border-white/10 bg-[rgba(6,10,14,0.56)] px-6 py-6 text-slate-300 shadow-[0_20px_60px_rgba(0,0,0,0.2)] backdrop-blur-2xl sm:rounded-[2.25rem] sm:px-8 sm:py-7">
+      <div
+        className={`mx-auto max-w-7xl rounded-[2rem] border border-white/10 bg-[rgba(6,10,14,0.56)] px-6 py-6 text-slate-300 sm:rounded-[2.25rem] sm:px-8 sm:py-7 ${footerShadow} ${backdropStrong}`}
+      >
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
           <nav aria-label="Footer" className="flex flex-col gap-4 sm:flex-1 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-2">
             <Link className={footerLinkClassName} to="/#about">

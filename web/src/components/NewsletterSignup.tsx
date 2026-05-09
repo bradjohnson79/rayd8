@@ -1,5 +1,9 @@
 import { MarketingButton } from '../features/landing/components/MarketingButton'
 import { Section } from '../features/landing/components/Section'
+import {
+  useLandingBackdropStrong,
+  useLandingPromoShadow,
+} from '../features/landing/landingBackdropHooks'
 
 interface NewsletterSignupProps {
   reducedEffects?: boolean
@@ -8,6 +12,9 @@ interface NewsletterSignupProps {
 export default function NewsletterSignup({
   reducedEffects = false,
 }: NewsletterSignupProps) {
+  const backdropStrong = useLandingBackdropStrong()
+  const promoShadow = useLandingPromoShadow()
+
   return (
     <Section
       childrenClassName="max-w-7xl"
@@ -16,7 +23,9 @@ export default function NewsletterSignup({
       reducedEffects={reducedEffects}
       showBackToTop
     >
-      <div className="overflow-hidden rounded-[2rem] border border-white/12 bg-[linear-gradient(135deg,rgba(12,24,34,0.88),rgba(15,26,42,0.92)_45%,rgba(48,22,66,0.88))] p-6 shadow-[0_24px_90px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-8 lg:p-10">
+      <div
+        className={`overflow-hidden rounded-[2rem] border border-white/12 bg-[linear-gradient(135deg,rgba(12,24,34,0.88),rgba(15,26,42,0.92)_45%,rgba(48,22,66,0.88))] p-6 sm:p-8 lg:p-10 ${promoShadow} ${backdropStrong}`}
+      >
         <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
             <p className="text-[11px] uppercase tracking-[0.38em] text-emerald-200/70">

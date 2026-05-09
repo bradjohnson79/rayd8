@@ -143,6 +143,216 @@ html[data-tab-hidden='true'] .benefits-visual-rainbow-drum {
   }
 }
 
+/* --- Static-first ambient: CSS drifts (Framer removed). Paused when tab hidden via html[data-tab-hidden]. --- */
+
+@keyframes ambient-aurora-a-cinematic {
+  0%,
+  100% {
+    transform: translate3d(-4.5%, 0.5%, 0) scale(1);
+    opacity: 0.5;
+  }
+  33% {
+    transform: translate3d(3.5%, 3.5%, 0) scale(1.05);
+    opacity: 0.52;
+  }
+  66% {
+    transform: translate3d(-2%, 0%, 0) scale(1);
+    opacity: 0.48;
+  }
+}
+
+@keyframes ambient-aurora-b-cinematic {
+  0%,
+  100% {
+    transform: translate3d(2.5%, 0%, 0) scale(1);
+    opacity: 0.45;
+  }
+  33% {
+    transform: translate3d(-4%, -3.5%, 0) scale(0.98);
+    opacity: 0.47;
+  }
+  66% {
+    transform: translate3d(1%, 0.5%, 0) scale(1.04);
+    opacity: 0.43;
+  }
+}
+
+@keyframes ambient-aurora-a-balanced {
+  0%,
+  100% {
+    transform: translate3d(-1.2%, 0.4%, 0);
+    opacity: 0.48;
+  }
+  50% {
+    transform: translate3d(1%, -0.3%, 0);
+    opacity: 0.52;
+  }
+}
+
+@keyframes ambient-cosmic-a-cinematic {
+  0%,
+  100% {
+    transform: translate3d(-5%, 1%, 0) scale(1);
+  }
+  25% {
+    transform: translate3d(2%, -1.5%, 0) scale(1.04);
+  }
+  50% {
+    transform: translate3d(4%, -2%, 0) scale(0.98);
+  }
+  75% {
+    transform: translate3d(-1%, 0.5%, 0) scale(1);
+  }
+}
+
+@keyframes ambient-cosmic-b-cinematic {
+  0%,
+  100% {
+    transform: translate3d(1%, -1%, 0) scale(1);
+  }
+  25% {
+    transform: translate3d(-4%, 2.5%, 0) scale(0.98);
+  }
+  50% {
+    transform: translate3d(0%, -0.5%, 0) scale(1.03);
+  }
+  75% {
+    transform: translate3d(2%, 0%, 0) scale(1);
+  }
+}
+
+@keyframes ambient-geometry-cinematic {
+  0%,
+  100% {
+    transform: translate3d(-0.5%, 0%, 0);
+    opacity: 0.22;
+  }
+  50% {
+    transform: translate3d(0.6%, -0.4%, 0);
+    opacity: 0.2;
+  }
+}
+
+@keyframes ambient-lightbloom-cinematic {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0.4%, -0.2%, 0);
+  }
+}
+
+.ambient-animate-aurora-a-cinematic {
+  animation: ambient-aurora-a-cinematic 56s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.ambient-animate-aurora-b-cinematic {
+  animation: ambient-aurora-b-cinematic 72s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.ambient-animate-aurora-a-balanced {
+  animation: ambient-aurora-a-balanced 96s ease-in-out infinite;
+}
+
+.ambient-animate-cosmic-a-cinematic {
+  animation: ambient-cosmic-a-cinematic 70s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.ambient-animate-cosmic-b-cinematic {
+  animation: ambient-cosmic-b-cinematic 80s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.ambient-animate-geometry-cinematic {
+  animation: ambient-geometry-cinematic 68s ease-in-out infinite;
+}
+
+.rayd8-bg[data-variant='landing'] .ambient-animate-geometry-cinematic {
+  animation-duration: 68s;
+}
+
+.ambient-animate-lightbloom-cinematic {
+  animation: ambient-lightbloom-cinematic 84s ease-in-out infinite;
+}
+
+.rayd8-bg[data-variant='landing'] .ambient-animate-lightbloom-cinematic {
+  animation-duration: 84s;
+}
+
+html[data-tab-hidden='true'] .ambient-animate-aurora-a-cinematic,
+html[data-tab-hidden='true'] .ambient-animate-aurora-b-cinematic,
+html[data-tab-hidden='true'] .ambient-animate-aurora-a-balanced,
+html[data-tab-hidden='true'] .ambient-animate-cosmic-a-cinematic,
+html[data-tab-hidden='true'] .ambient-animate-cosmic-b-cinematic,
+html[data-tab-hidden='true'] .ambient-animate-geometry-cinematic,
+html[data-tab-hidden='true'] .ambient-animate-lightbloom-cinematic {
+  animation-play-state: paused !important;
+}
+
+.rayd8-bg[data-reduced-effects='true'] .ambient-animate-aurora-a-cinematic,
+.rayd8-bg[data-reduced-effects='true'] .ambient-animate-aurora-b-cinematic,
+.rayd8-bg[data-reduced-effects='true'] .ambient-animate-aurora-a-balanced,
+.rayd8-bg[data-reduced-effects='true'] .ambient-animate-cosmic-a-cinematic,
+.rayd8-bg[data-reduced-effects='true'] .ambient-animate-cosmic-b-cinematic,
+.rayd8-bg[data-reduced-effects='true'] .ambient-animate-geometry-cinematic,
+.rayd8-bg[data-reduced-effects='true'] .ambient-animate-lightbloom-cinematic {
+  animation: none !important;
+  transform: none;
+}
+
+.rayd8-bg[data-ambient-profile='minimal'] .ambient-animate-aurora-a-cinematic,
+.rayd8-bg[data-ambient-profile='minimal'] .ambient-animate-aurora-b-cinematic,
+.rayd8-bg[data-ambient-profile='minimal'] .ambient-animate-aurora-a-balanced,
+.rayd8-bg[data-ambient-profile='minimal'] .ambient-animate-cosmic-a-cinematic,
+.rayd8-bg[data-ambient-profile='minimal'] .ambient-animate-cosmic-b-cinematic,
+.rayd8-bg[data-ambient-profile='minimal'] .ambient-animate-geometry-cinematic,
+.rayd8-bg[data-ambient-profile='minimal'] .ambient-animate-lightbloom-cinematic {
+  animation: none !important;
+  transform: none;
+}
+
+.rayd8-bg[data-ambient-profile='balanced'] .ambient-animate-aurora-b-cinematic,
+.rayd8-bg[data-ambient-profile='balanced'] .ambient-animate-cosmic-a-cinematic,
+.rayd8-bg[data-ambient-profile='balanced'] .ambient-animate-cosmic-b-cinematic,
+.rayd8-bg[data-ambient-profile='balanced'] .ambient-animate-geometry-cinematic,
+.rayd8-bg[data-ambient-profile='balanced'] .ambient-animate-lightbloom-cinematic {
+  animation: none !important;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-animate-aurora-a-cinematic,
+  .ambient-animate-aurora-b-cinematic,
+  .ambient-animate-aurora-a-balanced,
+  .ambient-animate-cosmic-a-cinematic,
+  .ambient-animate-cosmic-b-cinematic,
+  .ambient-animate-geometry-cinematic,
+  .ambient-animate-lightbloom-cinematic {
+    animation: none !important;
+    transform: none;
+  }
+}
+
+/* Dashboard variant: slightly faster ambient cycles when cinematic */
+.rayd8-bg[data-variant='dashboard'] .ambient-animate-aurora-a-cinematic {
+  animation-duration: 36s;
+}
+.rayd8-bg[data-variant='dashboard'] .ambient-animate-aurora-b-cinematic {
+  animation-duration: 46s;
+}
+.rayd8-bg[data-variant='dashboard'] .ambient-animate-cosmic-a-cinematic {
+  animation-duration: 52s;
+}
+.rayd8-bg[data-variant='dashboard'] .ambient-animate-cosmic-b-cinematic {
+  animation-duration: 60s;
+}
+.rayd8-bg[data-variant='dashboard'] .ambient-animate-geometry-cinematic {
+  animation-duration: 48s;
+}
+.rayd8-bg[data-variant='dashboard'] .ambient-animate-lightbloom-cinematic {
+  animation-duration: 72s;
+}
+
 .rayd8-bg[data-variant='landing'] .cosmic-lava-a {
   opacity: 0.55;
 }

@@ -1,3 +1,8 @@
+import {
+  useLandingBackdropMedium,
+  useLandingBackdropStrong,
+  useLandingCardShadow,
+} from './landingBackdropHooks'
 import { Section } from './components/Section'
 
 const BRAD_IMAGE = '/images/Brad-RAYD8.png'
@@ -25,6 +30,10 @@ const versionCards = [
 ]
 
 export function AboutSection({ reducedEffects = false }: AboutSectionProps) {
+  const backdropMedium = useLandingBackdropMedium()
+  const backdropStrong = useLandingBackdropStrong()
+  const portraitShadow = useLandingCardShadow()
+
   return (
     <Section
       childrenClassName="flex w-full flex-col gap-10 lg:gap-12"
@@ -36,7 +45,9 @@ export function AboutSection({ reducedEffects = false }: AboutSectionProps) {
     >
       <div className="flex flex-col items-stretch gap-8 lg:flex-row lg:items-start lg:gap-5 xl:gap-6">
         <div className="mx-auto w-full max-w-[min(22.5rem,90%)] shrink-0 sm:max-w-[25rem] lg:mx-0">
-          <div className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-2.5 shadow-[0_20px_70px_rgba(0,0,0,0.2)] backdrop-blur-xl sm:rounded-2xl sm:p-3">
+          <div
+            className={`overflow-hidden rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-2.5 sm:rounded-2xl sm:p-3 ${portraitShadow} ${backdropMedium}`}
+          >
             <div className="relative flex aspect-[4/5] max-h-[min(26.5rem,64.5svh)] w-full items-center justify-center overflow-hidden rounded-[1.15rem] bg-[#080c12] sm:max-h-[min(29.75rem,70svh)]">
               <img
                 alt="Brad with RAYD8® Premium on a tablet"
@@ -53,7 +64,7 @@ export function AboutSection({ reducedEffects = false }: AboutSectionProps) {
 
         <div className="flex min-w-0 flex-1 flex-col gap-5 lg:gap-5">
           <p className="text-base leading-8 text-slate-300">{introCopy}</p>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-2xl sm:rounded-3xl sm:p-7">
+          <div className={`rounded-2xl border border-white/10 bg-white/[0.04] p-6 sm:rounded-3xl sm:p-7 ${backdropStrong}`}>
             <p className="text-base leading-8 text-slate-200">
               RAYD8® launched as a mobile app in April 2024, and has progressed further to become the
               world&apos;s first living digital technology that radiates a field of frequencies for
@@ -72,7 +83,7 @@ export function AboutSection({ reducedEffects = false }: AboutSectionProps) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {versionCards.map((card) => (
           <article
-            className="rounded-[1.8rem] border border-white/10 bg-white/[0.04] p-5 backdrop-blur-2xl"
+            className={`rounded-[1.8rem] border border-white/10 bg-white/[0.04] p-5 ${backdropStrong}`}
             key={card.title}
           >
             <p className="text-[11px] uppercase tracking-[0.34em] text-white/58">{card.title}</p>

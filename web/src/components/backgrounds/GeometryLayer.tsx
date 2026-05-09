@@ -1,36 +1,33 @@
-import { motion } from 'framer-motion'
+import type { LandingAmbientProfile } from '../../features/landing/landingAmbientProfile'
 import { useDocumentVisible } from '../../lib/useDocumentVisible'
 
 interface GeometryLayerProps {
+  ambientProfile: LandingAmbientProfile
   intensity?: 'default' | 'low'
   reducedEffects?: boolean
   variant?: 'dashboard' | 'landing'
 }
 
 export function GeometryLayer({
+  ambientProfile,
   intensity = 'default',
   reducedEffects = false,
   variant = 'dashboard',
 }: GeometryLayerProps) {
   const isVisible = useDocumentVisible()
-  const isPaused = reducedEffects || !isVisible
-  const box = variant === 'landing' ? 'absolute -inset-[2%] min-h-[104%] min-w-[104%] z-[1]' : 'absolute inset-0 z-[1]'
+  const allowMotion = ambientProfile === 'cinematic' && !reducedEffects && isVisible
+  const box =
+    variant === 'landing'
+      ? 'absolute -inset-[2%] min-h-[104%] min-w-[104%] z-[1]'
+      : 'absolute inset-0 z-[1]'
+
+  const motionClass = allowMotion ? 'ambient-animate-geometry-cinematic' : ''
 
   return (
-    <motion.div
-      animate={
-        isPaused
-          ? { opacity: intensity === 'low' ? 0.08 : 0.12 }
-          : { x: ['-0.5%', '0.6%', '0%'], y: ['0%', '-0.4%', '0%'] }
-      }
-      className={`geometry-layer pointer-events-none ${box}`}
+    <div
+      className={`geometry-layer pointer-events-none ${box} ${motionClass}`.trim()}
       data-intensity={intensity}
       data-variant={variant}
-      transition={
-        isPaused
-          ? { duration: 0 }
-          : { duration: variant === 'landing' ? 68 : 48, ease: 'easeInOut', repeat: Infinity }
-      }
     />
   )
 }
