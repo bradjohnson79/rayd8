@@ -76,7 +76,9 @@ const SAMPLE_PAYLOAD_FACTORIES: SamplePayloadFactoryMap = {
     entityId: 'admin_payment_sample',
     paymentId: 'pay_admin_sample',
     plan: 'regen',
+    stripeCustomerName: 'Stripe Billing Name',
     userEmail: 'member@example.com',
+    userName: 'John Smith',
   }),
   'admin.test': () => ({
     entityId: 'admin_test_sample',

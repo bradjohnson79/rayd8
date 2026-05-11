@@ -18,9 +18,29 @@ export interface RenderedNotificationTemplate {
   subject: string
 }
 
+const ADMIN_ORDER_SUBJECT_PREFIX = 'NICE! YOU JUST GOT AN ORDER: RAYD8 Paid Subscription -'
+
+function adminPaymentReceivedSubjectLabel(payload: AdminPaymentReceivedPayload): string {
+  const trimmed = (value: string | null | undefined) => value?.trim() || ''
+  const userName = trimmed(payload.userName)
+  if (userName) {
+    return userName
+  }
+  const email = trimmed(payload.userEmail)
+  if (email) {
+    return email
+  }
+  const stripeName = trimmed(payload.stripeCustomerName)
+  if (stripeName) {
+    return stripeName
+  }
+  return 'New Customer'
+}
+
 function renderAdminPaymentReceivedTemplate(payload: AdminPaymentReceivedPayload): RenderedNotificationTemplate {
+  const customerLabel = adminPaymentReceivedSubjectLabel(payload)
   return {
-    subject: `Admin alert: RAYD8 payment received from ${text(payload.userEmail, 'member')}`,
+    subject: `${ADMIN_ORDER_SUBJECT_PREFIX} ${customerLabel}`,
     html: renderRayd8Email({
       eyebrow: 'Admin Alert',
       title: 'Payment received',

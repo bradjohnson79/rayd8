@@ -93,7 +93,11 @@ export interface AdminPaymentReceivedPayload extends BaseNotificationPayload {
   currency: string
   paymentId: string
   plan: 'free' | 'premium' | 'regen' | 'amrita'
+  /** App/profile display name when available (e.g. Clerk). */
+  userName?: string | null
   userEmail?: string | null
+  /** Stripe billing/customer name (invoice customer_name or customer.name). */
+  stripeCustomerName?: string | null
 }
 
 export interface AdminTestPayload extends BaseNotificationPayload {

@@ -1019,7 +1019,8 @@ async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceed
       entityId: invoice.id,
       paymentId: invoice.id,
       plan,
-      userEmail: userContext?.email ?? null,
+      userEmail: userContext?.email ?? invoice.customer_email ?? null,
+      stripeCustomerName: invoice.customer_name ?? null,
     },
     userId,
   })
