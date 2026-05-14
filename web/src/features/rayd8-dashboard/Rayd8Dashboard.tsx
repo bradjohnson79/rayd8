@@ -36,6 +36,7 @@ import { markRayd8GuideSeen } from '../../services/settings'
 import type { TrialBlockReason, TrialNotificationLevel } from '../../services/trial'
 import { trackUmamiEvent } from '../../services/umami'
 import { getUsage, type UsageResponse } from '../../services/usage'
+import { immersiveDashboardOutletScrollClassName } from '../dashboard/immersiveDashboardOutlet'
 import { useTrialStatus } from '../dashboard/useTrialStatus'
 import { useSession } from '../session/SessionProvider'
 
@@ -676,10 +677,7 @@ function MemberDashboardLaunchpad({
   }, [getTokenSafe, guidePendingExperience, isSubmittingGuide, startGuideApprovedSession])
 
   return (
-    <div
-      className="relative h-full overflow-y-auto overscroll-y-auto"
-      id="member-dashboard-scroll"
-    >
+    <div className={immersiveDashboardOutletScrollClassName} id="member-dashboard-scroll">
       <MemberAccountCluster effectivePlan={effectivePlan} user={user} />
       {!isPreviewMode && trialStatus?.plan === 'free_trial' ? (
         <div className="relative z-20 mx-auto max-w-7xl px-4 pt-24 sm:px-6 sm:pt-28 lg:px-8">
