@@ -135,12 +135,14 @@ export function HamsaRoutePage() {
   const hasHamsaAccess = user.plan === 'regen' || user.plan === 'amrita'
 
   return (
-    <div className="relative min-h-[100dvh] overflow-hidden bg-[#020403] text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(16,185,129,0.18),transparent_28%),radial-gradient(circle_at_72%_18%,rgba(217,70,239,0.18),transparent_30%),radial-gradient(circle_at_48%_72%,rgba(132,204,22,0.1),transparent_36%),linear-gradient(180deg,#020403_0%,#070a12_100%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-      <main className="relative z-10">
-        {hasHamsaAccess ? <HamsaLaunchScreen /> : <LockedInfoScreen />}
-      </main>
+    <div className="relative h-full min-h-0 overflow-y-auto overscroll-y-auto">
+      <div className="relative min-h-[100dvh] bg-[#020403] text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(16,185,129,0.18),transparent_28%),radial-gradient(circle_at_72%_18%,rgba(217,70,239,0.18),transparent_30%),radial-gradient(circle_at_48%_72%,rgba(132,204,22,0.1),transparent_36%),linear-gradient(180deg,#020403_0%,#070a12_100%)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+        <main className="relative z-10">
+          {hasHamsaAccess ? <HamsaLaunchScreen /> : <LockedInfoScreen />}
+        </main>
+      </div>
     </div>
   )
 }
