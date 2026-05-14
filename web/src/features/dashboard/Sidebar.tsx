@@ -15,7 +15,7 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const navigateToUpgrade = useUpgradeNavigation()
-  const items = getSidebarItems(user.plan)
+  const items = getSidebarItems(user)
   const [observerActiveSection, setObserverActiveSection] =
     useState<DashboardSectionId>('expansion')
   const [isMdBreakpoint, setIsMdBreakpoint] = useState(() =>

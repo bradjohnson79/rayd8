@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL Custom Shader - Hamsa Glow</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #1e1e2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="glCanvas"></canvas>
+    <div class="controls">
+        <h2 style="margin-top: 0;">WebGL Shader Port</h2>
+        <p>Ported from React Native Skia (SKSL) to pure WebGL (GLSL)</p>
+        <p>Effect: Hand Outline Glow with Breathing Pulse</p>
+    </div>
+    <script src="main.js"></script>
+</body>
+</html>

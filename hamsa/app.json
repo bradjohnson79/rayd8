@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Hamsa Healing",
+    "slug": "HamsaHealing",
+    "version": "1.0.0",
+    "buildNumber": "2",
+    "orientation": "landscape",
+    "icon": "./assets/appImages/app_icon.png",
+    "scheme": "hamsahealing",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/appImages/app_icon.png",
+      "imageWidth": 120,
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff",
+      "dark": {
+        "backgroundColor": "#000000"
+      }
+    },
+    "newArchEnabled": false,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dev.HamsaHealing"
+    },
+    "android": {
+      "versionCode": 2,
+      "adaptiveIcon": {
+        "backgroundColor": "#fff",
+        "foregroundImage": "./assets/appImages/app_icon.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.dev.HamsaHealing"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/appImages/app_icon.png"
+    },
+    "plugins": ["expo-router", "./plugins/withAppExit", "expo-asset"],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

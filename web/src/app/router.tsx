@@ -58,6 +58,9 @@ const Rayd8AffiliatePage = lazy(() =>
 const AffiliatePage = lazy(() =>
   import('../pages/AffiliatePage').then((module) => ({ default: module.AffiliatePage })),
 )
+const HamsaRoutePage = lazy(() =>
+  import('../features/hamsa').then((module) => ({ default: module.HamsaRoutePage })),
+)
 const SessionAppShell = lazy(() =>
   import('../components/SessionAppShell').then((module) => ({
     default: module.SessionAppShell,
@@ -130,6 +133,7 @@ export const router = createBrowserRouter([
                 children: [
                   { index: true, element: lazyElement(<DashboardPage />) },
                   { path: 'affiliate', element: lazyElement(<AffiliatePage />) },
+                  { path: 'hamsa', element: lazyElement(<HamsaRoutePage />) },
                   { path: 'instructions', element: lazyElement(<InstructionsPage />) },
                   { path: 'settings', element: lazyElement(<SettingsPage />) },
                   { path: 'upgrade', element: lazyElement(<RegenUpgradePage />) },

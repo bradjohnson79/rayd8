@@ -1,4 +1,4 @@
-import type { PlanTier } from '../../app/types'
+import type { AuthUser } from '../../app/types'
 import { toDashboardSectionHref, type DashboardSectionId } from './dashboardSections'
 
 export interface SidebarItem {
@@ -20,13 +20,19 @@ const baseItems: SidebarItem[] = [
   { kind: 'route', label: 'Contact', to: '/contact' },
 ]
 
-export function getSidebarItems(plan: PlanTier): SidebarItem[] {
-  if (plan !== 'free') {
-    return baseItems
+const itemsWithHamsa: SidebarItem[] = [
+  ...baseItems.slice(0, 3),
+  { kind: 'route', label: 'HAMSA', to: '/dashboard/hamsa' },
+  ...baseItems.slice(3),
+]
+
+export function getSidebarItems(user: AuthUser): SidebarItem[] {
+  if (user.plan !== 'free') {
+    return itemsWithHamsa
   }
 
   return [
     { emphasis: 'upgrade', kind: 'route', label: 'Upgrade to REGEN', to: '/subscription?plan=regen' },
-    ...baseItems,
+    ...itemsWithHamsa,
   ]
 }
