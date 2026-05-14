@@ -62,7 +62,7 @@ function HamsaLaunchScreen() {
 
       <iframe
         allow="autoplay; fullscreen; clipboard-read; clipboard-write; screen-wake-lock"
-        className="min-h-[42rem] flex-1 border-0 bg-black"
+        className="block min-h-[42rem] w-full flex-1 border-0 bg-black"
         src={HAMSA_APP_URL}
         title="HAMSA virtual healing hand"
       />
@@ -140,13 +140,15 @@ export function HamsaRoutePage() {
       <div className="relative isolate min-h-[100dvh] bg-[#020403] text-white">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(16,185,129,0.18),transparent_28%),radial-gradient(circle_at_72%_18%,rgba(217,70,239,0.18),transparent_30%),radial-gradient(circle_at_48%_72%,rgba(132,204,22,0.1),transparent_36%),linear-gradient(180deg,#020403_0%,#070a12_100%)]"
+          className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_15%,rgba(16,185,129,0.18),transparent_28%),radial-gradient(circle_at_72%_18%,rgba(217,70,239,0.18),transparent_30%),radial-gradient(circle_at_48%_72%,rgba(132,204,22,0.1),transparent_36%),linear-gradient(180deg,#020403_0%,#070a12_100%)]"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 z-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent"
         />
-        {hasHamsaAccess ? <HamsaLaunchScreen /> : <LockedInfoScreen />}
+        <div className="relative z-10">
+          {hasHamsaAccess ? <HamsaLaunchScreen /> : <LockedInfoScreen />}
+        </div>
       </div>
     </div>
   )
