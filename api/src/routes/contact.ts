@@ -5,9 +5,9 @@ import { sendContactAdminEmail } from '../services/contactEmail.js'
 import { createContactMessage } from '../services/contactMessages.js'
 
 const contactMessageSchema = z.object({
-  email: z.string().email(),
-  message: z.string().min(10).max(4000),
-  name: z.string().min(2).max(120),
+  email: z.string().trim().email(),
+  message: z.string().trim().min(1).max(4000),
+  name: z.string().trim().min(2).max(120),
 })
 
 const publicContactAttachmentSchema = z.object({
@@ -19,7 +19,7 @@ const publicContactAttachmentSchema = z.object({
 
 const publicContactMessageSchema = contactMessageSchema.extend({
   attachment: publicContactAttachmentSchema.optional(),
-  company: z.string().max(200).optional().default(''),
+  company: z.string().trim().max(200).optional().default(''),
   topic: z.enum(['general_inquiry', 'report_a_bug', 'testimonial']),
 })
 

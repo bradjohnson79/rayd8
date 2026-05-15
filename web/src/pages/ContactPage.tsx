@@ -30,7 +30,18 @@ export function ContactPage() {
         throw new Error('Sign in before sending a message.')
       }
 
-      const response = await createContactMessage({ email, message, name }, token)
+      const trimmedEmail = email.trim()
+      const trimmedMessage = message.trim()
+      const trimmedName = name.trim()
+
+      if (!trimmedName || !trimmedEmail || !trimmedMessage) {
+        throw new Error('Please complete the name, email, and message fields.')
+      }
+
+      const response = await createContactMessage(
+        { email: trimmedEmail, message: trimmedMessage, name: trimmedName },
+        token,
+      )
       setSuccess(
         response.emailDelivered
           ? `Your message was saved and emailed to ${response.delivery_email}.`
@@ -66,6 +77,7 @@ export function ContactPage() {
                 <input
                   className="mt-3 w-full rounded-2xl bg-white/[0.05] px-4 py-3 text-sm text-white outline-none ring-1 ring-white/10"
                   maxLength={120}
+                  minLength={2}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="Your name"
                   required

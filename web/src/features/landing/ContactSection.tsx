@@ -101,12 +101,20 @@ export const ContactSection = memo(function ContactSection({
     setSubmitting(true)
 
     try {
+      const email = formState.email.trim()
+      const message = formState.message.trim()
+      const name = formState.name.trim()
+
+      if (!name || !email || !message) {
+        throw new Error('Please complete the name, email, and message fields.')
+      }
+
       await createPublicContactMessage({
         attachment: formState.attachment ?? undefined,
-        company: formState.company,
-        email: formState.email,
-        message: formState.message,
-        name: formState.name,
+        company: formState.company.trim(),
+        email,
+        message,
+        name,
         topic: formState.topic,
       })
       setSubmitted(true)
@@ -146,6 +154,7 @@ export const ContactSection = memo(function ContactSection({
                 <input
                   className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white outline-none"
                   onChange={(event) => setFormState((current) => ({ ...current, name: event.target.value }))}
+                  minLength={2}
                   required
                   value={formState.name}
                 />
