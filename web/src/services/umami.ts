@@ -6,6 +6,53 @@ declare global {
   }
 }
 
+function getUmamiScriptUrl() {
+  const baseUrl = import.meta.env.VITE_UMAMI_BASE_URL?.trim() || 'https://cloud.umami.is'
+  return (
+    import.meta.env.VITE_UMAMI_SCRIPT_URL?.trim() ||
+    `${baseUrl.replace(/\/+$/, '').replace(/\/api$/, '')}/script.js`
+  )
+}
+
+export function initializeUmami() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return
+  }
+
+  const websiteId = import.meta.env.VITE_UMAMI_WEBSITE_ID?.trim()
+
+  if (!websiteId || document.querySelector('script[data-r8-umami="true"]')) {
+    return
+  }
+
+  const injectUmami = () => {
+    if (document.querySelector('script[data-r8-umami="true"]')) {
+      return
+    }
+
+    const script = document.createElement('script')
+    script.async = true
+    script.defer = true
+    script.src = getUmamiScriptUrl()
+    script.setAttribute('data-website-id', websiteId)
+    script.setAttribute('data-r8-umami', 'true')
+    document.head.appendChild(script)
+  }
+
+  if (document.readyState === 'complete') {
+    window.requestIdleCallback?.(injectUmami, { timeout: 4000 }) ?? window.setTimeout(injectUmami, 1500)
+    return
+  }
+
+  window.addEventListener(
+    'load',
+    () => {
+      window.requestIdleCallback?.(injectUmami, { timeout: 4000 }) ?? window.setTimeout(injectUmami, 1500)
+    },
+    { once: true },
+  )
+}
+
 export function trackUmamiEvent(eventName: string, eventData?: Record<string, unknown>) {
   if (typeof window === 'undefined') {
     return
