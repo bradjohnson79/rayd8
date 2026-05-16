@@ -9,9 +9,6 @@ interface AdminSidebarProps {
 const mainPlatformItems = [
   { label: 'Dashboard', to: '/admin' },
   { label: 'Instructions', to: '/admin/instructions' },
-  { label: 'RAYD8® Expansion', to: '/admin/expansion' },
-  { label: 'RAYD8® Premium', to: '/admin/premium' },
-  { label: 'RAYD8® REGEN', to: '/admin/regen' },
   { label: 'Settings', to: '/admin/settings' },
 ]
 
