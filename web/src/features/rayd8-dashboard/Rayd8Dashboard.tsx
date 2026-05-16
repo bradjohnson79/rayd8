@@ -884,15 +884,13 @@ function AmritaComingSoonSection() {
   return (
     <ExperienceSection
       bodyPrimary="AMRITA is the next RAYD8 environment in development, designed as a procedural full-spectrum harmonic field with white-outline glyph sequencing, configurable focus of charge, and restorative session controls."
-      ctaLabel="Open AMRITA"
-      ctaTone="active"
+      ctaLabel="Coming Soon"
+      ctaTone="disabled"
       id="amrita"
-      onClick={() => {
-        window.location.assign('/dashboard/amrita')
-      }}
+      onClick={() => undefined}
       showcaseSubtitle="RAYD8 AMRITA"
-      showcaseTitle="AMRITA Control Panel"
-      tags={['Procedural Field', 'Glyph Sequencing', 'Member Preview']}
+      showcaseTitle="AMRITA Coming Soon"
+      tags={['Procedural Field', 'Glyph Sequencing', 'In Development']}
       title="AMRITA"
       tone="amrita"
     />

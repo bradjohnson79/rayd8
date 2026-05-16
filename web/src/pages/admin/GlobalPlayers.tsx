@@ -11,7 +11,6 @@ import { Rayd8Dashboard } from '../../features/rayd8-dashboard/Rayd8Dashboard'
 import { trackUmamiEvent } from '../../services/umami'
 
 const IFRAME_PLAYER_URLS: Partial<Record<AdminGlobalPlayer['id'], string>> = {
-  amrita: '/amrita_app/index.html',
   hamsa: '/hamsa-app/',
 }
 

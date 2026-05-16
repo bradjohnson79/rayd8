@@ -50,15 +50,6 @@ export const ADMIN_GLOBAL_PLAYERS: AdminGlobalPlayer[] = [
     route: '/admin/global-players/hamsa',
     tone: 'emerald',
   },
-  {
-    adminAccess: 'unlimited',
-    description: 'Open AMRITA with unrestricted access to the procedural control panel and runtime.',
-    id: 'amrita',
-    kind: 'iframe',
-    label: 'AMRITA',
-    route: '/admin/global-players/amrita',
-    tone: 'cyan',
-  },
 ]
 
 export function getAdminGlobalPlayer(id: string | undefined) {

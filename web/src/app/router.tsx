@@ -80,12 +80,6 @@ function lazyElement(element: ReactNode) {
   return <Suspense fallback={<RouteFallback />}>{element}</Suspense>
 }
 
-function AmritaStaticRedirect() {
-  window.location.replace('/amrita_app/index.html')
-
-  return <RouteFallback />
-}
-
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -94,7 +88,7 @@ export const router = createBrowserRouter([
       {
         path: 'amrita_app/*',
         errorElement: <AppRouteErrorBoundary scope="public" />,
-        element: <AmritaStaticRedirect />,
+        element: <Navigate replace to="/dashboard" />,
       },
       {
         index: true,
