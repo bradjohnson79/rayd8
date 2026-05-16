@@ -32,6 +32,16 @@ const AdminPremiumPage = lazy(() =>
 const AdminRegenPage = lazy(() =>
   import('../pages/admin/Regen').then((module) => ({ default: module.AdminRegenPage })),
 )
+const AdminGlobalPlayersPage = lazy(() =>
+  import('../pages/admin/GlobalPlayers').then((module) => ({
+    default: module.AdminGlobalPlayersPage,
+  })),
+)
+const AdminGlobalPlayerDetailPage = lazy(() =>
+  import('../pages/admin/GlobalPlayers').then((module) => ({
+    default: module.AdminGlobalPlayerDetailPage,
+  })),
+)
 const AdminSettingsPage = lazy(() =>
   import('../pages/admin/Settings').then((module) => ({
     default: module.AdminSettingsPage,
@@ -139,6 +149,11 @@ export const adminRoutes: RouteObject = {
             { path: 'expansion', element: lazyElement(<AdminExpansionPage />) },
             { path: 'premium', element: lazyElement(<AdminPremiumPage />) },
             { path: 'regen', element: lazyElement(<AdminRegenPage />) },
+            { path: 'global-players', element: lazyElement(<AdminGlobalPlayersPage />) },
+            {
+              path: 'global-players/:playerId',
+              element: lazyElement(<AdminGlobalPlayerDetailPage />),
+            },
             { path: 'settings', element: lazyElement(<AdminSettingsPage />) },
             { path: 'orders', element: lazyElement(<AdminOrdersPage />) },
             { path: 'subscribers', element: lazyElement(<AdminSubscribersPage />) },

@@ -41,6 +41,9 @@ import { useTrialStatus } from '../dashboard/useTrialStatus'
 import { useSession } from '../session/SessionProvider'
 
 interface Rayd8DashboardProps {
+  adminAccessMode?: boolean
+  adminExperience?: Experience
+  adminModeLabel?: string
   forcedPlan?: PlaybackPlanInput
 }
 
@@ -114,6 +117,9 @@ function getTrialBlockReasonFromError(error: unknown): TrialBlockReason | null {
 }
 
 export function Rayd8Dashboard({
+  adminAccessMode = false,
+  adminExperience,
+  adminModeLabel = 'Admin Access',
   forcedPlan = null,
 }: Rayd8DashboardProps) {
   const { authUser, getTokenSafe, status } = useAuthReadiness()
@@ -124,6 +130,9 @@ export function Rayd8Dashboard({
   return (
     <MemberDashboardLaunchpad
       effectivePlan={effectivePlan}
+      adminAccessMode={adminAccessMode}
+      adminExperience={adminExperience}
+      adminModeLabel={adminModeLabel}
       authStatus={status}
       getTokenSafe={getTokenSafe}
       isPreviewMode={isPreviewMode}
@@ -134,6 +143,9 @@ export function Rayd8Dashboard({
 }
 
 function MemberDashboardLaunchpad({
+  adminAccessMode = false,
+  adminExperience,
+  adminModeLabel,
   authStatus,
   effectivePlan,
   getTokenSafe,
@@ -141,6 +153,9 @@ function MemberDashboardLaunchpad({
   navigateToUpgrade,
   user,
 }: {
+  adminAccessMode?: boolean
+  adminExperience?: Experience
+  adminModeLabel: string
   authStatus: ReturnType<typeof useAuthReadiness>['status']
   effectivePlan: PlaybackPlan
   getTokenSafe: ReturnType<typeof useAuthReadiness>['getTokenSafe']
@@ -160,9 +175,10 @@ function MemberDashboardLaunchpad({
   const [trialBlockReason, setTrialBlockReason] = useState<TrialBlockReason | null>(null)
   const guideConfirmedRef = useRef(false)
   const usageHydratedFromMeRef = useRef(false)
+  const adminAccessActive = adminAccessMode && user?.role === 'admin'
 
   useEffect(() => {
-    if (authStatus !== 'signed-in') {
+    if (authStatus !== 'signed-in' || adminAccessActive) {
       setCheckingExperience(null)
       setGuidePendingExperience(null)
       setIsGuideClosing(false)
@@ -210,10 +226,10 @@ function MemberDashboardLaunchpad({
     return () => {
       cancelled = true
     }
-  }, [authStatus, effectivePlan, getTokenSafe, updateExperienceAccess])
+  }, [adminAccessActive, authStatus, effectivePlan, getTokenSafe, updateExperienceAccess])
 
   useEffect(() => {
-    if (isPreviewMode || authStatus !== 'signed-in' || sessionIsActive) {
+    if (adminAccessActive || isPreviewMode || authStatus !== 'signed-in' || sessionIsActive) {
       if (authStatus !== 'signed-in') {
         setUsageSnapshot(null)
         usageHydratedFromMeRef.current = false
@@ -295,7 +311,7 @@ function MemberDashboardLaunchpad({
       stopInterval()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [authStatus, getTokenSafe, isPreviewMode, sessionIsActive, updateExperienceAccess])
+  }, [adminAccessActive, authStatus, getTokenSafe, isPreviewMode, sessionIsActive, updateExperienceAccess])
 
   useEffect(() => {
     setCheckingExperience(null)
@@ -307,23 +323,37 @@ function MemberDashboardLaunchpad({
   const regenAccess = experienceAccess.regen ?? usageSnapshot?.access.regen ?? null
   const previewPremiumAllowed = effectivePlan === 'regen'
   const previewRegenAllowed = effectivePlan === 'regen'
-  const expansionAllowed = isPreviewMode ? true : Boolean(expansionAccess?.allowed ?? true)
-  const premiumAllowed = isPreviewMode ? previewPremiumAllowed : Boolean(premiumAccess?.allowed)
-  const regenAllowed = isPreviewMode ? previewRegenAllowed : Boolean(regenAccess?.allowed)
+  const expansionAllowed = adminAccessActive || isPreviewMode ? true : Boolean(expansionAccess?.allowed ?? true)
+  const premiumAllowed = adminAccessActive
+    ? true
+    : isPreviewMode
+      ? previewPremiumAllowed
+      : Boolean(premiumAccess?.allowed)
+  const regenAllowed = adminAccessActive
+    ? true
+    : isPreviewMode
+      ? previewRegenAllowed
+      : Boolean(regenAccess?.allowed)
   const premiumTrialAvailable =
+    !adminAccessActive &&
     effectivePlan === 'free' &&
     (isPreviewMode ? true : (premiumAccess?.remainingSeconds ?? 3600) >= 30)
   const regenTrialAvailable =
+    !adminAccessActive &&
     effectivePlan === 'free' &&
     (isPreviewMode ? true : (regenAccess?.remainingSeconds ?? 3600) >= 30)
   const expansionCtaLabel =
-    checkingExperience === 'expansion' && !expansionAccess
+    adminAccessActive
+      ? 'Start Admin Session'
+      : checkingExperience === 'expansion' && !expansionAccess
       ? 'Checking access...'
       : expansionAllowed
         ? 'Start Session'
         : 'Upgrade to REGEN'
   const premiumCtaLabel =
-    checkingExperience === 'premium' && !premiumAccess
+    adminAccessActive
+      ? 'Start Admin Session'
+      : checkingExperience === 'premium' && !premiumAccess
       ? 'Checking access...'
       : premiumTrialAvailable
         ? 'Try Premium (1 hour)'
@@ -331,7 +361,9 @@ function MemberDashboardLaunchpad({
           ? 'Start Session'
           : 'Upgrade to REGEN'
   const regenCtaLabel =
-    checkingExperience === 'regen' && !regenAccess
+    adminAccessActive
+      ? 'Start Admin Session'
+      : checkingExperience === 'regen' && !regenAccess
       ? 'Checking access...'
       : regenTrialAvailable
         ? 'Try REGEN (1 hour)'
@@ -339,7 +371,22 @@ function MemberDashboardLaunchpad({
         ? 'Start Session'
         : 'Upgrade to REGEN'
   const sessionStartOptions =
-    isPreviewMode && user?.role === 'admin' ? { source: 'admin' as const } : undefined
+    adminAccessActive || (isPreviewMode && user?.role === 'admin')
+      ? { source: 'admin' as const }
+      : undefined
+  const visibleExperiences = adminExperience ? [adminExperience] : DASHBOARD_EXPERIENCES
+
+  const startAdminSession = useCallback(
+    (experience: Experience) => {
+      trackUmamiEvent('admin_session_started', {
+        experience,
+        playbackMode: 'admin',
+        sessionSource: 'admin',
+      })
+      startSession(experience, { source: 'admin' })
+    },
+    [startSession],
+  )
 
   const openGuideModal = useCallback((experience: Experience) => {
     guideConfirmedRef.current = false
@@ -425,6 +472,11 @@ function MemberDashboardLaunchpad({
         return
       }
 
+      if (adminAccessActive) {
+        startAdminSession('expansion')
+        return
+      }
+
       const tokenResult = await getTokenSafe()
 
       if (!tokenResult.token) {
@@ -474,7 +526,15 @@ function MemberDashboardLaunchpad({
     } finally {
       setCheckingExperience(null)
     }
-  }, [authStatus, effectivePlan, getTokenSafe, maybeStartGuideCheckedSession, updateExperienceAccess])
+  }, [
+    adminAccessActive,
+    authStatus,
+    effectivePlan,
+    getTokenSafe,
+    maybeStartGuideCheckedSession,
+    startAdminSession,
+    updateExperienceAccess,
+  ])
 
   const handlePremiumClick = useCallback(async () => {
     setCheckingExperience('premium')
@@ -489,6 +549,11 @@ function MemberDashboardLaunchpad({
           ...currentValue,
           premium: getAuthPromptMessage(authStatus),
         }))
+        return
+      }
+
+      if (adminAccessActive) {
+        startAdminSession('premium')
         return
       }
 
@@ -550,11 +615,13 @@ function MemberDashboardLaunchpad({
     }
   }, [
     authStatus,
+    adminAccessActive,
     getTokenSafe,
     isPreviewMode,
     maybeStartGuideCheckedSession,
     premiumTrialAvailable,
     previewPremiumAllowed,
+    startAdminSession,
     updateExperienceAccess,
   ])
 
@@ -571,6 +638,11 @@ function MemberDashboardLaunchpad({
           ...currentValue,
           regen: getAuthPromptMessage(authStatus),
         }))
+        return
+      }
+
+      if (adminAccessActive) {
+        startAdminSession('regen')
         return
       }
 
@@ -630,11 +702,13 @@ function MemberDashboardLaunchpad({
     }
   }, [
     authStatus,
+    adminAccessActive,
     getTokenSafe,
     isPreviewMode,
     maybeStartGuideCheckedSession,
     previewRegenAllowed,
     regenTrialAvailable,
+    startAdminSession,
     updateExperienceAccess,
   ])
 
@@ -679,7 +753,8 @@ function MemberDashboardLaunchpad({
   return (
     <div className={immersiveDashboardOutletScrollClassName} id="member-dashboard-scroll">
       <MemberAccountCluster effectivePlan={effectivePlan} user={user} />
-      {!isPreviewMode && trialStatus?.plan === 'free_trial' ? (
+      {adminAccessActive ? <AdminAccessModeBadge label={adminModeLabel} /> : null}
+      {!adminAccessActive && !isPreviewMode && trialStatus?.plan === 'free_trial' ? (
         <div className="relative z-20 mx-auto max-w-7xl px-4 pt-24 sm:px-6 sm:pt-28 lg:px-8">
           <div
             className={[
@@ -716,7 +791,7 @@ function MemberDashboardLaunchpad({
           </div>
         </div>
       ) : null}
-      {!isPreviewMode && usageSnapshot ? (
+      {!adminAccessActive && !isPreviewMode && usageSnapshot ? (
         <div
           className={[
             'relative z-20 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8',
@@ -726,13 +801,18 @@ function MemberDashboardLaunchpad({
           <DashboardUsageSummary access={usageSnapshot.access} plan={usageSnapshot.plan} />
         </div>
       ) : null}
-      {DASHBOARD_EXPERIENCES.map((experience) => {
+      {visibleExperiences.map((experience) => {
         if (experience === 'expansion') {
           return (
             <ExpansionSection
               access={expansionAccess}
+              adminAccessMode={adminAccessActive}
               ctaLabel={expansionCtaLabel}
-              disabled={isPreviewMode ? false : checkingExperience === 'expansion' && !expansionAccess}
+              disabled={
+                adminAccessActive || isPreviewMode
+                  ? false
+                  : checkingExperience === 'expansion' && !expansionAccess
+              }
               key={experience}
               prompt={experiencePrompts.expansion ?? null}
               onClick={handleExpansionClick}
@@ -744,9 +824,14 @@ function MemberDashboardLaunchpad({
           return (
             <PremiumSection
               access={premiumAccess}
+              adminAccessMode={adminAccessActive}
               ctaLabel={premiumCtaLabel}
               effectivePlan={effectivePlan}
-              isChecking={isPreviewMode ? false : checkingExperience === 'premium' && !premiumAccess}
+              isChecking={
+                adminAccessActive || isPreviewMode
+                  ? false
+                  : checkingExperience === 'premium' && !premiumAccess
+              }
               key={experience}
               prompt={experiencePrompts.premium ?? null}
               trialAvailable={premiumTrialAvailable}
@@ -758,9 +843,14 @@ function MemberDashboardLaunchpad({
         return (
           <RegenSection
             access={regenAccess}
+            adminAccessMode={adminAccessActive}
             ctaLabel={regenCtaLabel}
             effectivePlan={effectivePlan}
-            isChecking={isPreviewMode ? false : checkingExperience === 'regen' && !regenAccess}
+            isChecking={
+              adminAccessActive || isPreviewMode
+                ? false
+                : checkingExperience === 'regen' && !regenAccess
+            }
             key={experience}
             prompt={experiencePrompts.regen ?? null}
             trialAvailable={regenTrialAvailable}
@@ -768,7 +858,7 @@ function MemberDashboardLaunchpad({
           />
         )
       })}
-      <AmritaComingSoonSection />
+      {adminExperience ? null : <AmritaComingSoonSection />}
       <ConfirmModal
         description={trialBlockReason ? getTrialBlockContent(trialBlockReason).description : ''}
         onPrimary={() => void navigateToUpgrade()}
@@ -793,14 +883,16 @@ function MemberDashboardLaunchpad({
 function AmritaComingSoonSection() {
   return (
     <ExperienceSection
-      bodyPrimary="AMRITA is the next RAYD8 environment in development, designed as a more elevated immersive field with a distinct visual atmosphere and deeper long-form session focus."
-      ctaLabel="Coming late May 2026"
-      ctaTone="disabled"
+      bodyPrimary="AMRITA is the next RAYD8 environment in development, designed as a procedural full-spectrum harmonic field with white-outline glyph sequencing, configurable focus of charge, and restorative session controls."
+      ctaLabel="Open AMRITA"
+      ctaTone="active"
       id="amrita"
-      onClick={() => {}}
+      onClick={() => {
+        window.location.assign('/dashboard/amrita')
+      }}
       showcaseSubtitle="RAYD8 AMRITA"
-      showcaseTitle="AMRITA Preview"
-      tags={['Coming Soon', 'Cosmic Aurora', 'Member Preview']}
+      showcaseTitle="AMRITA Control Panel"
+      tags={['Procedural Field', 'Glyph Sequencing', 'Member Preview']}
       title="AMRITA"
       tone="amrita"
     />
@@ -870,14 +962,26 @@ function MemberAccountCluster({
   )
 }
 
+function AdminAccessModeBadge({ label }: { label: string }) {
+  return (
+    <div className="pointer-events-none absolute left-4 top-4 z-30 sm:left-6 sm:top-6">
+      <div className="rounded-full border border-emerald-200/20 bg-emerald-300/[0.08] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-emerald-100/80 shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-2xl">
+        {label}
+      </div>
+    </div>
+  )
+}
+
 function ExpansionSection({
   access,
+  adminAccessMode,
   ctaLabel,
   disabled = false,
   onClick,
   prompt,
 }: {
   access: ExperienceAccessSummary | null
+  adminAccessMode: boolean
   ctaLabel: string
   disabled?: boolean
   onClick: () => Promise<void>
@@ -885,6 +989,8 @@ function ExpansionSection({
 }) {
   const sectionNote = prompt
     ? prompt
+    : adminAccessMode
+      ? 'Admin unrestricted access: no subscription, entitlement, or hour limits.'
     : access?.limitSeconds
       ? 'Free Trial members can explore Expansion for up to 33 hours.'
       : null
@@ -913,6 +1019,7 @@ function ExpansionSection({
 
 function PremiumSection({
   access,
+  adminAccessMode,
   ctaLabel,
   effectivePlan,
   isChecking,
@@ -921,6 +1028,7 @@ function PremiumSection({
   trialAvailable,
 }: {
   access: ExperienceAccessSummary | null
+  adminAccessMode: boolean
   ctaLabel: string
   effectivePlan: PlaybackPlan
   isChecking: boolean
@@ -930,6 +1038,8 @@ function PremiumSection({
 }) {
   const sectionNote = prompt
     ? prompt
+    : adminAccessMode
+      ? 'Admin unrestricted access: no subscription, entitlement, or hour limits.'
     : effectivePlan === 'free'
       ? 'Free Trial members can sample Premium for one hour.'
       : null
@@ -939,7 +1049,7 @@ function PremiumSection({
       bodyPrimary="RAYD8®: Premium utilizes scalar waves, 15-color ray rejuvenating frequencies, negative ion rejuvenation, schumann resonance, prana rejuvenation."
       bodySecondary="Long term usage of RAYD8®: Premium encourages deeper sleep states, purifying environmental energies, cellular rejuvenation & aligning to deeper brainwave states: alpha, theta, and delta frequencies."
       ctaLabel={ctaLabel}
-      ctaTone={access?.allowed || trialAvailable ? 'active' : 'secondary'}
+      ctaTone={adminAccessMode || access?.allowed || trialAvailable ? 'active' : 'secondary'}
       disabled={isChecking}
       id="premium"
       imageAlt="RAYD8® Premium display"
@@ -958,6 +1068,7 @@ function PremiumSection({
 
 function RegenSection({
   access,
+  adminAccessMode,
   ctaLabel,
   effectivePlan,
   isChecking,
@@ -966,6 +1077,7 @@ function RegenSection({
   trialAvailable,
 }: {
   access: ExperienceAccessSummary | null
+  adminAccessMode: boolean
   ctaLabel: string
   effectivePlan: PlaybackPlan
   isChecking: boolean
@@ -975,6 +1087,8 @@ function RegenSection({
 }) {
   const sectionNote = prompt
     ? prompt
+    : adminAccessMode
+      ? 'Admin unrestricted access: no subscription, entitlement, or hour limits.'
     : effectivePlan === 'free'
       ? 'Free Trial members can sample REGEN for one hour.'
       : null
@@ -984,7 +1098,7 @@ function RegenSection({
       bodyPrimary="RAYD8®: REGEN utilizes scalar waves, 15-color ray rejuvenating frequencies, blood circulation improvement, alkaline improvement, benefic astrological balancing, full body optimization."
       bodySecondary="Long term usage of RAYD8®: REGEN operates best with a double-screen mirroring setup for greater amplification. Also improves blood circulation, cellular rejuvenation, releasing stagnancy from cells, purifying environmental energies, removes stagnant bodily blockages, aligns deeper brainwave states."
       ctaLabel={ctaLabel}
-      ctaTone={access?.allowed || trialAvailable ? 'active' : 'secondary'}
+      ctaTone={adminAccessMode || access?.allowed || trialAvailable ? 'active' : 'secondary'}
       disabled={isChecking}
       id="regen"
       imageAlt="RAYD8® REGEN display"

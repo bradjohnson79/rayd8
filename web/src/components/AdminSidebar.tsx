@@ -1,4 +1,5 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { ADMIN_GLOBAL_PLAYERS } from '../features/admin/adminGlobalPlayers'
 
 interface AdminSidebarProps {
   onClose: () => void
@@ -25,6 +26,11 @@ const adminItems = [
   { label: 'Messages', to: '/admin/messages' },
   { label: 'Notifications', to: '/admin/notifications' },
   { label: 'Admin Settings', to: '/admin/admin-settings' },
+]
+
+const globalPlayerItems = [
+  { label: 'Global Players', to: '/admin/global-players' },
+  ...ADMIN_GLOBAL_PLAYERS.map((player) => ({ label: player.label, to: player.route })),
 ]
 
 const contactItems = [{ label: 'Contact Admin', to: '/contact' }]
@@ -141,6 +147,7 @@ export function AdminSidebar({ onClose, open }: AdminSidebarProps) {
         <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
           <PreviewRouteSection onClose={onClose} />
           <SidebarSection items={mainPlatformItems} label="Main Platform" onClose={onClose} />
+          <SidebarSection items={globalPlayerItems} label="Global Players" onClose={onClose} />
           <SidebarSection items={contactItems} label="Contact" onClose={onClose} />
           <SidebarSection items={adminItems} label="Admin Section" onClose={onClose} />
         </nav>

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#02030a" />
+    <title>AMRITA | RAYD8</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main id="amrita-root" class="amrita-shell">
+      <section id="control-panel" class="control-panel" aria-labelledby="amrita-title">
+        <div class="panel-background" aria-hidden="true"></div>
+        <div class="panel-content">
+          <header class="hero-copy">
+            <p class="eyebrow">RAYD8 AMRITA</p>
+            <h1 id="amrita-title">Living Full-Spectrum Harmonic Field</h1>
+            <p class="hero-description">
+              Configure your glyph sequence, focus of charge, rate of charge, palette, and wellness filters before entering the AMRITA runtime.
+            </p>
+          </header>
+
+          <section class="config-grid" aria-label="AMRITA session configuration">
+            <article class="config-card glyph-card">
+              <div class="card-heading-row">
+                <div>
+                  <p class="card-kicker">1. Glyph Selection</p>
+                  <h2>Search glyphs, choose systems, or use Automatic</h2>
+                </div>
+                <div class="card-actions">
+                  <button id="automatic-selection" class="pill-button" type="button">Automatic</button>
+                  <button class="help-button tooltip-trigger" type="button" aria-label="Glyph Selection help" data-tooltip="Search individual glyphs, choose group systems, or use Automatic. Each selection becomes a downward end-turn sequence.">?</button>
+                </div>
+              </div>
+              <label class="search-box" for="glyph-search">
+                <span>Search keywords</span>
+                <input id="glyph-search" autocomplete="off" placeholder="heart, spine, immune system, chakra..." type="search" />
+              </label>
+              <div class="selector-layout">
+                <div>
+                  <div class="section-label-row">
+                    <span>Individual Glyphs</span>
+                    <small id="selected-count">0 selected</small>
+                  </div>
+                  <div id="glyph-results" class="chip-list scroll-area" role="listbox" aria-label="Searchable glyphs"></div>
+                </div>
+                <div>
+                  <div class="section-label-row">
+                    <span>Group Systems</span>
+                    <small>Unified end turns</small>
+                  </div>
+                  <div id="group-results" class="chip-list scroll-area" role="listbox" aria-label="Glyph group systems"></div>
+                </div>
+              </div>
+            </article>
+
+            <article class="config-card concentration-card">
+              <div class="card-heading-row">
+                <div>
+                  <p class="card-kicker">2. Focus Of Charge</p>
+                  <h2>Concentration</h2>
+                </div>
+                <button id="concentration-help" class="help-button tooltip-trigger" type="button" aria-describedby="concentration-help-text" aria-label="Concentration help" data-tooltip="Focus Of Charge: higher concentration means more glyph multiplicity during each end turn. It does not affect speed.">?</button>
+              </div>
+              <p id="concentration-help-text" class="help-copy">
+                Concentration controls glyph multiplicity during each end turn. It does not change speed.
+              </p>
+              <div id="concentration-options" class="segmented-list" role="radiogroup" aria-label="Concentration"></div>
+            </article>
+
+            <article class="config-card speed-card">
+              <div class="card-heading-row">
+                <div>
+                  <p class="card-kicker">3. Rate Of Charge</p>
+                  <h2>Speed</h2>
+                </div>
+                <div class="card-actions">
+                  <button id="speed-auto" class="pill-button" type="button">Automatic</button>
+                  <button class="help-button tooltip-trigger" type="button" aria-label="Speed help" data-tooltip="Rate Of Charge: controls downward glyph velocity and end-turn pacing. Slow sustains charge; fast gives a quicker top-up.">?</button>
+                </div>
+              </div>
+              <label class="range-control" for="speed-range">
+                <span>Speed <strong id="speed-value">4</strong></span>
+                <input id="speed-range" min="1" max="10" step="1" type="range" />
+              </label>
+              <p class="help-copy">Speed controls downward velocity and end-turn pacing. It never changes concentration.</p>
+            </article>
+
+            <article class="config-card palette-card">
+              <div class="card-heading-row">
+                <div>
+                  <p class="card-kicker">Palette Harmonization</p>
+                  <h2>Full-spectrum movement behavior</h2>
+                </div>
+                <button class="help-button tooltip-trigger" type="button" aria-label="Palette Harmonization help" data-tooltip="Harmonic Field Personality: changes movement behavior, palette tuning, and emotional atmosphere. Glyph outlines remain white.">?</button>
+              </div>
+              <div id="palette-options" class="segmented-list compact" role="radiogroup" aria-label="Palette"></div>
+            </article>
+
+            <article class="config-card session-card">
+              <div class="card-heading-row">
+                <div>
+                  <p class="card-kicker">Session</p>
+                  <h2>Duration and drift personality</h2>
+                </div>
+                <div class="card-actions">
+                  <button class="help-button tooltip-trigger" type="button" aria-label="Session Duration help" data-tooltip="Runtime Length: choose a timed session or Continuous, which loops until manually stopped.">?</button>
+                  <button class="help-button tooltip-trigger" type="button" aria-label="Drift Personality help" data-tooltip="Downward Flow Behavior: Gentle is calm, Harmonic is balanced oscillation, Dynamic is more alive. Movement remains downward only.">?</button>
+                </div>
+              </div>
+              <div id="duration-options" class="segmented-list compact" role="radiogroup" aria-label="Session duration"></div>
+              <div id="drift-options" class="segmented-list compact" role="radiogroup" aria-label="Drift personality"></div>
+            </article>
+
+            <article class="config-card filters-card">
+              <div class="card-heading-row">
+                <div>
+                  <p class="card-kicker">Global Wellness Filters</p>
+                  <h2>Overlay filters</h2>
+                </div>
+                <button class="help-button tooltip-trigger" type="button" aria-label="Global Wellness Filters help" data-tooltip="Viewing comfort overlays: Circadian Rhythm, Anti-Blue Light, and Night Mode sit above the renderer without replacing it.">?</button>
+              </div>
+              <div id="filter-options" class="filter-list"></div>
+              <p class="help-copy">Filters sit above the renderer. They do not recolor glyph outlines or replace the harmonic field.</p>
+            </article>
+          </section>
+
+          <footer class="start-bar">
+            <div>
+              <p class="start-label">Sequence snapshot</p>
+              <p id="session-summary" class="session-summary">Automatic glyph selection • Balanced concentration • Speed 4</p>
+            </div>
+            <button id="start-sequence" class="start-button" type="button">Start Sequence</button>
+          </footer>
+        </div>
+      </section>
+
+      <section id="runtime" class="runtime" aria-label="AMRITA runtime" hidden>
+        <canvas id="background-canvas" class="render-canvas" aria-hidden="true"></canvas>
+        <canvas id="glyph-canvas" class="render-canvas" aria-hidden="true"></canvas>
+        <div id="wellness-overlay" class="wellness-overlay" aria-hidden="true"></div>
+        <div class="runtime-vignette" aria-hidden="true"></div>
+        <div class="runtime-topbar">
+          <div>
+            <p class="eyebrow">AMRITA Runtime</p>
+            <p id="runtime-status" class="runtime-status">Preparing sequence</p>
+          </div>
+          <div class="runtime-actions">
+            <button id="pause-resume" class="runtime-button" type="button">Pause</button>
+            <button id="stop-sequence" class="runtime-button secondary" type="button">Stop</button>
+          </div>
+        </div>
+        <div id="performance-hud" class="performance-hud" aria-live="polite"></div>
+      </section>
+    </main>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

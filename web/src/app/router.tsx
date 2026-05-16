@@ -61,6 +61,9 @@ const AffiliatePage = lazy(() =>
 const HamsaRoutePage = lazy(() =>
   import('../features/hamsa').then((module) => ({ default: module.HamsaRoutePage })),
 )
+const AmritaRoutePage = lazy(() =>
+  import('../features/amrita').then((module) => ({ default: module.AmritaRoutePage })),
+)
 const SessionAppShell = lazy(() =>
   import('../components/SessionAppShell').then((module) => ({
     default: module.SessionAppShell,
@@ -77,11 +80,22 @@ function lazyElement(element: ReactNode) {
   return <Suspense fallback={<RouteFallback />}>{element}</Suspense>
 }
 
+function AmritaStaticRedirect() {
+  window.location.replace('/amrita_app/index.html')
+
+  return <RouteFallback />
+}
+
 export const router = createBrowserRouter([
   {
     path: '/',
     element: <AppShell />,
     children: [
+      {
+        path: 'amrita_app/*',
+        errorElement: <AppRouteErrorBoundary scope="public" />,
+        element: <AmritaStaticRedirect />,
+      },
       {
         index: true,
         errorElement: <AppRouteErrorBoundary scope="public" />,
@@ -134,6 +148,7 @@ export const router = createBrowserRouter([
                   { index: true, element: lazyElement(<DashboardPage />) },
                   { path: 'affiliate', element: lazyElement(<AffiliatePage />) },
                   { path: 'hamsa', element: lazyElement(<HamsaRoutePage />) },
+                  { path: 'amrita', element: lazyElement(<AmritaRoutePage />) },
                   { path: 'instructions', element: lazyElement(<InstructionsPage />) },
                   { path: 'settings', element: lazyElement(<SettingsPage />) },
                   { path: 'upgrade', element: lazyElement(<RegenUpgradePage />) },

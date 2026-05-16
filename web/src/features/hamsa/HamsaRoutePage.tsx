@@ -133,7 +133,7 @@ function LockedInfoScreen() {
 export function HamsaRoutePage() {
   const user = useAuthUser()
 
-  const hasHamsaAccess = user.plan === 'regen' || user.plan === 'amrita'
+  const hasHamsaAccess = user.plan === 'regen' || user.plan === 'amrita' || user.role === 'admin'
 
   return (
     <div className={immersiveDashboardOutletScrollClassName}>
