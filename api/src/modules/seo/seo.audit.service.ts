@@ -1,3 +1,4 @@
+import { access } from 'node:fs/promises'
 import puppeteer from 'puppeteer'
 import { env } from '../../env.js'
 import type {
@@ -18,6 +19,7 @@ const AUDIT_NAVIGATION_TIMEOUT_MS = 15_000
 const AUDIT_SELECTOR_TIMEOUT_MS = 5_000
 const AUDIT_SETTLE_DELAY_MS = 350
 const DEGRADED_AUDIT_MESSAGE = 'SEO browser capture temporarily unavailable.'
+const SEO_AUDIT_PACKAGE_NAME = 'puppeteer'
 
 interface RawSeoPageSnapshot {
   canonicalUrl: string | null
@@ -65,9 +67,13 @@ function toDiagnostic(
   stage: SeoAuditDiagnostic['stage'],
   error: unknown,
   path?: string,
+  context?: Partial<SeoAuditDiagnostic>,
 ): SeoAuditDiagnostic {
   if (error instanceof Error) {
     return {
+      ...context,
+      errorCode: getErrorCode(error),
+      errorName: error.name,
       message: error.message,
       path,
       stack: error.stack,
@@ -76,10 +82,20 @@ function toDiagnostic(
   }
 
   return {
+    ...context,
     message: String(error),
     path,
     stage,
   }
+}
+
+function getErrorCode(error: unknown) {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+    return typeof code === 'string' ? code : undefined
+  }
+
+  return undefined
 }
 
 function groupIssues(pageResults: SeoAuditPageResult[]) {
@@ -106,12 +122,53 @@ function getPuppeteerExecutablePath() {
   return undefined
 }
 
+function getReportedExecutablePath() {
+  return getPuppeteerExecutablePath() ?? puppeteer.executablePath()
+}
+
 export function getSeoAuditRuntimeConfig() {
+  let executablePath = getPuppeteerExecutablePath() ?? 'puppeteer-managed-chromium'
+
+  try {
+    executablePath = getReportedExecutablePath()
+  } catch {
+    // Keep this helper side-effect free; launch diagnostics record the precise failure.
+  }
+
   return {
     args: [...AUDIT_BROWSER_ARGS],
-    executablePath: getPuppeteerExecutablePath() ?? 'puppeteer-managed-chromium',
+    executablePath,
+    envExecutablePathSet: Boolean(getPuppeteerExecutablePath()),
     headless: true,
     navigationTimeoutMs: AUDIT_NAVIGATION_TIMEOUT_MS,
+    packageName: SEO_AUDIT_PACKAGE_NAME,
+  }
+}
+
+async function getLaunchPreflightDiagnostic(): Promise<SeoAuditDiagnostic | null> {
+  let executablePath: string | null = null
+
+  try {
+    executablePath = getReportedExecutablePath()
+  } catch (error) {
+    return toDiagnostic('runtime_config', error, undefined, {
+      args: [...AUDIT_BROWSER_ARGS],
+      executablePath,
+      executablePathExists: null,
+      packageName: SEO_AUDIT_PACKAGE_NAME,
+    })
+  }
+
+  try {
+    await access(executablePath)
+    return null
+  } catch (error) {
+    return toDiagnostic('runtime_config', error, undefined, {
+      args: [...AUDIT_BROWSER_ARGS],
+      executablePath,
+      executablePathExists: false,
+      packageName: SEO_AUDIT_PACKAGE_NAME,
+    })
   }
 }
 
@@ -230,6 +287,12 @@ function applyDuplicateChecks(pages: SeoAuditPageResult[]) {
 }
 
 export async function runSeoAudit(paths: string[]): Promise<SeoAuditCapture> {
+  const preflightDiagnostic = await getLaunchPreflightDiagnostic()
+
+  if (preflightDiagnostic) {
+    return createDegradedCapture([], [preflightDiagnostic])
+  }
+
   const launchOptions = {
     args: [...AUDIT_BROWSER_ARGS],
     executablePath: getPuppeteerExecutablePath(),
@@ -241,7 +304,16 @@ export async function runSeoAudit(paths: string[]): Promise<SeoAuditCapture> {
   try {
     browser = await puppeteer.launch(launchOptions)
   } catch (error) {
-    return createDegradedCapture([], [toDiagnostic('browser_launch', error)])
+    return createDegradedCapture(
+      [],
+      [
+        toDiagnostic('browser_launch', error, undefined, {
+          args: [...AUDIT_BROWSER_ARGS],
+          executablePath: getReportedExecutablePath(),
+          packageName: SEO_AUDIT_PACKAGE_NAME,
+        }),
+      ],
+    )
   }
 
   try {

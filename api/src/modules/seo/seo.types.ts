@@ -54,7 +54,13 @@ export interface SeoAuditResult {
 }
 
 export interface SeoAuditDiagnostic {
+  args?: string[]
+  errorCode?: string
+  errorName?: string
+  executablePath?: string | null
+  executablePathExists?: boolean | null
   message: string
+  packageName?: string
   path?: string
   stack?: string
   stage: 'browser_launch' | 'page_capture' | 'runtime_config'

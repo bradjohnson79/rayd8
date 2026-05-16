@@ -9,8 +9,12 @@ describe('runSeoAudit', () => {
   it('returns a degraded response without a fake score when Chromium cannot launch', async () => {
     const launch = vi.fn().mockRejectedValue(new Error('Chromium executable missing'))
 
+    vi.doMock('node:fs/promises', () => ({
+      access: vi.fn().mockResolvedValue(undefined),
+    }))
     vi.doMock('puppeteer', () => ({
       default: {
+        executablePath: vi.fn(() => '/tmp/chrome'),
         launch,
       },
     }))
@@ -49,6 +53,7 @@ describe('runSeoAudit', () => {
   it('exposes the Render-safe runtime launch configuration', async () => {
     vi.doMock('puppeteer', () => ({
       default: {
+        executablePath: vi.fn(() => '/usr/bin/chromium'),
         launch: vi.fn(),
       },
     }))
@@ -63,9 +68,11 @@ describe('runSeoAudit', () => {
 
     expect(getSeoAuditRuntimeConfig()).toEqual({
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      envExecutablePathSet: true,
       executablePath: '/usr/bin/chromium',
       headless: true,
       navigationTimeoutMs: 15_000,
+      packageName: 'puppeteer',
     })
   })
 })

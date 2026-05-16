@@ -16,6 +16,13 @@ function getUmamiScriptUrl() {
   )
 }
 
+function hasExistingUmamiScript() {
+  return Boolean(
+    document.querySelector('script[data-r8-umami="true"]') ||
+      document.querySelector('script[src*="umami"][data-website-id]'),
+  )
+}
+
 export function initializeUmami() {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return
@@ -23,12 +30,12 @@ export function initializeUmami() {
 
   const websiteId = import.meta.env.VITE_UMAMI_WEBSITE_ID?.trim() || RAYD8_UMAMI_WEBSITE_ID
 
-  if (!websiteId || document.querySelector('script[data-r8-umami="true"]')) {
+  if (!websiteId || hasExistingUmamiScript()) {
     return
   }
 
   const injectUmami = () => {
-    if (document.querySelector('script[data-r8-umami="true"]')) {
+    if (hasExistingUmamiScript()) {
       return
     }
 
