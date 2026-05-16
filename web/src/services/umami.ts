@@ -6,6 +6,8 @@ declare global {
   }
 }
 
+const RAYD8_UMAMI_WEBSITE_ID = '012f9848-b387-4594-a1e6-69fc2ac354aa'
+
 function getUmamiScriptUrl() {
   const baseUrl = import.meta.env.VITE_UMAMI_BASE_URL?.trim() || 'https://cloud.umami.is'
   return (
@@ -19,7 +21,7 @@ export function initializeUmami() {
     return
   }
 
-  const websiteId = import.meta.env.VITE_UMAMI_WEBSITE_ID?.trim()
+  const websiteId = import.meta.env.VITE_UMAMI_WEBSITE_ID?.trim() || RAYD8_UMAMI_WEBSITE_ID
 
   if (!websiteId || document.querySelector('script[data-r8-umami="true"]')) {
     return
