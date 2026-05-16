@@ -38,8 +38,23 @@ function getSourceOfTruthAdminEmails() {
   )
 }
 
-function resolveSourceOfTruthRole(email: string, role: UserRecord['role']) {
-  return getSourceOfTruthAdminEmails().has(email.toLowerCase()) ? 'admin' : role
+export function resolveUserRoleFromSources(input: {
+  clerkRole: UserRecord['role']
+  email: string
+  existingRole?: UserRecord['role'] | null
+  sourceOfTruthAdminEmails?: Set<string>
+}): UserRecord['role'] {
+  const sourceOfTruthAdminEmails = input.sourceOfTruthAdminEmails ?? getSourceOfTruthAdminEmails()
+
+  if (sourceOfTruthAdminEmails.has(input.email.toLowerCase())) {
+    return 'admin'
+  }
+
+  if (input.existingRole === 'admin') {
+    return 'admin'
+  }
+
+  return input.clerkRole
 }
 
 function normalizePlan(value: unknown): UserRecord['plan'] {
@@ -107,6 +122,11 @@ async function reconcileUserIdentity(nextUser: UserRecord) {
       ...nextUser,
       referralCode: userWithEmail.referralCode ?? nextUser.referralCode,
       referredByUserId: userWithEmail.referredByUserId,
+      role: resolveUserRoleFromSources({
+        clerkRole: nextUser.role,
+        email: nextUser.email,
+        existingRole: userWithEmail.role,
+      }),
       createdAt: userWithEmail.createdAt,
       trialEndsAt: userWithEmail.trialEndsAt,
       trialHoursUsed: userWithEmail.trialHoursUsed,
@@ -192,7 +212,10 @@ export async function syncUserFromClerk(userId: string) {
       email,
       referralCode: generateReferralCodeCandidate(),
       referredByUserId: null,
-      role: resolveSourceOfTruthRole(email, normalizeRole(clerkUser.publicMetadata.role)),
+      role: resolveUserRoleFromSources({
+        clerkRole: normalizeRole(clerkUser.publicMetadata.role),
+        email,
+      }),
       plan: normalizePlan(clerkUser.publicMetadata.plan),
       trialEndsAt: null,
       trialHoursUsed: 0,
@@ -208,7 +231,11 @@ export async function syncUserFromClerk(userId: string) {
     email,
     referralCode: existingUserById?.referralCode ?? (await createUniqueReferralCode()),
     referredByUserId: existingUserById?.referredByUserId ?? null,
-    role: resolveSourceOfTruthRole(email, normalizeRole(clerkUser.publicMetadata.role)),
+    role: resolveUserRoleFromSources({
+      clerkRole: normalizeRole(clerkUser.publicMetadata.role),
+      email,
+      existingRole: existingUserById?.role,
+    }),
     plan: normalizePlan(clerkUser.publicMetadata.plan),
     trialEndsAt: existingUserById?.trialEndsAt ?? null,
     trialHoursUsed: existingUserById?.trialHoursUsed ?? 0,
