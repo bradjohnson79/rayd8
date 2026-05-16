@@ -3,7 +3,6 @@ import { immersiveDashboardOutletScrollClassName } from '../dashboard/immersiveD
 import { useAuthUser } from '../dashboard/useAuthUser'
 
 const HAMSA_PREP_IMAGE = '/hamsa/hamsa-prep.png'
-const HAMSA_APP_URL = '/hamsa-app/'
 
 const featureCallouts = [
   'Scalar & transcendental resonance technology',
@@ -44,28 +43,38 @@ function FeatureCallouts() {
   )
 }
 
-function HamsaLaunchScreen() {
+function SubscriberPlaceholderScreen() {
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-black text-white">
-      <header className="flex flex-col gap-3 border-b border-white/10 bg-black/50 px-4 py-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div>
-          <p className="text-xs uppercase tracking-[0.32em] text-fuchsia-200/80">HAMSA™</p>
-          <h1 className="mt-2 text-lg font-semibold tracking-[0.12em] text-white">
-            Virtual Healing Hand
-          </h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-300">
-            Included with active REGEN and AMRITA access. HAMSA runs independently from
-            RAYD8 playback sessions, Mux streaming, and time-limit systems.
-          </p>
-        </div>
-      </header>
+    <div className="space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+      <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.9fr)] lg:items-center">
+        <HamsaArtwork />
 
-      <iframe
-        allow="autoplay; fullscreen; clipboard-read; clipboard-write; screen-wake-lock"
-        className="block min-h-[42rem] w-full flex-1 border-0 bg-black"
-        src={HAMSA_APP_URL}
-        title="HAMSA virtual healing hand"
-      />
+        <div className="rounded-[2rem] border border-white/10 bg-black/25 p-6 text-white shadow-[0_28px_90px_rgba(0,0,0,0.22)] backdrop-blur-2xl sm:p-8">
+          <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/80">REGEN Preview</p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-[0.1em] text-white sm:text-5xl">
+            HAMSA™
+          </h1>
+          <p className="mt-4 text-xl leading-8 text-fuchsia-100">
+            A next-generation transcendental field experience.
+          </p>
+          <div className="mt-6 space-y-4 text-sm leading-7 text-slate-300">
+            <p>
+              HAMSA™ is being prepared for REGEN subscribers as a premium RAYD8®
+              environment. Playback, audio, session controls, and production entitlements
+              remain disabled while this surface stays in preview.
+            </p>
+            <p>
+              This placeholder preserves the visual preview without loading the HAMSA app,
+              media controllers, Mux playback, audio rails, or session engine.
+            </p>
+          </div>
+          <div className="mt-8 inline-flex rounded-full border border-emerald-200/20 bg-emerald-300/[0.08] px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100/80">
+            Subscriber Preview Only
+          </div>
+        </div>
+      </section>
+
+      <FeatureCallouts />
     </div>
   )
 }
@@ -147,7 +156,7 @@ export function HamsaRoutePage() {
           className="pointer-events-none absolute inset-x-0 top-0 z-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent"
         />
         <div className="relative z-10">
-          {hasHamsaAccess ? <HamsaLaunchScreen /> : <LockedInfoScreen />}
+          {hasHamsaAccess ? <SubscriberPlaceholderScreen /> : <LockedInfoScreen />}
         </div>
       </div>
     </div>

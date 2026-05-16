@@ -32,6 +32,6 @@ export function getSidebarItems(user: AuthUser): SidebarItem[] {
 
   return [
     { emphasis: 'upgrade', kind: 'route', label: 'Upgrade to REGEN', to: '/subscription?plan=regen' },
-    ...baseItems,
+    ...itemsWithHamsa,
   ]
 }

@@ -41,15 +41,6 @@ export const ADMIN_GLOBAL_PLAYERS: AdminGlobalPlayer[] = [
     route: '/admin/global-players/regen',
     tone: 'emerald',
   },
-  {
-    adminAccess: 'unlimited',
-    description: 'Launch HAMSA for internal QA, content review, and operational oversight.',
-    id: 'hamsa',
-    kind: 'iframe',
-    label: 'HAMSA',
-    route: '/admin/global-players/hamsa',
-    tone: 'emerald',
-  },
 ]
 
 export function getAdminGlobalPlayer(id: string | undefined) {

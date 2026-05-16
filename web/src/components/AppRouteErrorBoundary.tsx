@@ -1,8 +1,12 @@
+import { useEffect } from 'react'
 import { isRouteErrorResponse, useRouteError } from 'react-router-dom'
 
 interface AppRouteErrorBoundaryProps {
   scope?: 'admin' | 'member' | 'public'
 }
+
+const STALE_CHUNK_RELOAD_KEY = 'rayd8:stale-chunk-reload'
+const STALE_CHUNK_RELOAD_COOLDOWN_MS = 60_000
 
 function getScopeCopy(scope: AppRouteErrorBoundaryProps['scope']) {
   if (scope === 'admin') {
@@ -32,6 +36,36 @@ function getScopeCopy(scope: AppRouteErrorBoundaryProps['scope']) {
     secondaryHref: '/dashboard',
     secondaryLabel: 'Open Dashboard',
   }
+}
+
+function isStaleChunkError(error: unknown) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : ''
+
+  return (
+    message.includes('Failed to fetch dynamically imported module') ||
+    message.includes('Importing a module script failed')
+  )
+}
+
+function reloadOnceForStaleChunk() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const pathKey = `${STALE_CHUNK_RELOAD_KEY}:${window.location.pathname}`
+  const lastReloadedAt = Number(window.sessionStorage.getItem(pathKey) ?? 0)
+
+  if (Date.now() - lastReloadedAt < STALE_CHUNK_RELOAD_COOLDOWN_MS) {
+    return
+  }
+
+  window.sessionStorage.setItem(pathKey, String(Date.now()))
+  window.location.reload()
 }
 
 function normalizeRouteError(error: unknown) {
@@ -64,6 +98,12 @@ export function AppRouteErrorBoundary({
   const error = useRouteError()
   const copy = getScopeCopy(scope)
   const normalizedError = normalizeRouteError(error)
+
+  useEffect(() => {
+    if (isStaleChunkError(error)) {
+      reloadOnceForStaleChunk()
+    }
+  }, [error])
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.14),transparent_26%),radial-gradient(circle_at_80%_20%,rgba(59,130,246,0.14),transparent_26%),linear-gradient(180deg,#04070a_0%,#071017_100%)] px-4 py-10 text-white sm:px-6 lg:px-8">

@@ -6,6 +6,11 @@
       "permanent": false
     },
     {
+      "source": "/hamsa-app/(.*)",
+      "destination": "/dashboard/hamsa",
+      "permanent": false
+    },
+    {
       "source": "/(.*)",
       "has": [
         {
