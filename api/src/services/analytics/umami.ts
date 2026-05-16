@@ -161,6 +161,31 @@ function getBaseUrl() {
   return baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
 }
 
+function isCloudApiBaseUrl(baseUrl: string) {
+  try {
+    const url = new URL(baseUrl)
+    return url.hostname === 'api.umami.is' || url.pathname.split('/').includes('v1')
+  } catch {
+    return false
+  }
+}
+
+function normalizeEndpoint(endpoint: string, cloudApi: boolean) {
+  const trimmedEndpoint = endpoint.replace(/^\//, '')
+  return cloudApi ? trimmedEndpoint.replace(/^api\//, '') : trimmedEndpoint
+}
+
+function normalizeParams(params: Record<string, unknown> | undefined, cloudApi: boolean) {
+  if (!params || !cloudApi || params.type !== 'path') {
+    return params
+  }
+
+  return {
+    ...params,
+    type: 'url',
+  }
+}
+
 function getWebsiteId() {
   const websiteId = env.UMAMI_WEBSITE_ID?.trim()
 
@@ -258,9 +283,12 @@ async function fetchUmami<T>(endpoint: string, params?: Record<string, unknown>)
   }
 
   const request = (async () => {
-    const url = new URL(endpoint.replace(/^\//, ''), getBaseUrl())
+    const baseUrl = getBaseUrl()
+    const cloudApi = isCloudApiBaseUrl(baseUrl)
+    const url = new URL(normalizeEndpoint(endpoint, cloudApi), baseUrl)
+    const normalizedParams = normalizeParams(params, cloudApi)
 
-    for (const [key, value] of Object.entries(params ?? {})) {
+    for (const [key, value] of Object.entries(normalizedParams ?? {})) {
       if (value === undefined || value === null || value === '') {
         continue
       }
@@ -270,8 +298,10 @@ async function fetchUmami<T>(endpoint: string, params?: Record<string, unknown>)
 
     const response = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${getApiKey()}`,
         Accept: 'application/json',
+        ...(cloudApi
+          ? { 'x-umami-api-key': getApiKey() }
+          : { Authorization: `Bearer ${getApiKey()}` }),
       },
     })
 

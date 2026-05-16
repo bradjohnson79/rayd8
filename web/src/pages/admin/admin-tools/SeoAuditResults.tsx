@@ -4,6 +4,7 @@ import { useAuthToken } from '../../../features/dashboard/useAuthToken'
 import {
   getAdminSeoAudits,
   runAdminSeoAudit,
+  type SeoAuditDegradedResponse,
   type SeoAuditIssue,
   type SeoAuditResult,
 } from '../../../services/admin'
@@ -49,6 +50,7 @@ function IssueGroup({
 export function AdminSeoAuditResultsPage() {
   const getAuthToken = useAuthToken()
   const [audits, setAudits] = useState<SeoAuditResult[]>([])
+  const [degradedAudit, setDegradedAudit] = useState<SeoAuditDegradedResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
@@ -59,6 +61,7 @@ export function AdminSeoAuditResultsPage() {
     async function loadAudits() {
       setLoading(true)
       setError(null)
+      setDegradedAudit(null)
 
       try {
         const token = await getAuthToken()
@@ -93,6 +96,7 @@ export function AdminSeoAuditResultsPage() {
   async function handleRunAudit() {
     setRunning(true)
     setError(null)
+    setDegradedAudit(null)
 
     try {
       const token = await getAuthToken()
@@ -102,6 +106,12 @@ export function AdminSeoAuditResultsPage() {
       }
 
       const response = await runAdminSeoAudit({ fullSite: true }, token)
+
+      if (response.status === 'degraded') {
+        setDegradedAudit(response)
+        return
+      }
+
       setAudits((currentValue) => [response.audit, ...currentValue])
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Unable to run SEO audit.')
@@ -135,7 +145,40 @@ export function AdminSeoAuditResultsPage() {
           </div>
         ) : null}
 
-        {!latestAudit && !loading ? (
+        {degradedAudit ? (
+          <section className="rounded-[2rem] border border-amber-200/25 bg-amber-300/10 p-6 text-sm text-amber-50 shadow-[0_18px_60px_rgba(0,0,0,0.2)] backdrop-blur-2xl">
+            <p className="text-xs uppercase tracking-[0.32em] text-amber-100/70">Degraded audit</p>
+            <h2 className="mt-3 text-2xl font-semibold text-white">
+              Browser capture unavailable on current runtime
+            </h2>
+            <p className="mt-3 max-w-3xl leading-7 text-amber-50/85">
+              {degradedAudit.message} No aggregate SEO score was generated. Any partial results below
+              are from pages that were actually captured.
+            </p>
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-amber-100/60">Captured pages</p>
+                <p className="mt-3 text-3xl font-semibold text-white">
+                  {degradedAudit.partialResults.length}
+                </p>
+              </div>
+              <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-amber-100/60">Critical</p>
+                <p className="mt-3 text-3xl font-semibold text-white">
+                  {degradedAudit.issuesBySeverity.critical.length}
+                </p>
+              </div>
+              <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-amber-100/60">Improve</p>
+                <p className="mt-3 text-3xl font-semibold text-white">
+                  {degradedAudit.issuesBySeverity.improve.length}
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {!latestAudit && !degradedAudit && !loading ? (
           <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 text-sm text-slate-300">
             No audit has been run yet. Start by running a full-site audit.
           </div>
@@ -203,6 +246,37 @@ export function AdminSeoAuditResultsPage() {
               </div>
             </section>
           </>
+        ) : null}
+
+        {degradedAudit && degradedAudit.partialResults.length > 0 ? (
+          <section className="rounded-[2rem] border border-white/12 bg-white/[0.05] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] backdrop-blur-2xl">
+            <p className="text-xs uppercase tracking-[0.32em] text-violet-200/60">
+              Degraded partial results
+            </p>
+            <div className="mt-6 grid gap-4">
+              {degradedAudit.partialResults.map((page) => (
+                <article
+                  className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5"
+                  key={page.path}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">{page.path}</h3>
+                      <p className="mt-2 text-sm text-slate-300">{page.title || 'Untitled page'}</p>
+                    </div>
+                    <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs uppercase tracking-[0.24em] text-white/75">
+                      Captured score {page.score}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-2 text-sm text-slate-300">
+                    <p>H1: {page.h1 ?? 'Missing'}</p>
+                    <p>H2: {page.h2 ?? 'Missing'}</p>
+                    <p>Description: {page.description || 'Missing'}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
         ) : null}
       </AdminPageShell>
     </section>

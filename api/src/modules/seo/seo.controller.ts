@@ -66,13 +66,29 @@ export const seoController = {
 
   async audit(request: FastifyRequest, reply: FastifyReply) {
     const payload = pathListSchema.parse(request.body ?? {})
-    const audit = await createAndStoreSeoAudit({
+    const result = await createAndStoreSeoAudit({
       fullSite: payload.fullSite,
       initiatedBy: request.auth?.userId ?? null,
       paths: payload.paths,
     })
 
-    return reply.send({ audit })
+    if (result.status === 'degraded') {
+      request.log.error(
+        {
+          diagnostics: result.diagnostics,
+        },
+        'SEO audit degraded during browser capture.',
+      )
+
+      return reply.send({
+        issuesBySeverity: result.issuesBySeverity,
+        message: result.message,
+        partialResults: result.partialResults,
+        status: result.status,
+      })
+    }
+
+    return reply.send(result)
   },
 
   async getLatestAudit(_request: FastifyRequest, reply: FastifyReply) {

@@ -656,6 +656,20 @@ export interface SeoAuditResult {
   targetScope: string
 }
 
+export interface SeoAuditDegradedResponse {
+  issuesBySeverity: Record<'critical' | 'improve' | 'good', SeoAuditIssue[]>
+  message: string
+  partialResults: SeoAuditPageResult[]
+  status: 'degraded'
+}
+
+export type SeoAuditRunResponse =
+  | {
+      audit: SeoAuditResult
+      status: 'complete'
+    }
+  | SeoAuditDegradedResponse
+
 export interface SeoOptimizationSuggestion extends Omit<SeoMetadataPayload, 'og'> {
   og: SeoMetadataPayload['og']
   reason: string
@@ -727,7 +741,7 @@ export async function runAdminSeoAudit(
   },
   token: string,
 ) {
-  return apiRequest<{ audit: SeoAuditResult }>(
+  return apiRequest<SeoAuditRunResponse>(
     '/api/admin/seo/audit',
     {
       method: 'POST',

@@ -53,6 +53,43 @@ export interface SeoAuditResult {
   targetScope: string
 }
 
+export interface SeoAuditDiagnostic {
+  message: string
+  path?: string
+  stack?: string
+  stage: 'browser_launch' | 'page_capture' | 'runtime_config'
+}
+
+export interface SeoAuditCompleteCapture {
+  issuesBySeverity: Record<SeoSeverity, SeoAuditIssue[]>
+  pages: SeoAuditPageResult[]
+  score: number
+  status: 'complete'
+}
+
+export interface SeoAuditDegradedCapture {
+  issuesBySeverity: Record<SeoSeverity, SeoAuditIssue[]>
+  message: string
+  partialResults: SeoAuditPageResult[]
+  status: 'degraded'
+  diagnostics: SeoAuditDiagnostic[]
+}
+
+export type SeoAuditCapture = SeoAuditCompleteCapture | SeoAuditDegradedCapture
+
+export type SeoAuditRunResponse =
+  | {
+      audit: SeoAuditResult
+      status: 'complete'
+    }
+  | {
+      diagnostics: SeoAuditDiagnostic[]
+      issuesBySeverity: Record<SeoSeverity, SeoAuditIssue[]>
+      message: string
+      partialResults: SeoAuditPageResult[]
+      status: 'degraded'
+    }
+
 export interface SeoOptimizationSuggestion extends EffectiveSeoMetadata {
   reason: string
 }

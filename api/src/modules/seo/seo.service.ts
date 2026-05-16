@@ -8,6 +8,7 @@ import { generateAndStoreSeoReport, listSeoReports } from './seo.report.service.
 import type {
   EffectiveSeoMetadata,
   SeoActionRecord,
+  SeoAuditRunResponse,
   SeoAuditResult,
   SeoOpenGraph,
   SeoOptimizationSuggestion,
@@ -187,10 +188,21 @@ export async function createAndStoreSeoAudit(input?: {
   fullSite?: boolean
   initiatedBy?: string | null
   paths?: string[]
-}) {
+}): Promise<SeoAuditRunResponse> {
   const database = requireSeoDb()
   const paths = resolveSeoPaths(input)
   const audit = await runSeoAudit(paths)
+
+  if (audit.status === 'degraded') {
+    return {
+      diagnostics: audit.diagnostics,
+      issuesBySeverity: audit.issuesBySeverity,
+      message: audit.message,
+      partialResults: audit.partialResults,
+      status: 'degraded',
+    }
+  }
+
   const [row] = await database
     .insert(seoAudits)
     .values({
@@ -205,7 +217,10 @@ export async function createAndStoreSeoAudit(input?: {
     })
     .returning()
 
-  return mapSeoAuditRow(row)
+  return {
+    audit: mapSeoAuditRow(row),
+    status: 'complete',
+  }
 }
 
 export async function listSeoAudits(limit = 10) {
@@ -225,6 +240,11 @@ export async function getLatestSeoAudit() {
 export async function generateSeoOptimizationPreview(input?: { fullSite?: boolean; paths?: string[] }) {
   const paths = resolveSeoPaths(input)
   const audit = await runSeoAudit(paths)
+
+  if (audit.status === 'degraded') {
+    throw new Error('SEO browser capture temporarily unavailable.')
+  }
+
   const pages = await Promise.all(
     audit.pages.map(async (page) => ({
       metadata: await getEffectiveSeoMetadataForPath(page.path),

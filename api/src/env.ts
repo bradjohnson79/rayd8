@@ -30,6 +30,7 @@ const envSchema = z.object({
   UMAMI_BASE_URL: z.string().optional(),
   UMAMI_WEBSITE_ID: z.string().optional(),
   OPEN_AI_API_KEY: z.string().optional(),
+  PUPPETEER_EXECUTABLE_PATH: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   CONTACT_FROM_EMAIL: z.string().email().optional(),
   SOURCE_OF_TRUTH_ADMIN_EMAILS: z.string().optional(),

@@ -1,6 +1,23 @@
 import puppeteer from 'puppeteer'
 import { env } from '../../env.js'
-import type { SeoAuditIssue, SeoAuditPageResult, SeoSeverity } from './seo.types.js'
+import type {
+  SeoAuditCapture,
+  SeoAuditDegradedCapture,
+  SeoAuditDiagnostic,
+  SeoAuditIssue,
+  SeoAuditPageResult,
+  SeoSeverity,
+} from './seo.types.js'
+
+const AUDIT_BROWSER_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+] as const
+const AUDIT_NAVIGATION_TIMEOUT_MS = 15_000
+const AUDIT_SELECTOR_TIMEOUT_MS = 5_000
+const AUDIT_SETTLE_DELAY_MS = 350
+const DEGRADED_AUDIT_MESSAGE = 'SEO browser capture temporarily unavailable.'
 
 interface RawSeoPageSnapshot {
   canonicalUrl: string | null
@@ -42,6 +59,73 @@ function calculatePageScore(issues: SeoAuditIssue[]) {
   }, 0)
 
   return Math.max(0, 100 - penalty)
+}
+
+function toDiagnostic(
+  stage: SeoAuditDiagnostic['stage'],
+  error: unknown,
+  path?: string,
+): SeoAuditDiagnostic {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      path,
+      stack: error.stack,
+      stage,
+    }
+  }
+
+  return {
+    message: String(error),
+    path,
+    stage,
+  }
+}
+
+function groupIssues(pageResults: SeoAuditPageResult[]) {
+  const grouped = pageResults.flatMap((page) => page.issues)
+
+  return {
+    critical: grouped.filter((issue) => issue.severity === 'critical'),
+    good: grouped.filter((issue) => issue.severity === 'good'),
+    improve: grouped.filter((issue) => issue.severity === 'improve'),
+  }
+}
+
+function getAverageScore(pageResults: SeoAuditPageResult[]) {
+  return pageResults.length > 0
+    ? Math.round(pageResults.reduce((total, page) => total + page.score, 0) / pageResults.length)
+    : 0
+}
+
+function getPuppeteerExecutablePath() {
+  if (env.PUPPETEER_EXECUTABLE_PATH?.trim()) {
+    return env.PUPPETEER_EXECUTABLE_PATH.trim()
+  }
+
+  return undefined
+}
+
+export function getSeoAuditRuntimeConfig() {
+  return {
+    args: [...AUDIT_BROWSER_ARGS],
+    executablePath: getPuppeteerExecutablePath() ?? 'puppeteer-managed-chromium',
+    headless: true,
+    navigationTimeoutMs: AUDIT_NAVIGATION_TIMEOUT_MS,
+  }
+}
+
+function createDegradedCapture(
+  partialResults: SeoAuditPageResult[],
+  diagnostics: SeoAuditDiagnostic[],
+): SeoAuditDegradedCapture {
+  return {
+    diagnostics,
+    issuesBySeverity: groupIssues(partialResults),
+    message: DEGRADED_AUDIT_MESSAGE,
+    partialResults,
+    status: 'degraded',
+  }
 }
 
 function analyzeSnapshot(snapshot: RawSeoPageSnapshot) {
@@ -145,25 +229,40 @@ function applyDuplicateChecks(pages: SeoAuditPageResult[]) {
   }
 }
 
-export async function runSeoAudit(paths: string[]) {
-  const browser = await puppeteer.launch({
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+export async function runSeoAudit(paths: string[]): Promise<SeoAuditCapture> {
+  const launchOptions = {
+    args: [...AUDIT_BROWSER_ARGS],
+    executablePath: getPuppeteerExecutablePath(),
     headless: true,
-  })
+  }
+
+  let browser
+
+  try {
+    browser = await puppeteer.launch(launchOptions)
+  } catch (error) {
+    return createDegradedCapture([], [toDiagnostic('browser_launch', error)])
+  }
 
   try {
     const pageResults: SeoAuditPageResult[] = []
+    const diagnostics: SeoAuditDiagnostic[] = []
 
     for (const path of paths) {
       const page = await browser.newPage()
 
       try {
+        page.setDefaultNavigationTimeout(AUDIT_NAVIGATION_TIMEOUT_MS)
+        page.setDefaultTimeout(AUDIT_SELECTOR_TIMEOUT_MS)
         await page.goto(new URL(path, env.APP_URL).toString(), {
-          waitUntil: 'networkidle2',
+          timeout: AUDIT_NAVIGATION_TIMEOUT_MS,
+          waitUntil: 'domcontentloaded',
         })
-        await page.waitForSelector('body', { timeout: 5_000 })
-        await page.waitForFunction(() => document.readyState === 'complete', { timeout: 5_000 })
-        await new Promise((resolve) => setTimeout(resolve, 350))
+        await page.waitForSelector('body', { timeout: AUDIT_SELECTOR_TIMEOUT_MS })
+        await page.waitForFunction(() => document.readyState !== 'loading', {
+          timeout: AUDIT_SELECTOR_TIMEOUT_MS,
+        })
+        await new Promise((resolve) => setTimeout(resolve, AUDIT_SETTLE_DELAY_MS))
 
         const snapshot = (await page.evaluate((currentPath: string) => {
           const description =
@@ -222,6 +321,8 @@ export async function runSeoAudit(paths: string[]) {
           score: calculatePageScore(issues),
           title: snapshot.title,
         })
+      } catch (error) {
+        diagnostics.push(toDiagnostic('page_capture', error, path))
       } finally {
         await page.close().catch(() => undefined)
       }
@@ -229,22 +330,15 @@ export async function runSeoAudit(paths: string[]) {
 
     applyDuplicateChecks(pageResults)
 
-    const grouped = pageResults.flatMap((page) => page.issues)
-    const issuesBySeverity = {
-      critical: grouped.filter((issue) => issue.severity === 'critical'),
-      good: grouped.filter((issue) => issue.severity === 'good'),
-      improve: grouped.filter((issue) => issue.severity === 'improve'),
+    if (diagnostics.length > 0) {
+      return createDegradedCapture(pageResults, diagnostics)
     }
 
-    const averageScore =
-      pageResults.length > 0
-        ? Math.round(pageResults.reduce((total, page) => total + page.score, 0) / pageResults.length)
-        : 0
-
     return {
-      issuesBySeverity,
+      issuesBySeverity: groupIssues(pageResults),
       pages: pageResults,
-      score: averageScore,
+      score: getAverageScore(pageResults),
+      status: 'complete',
     }
   } finally {
     await browser.close()
