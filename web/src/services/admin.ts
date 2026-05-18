@@ -21,6 +21,17 @@ export interface AdminStripeRecord {
   current_period_end: string | null
 }
 
+export interface AdminStripeRevenueSummary {
+  all_time_cents: number
+  calculated_at: string
+  configured: boolean
+  currency: string
+  last_24_hours_cents: number
+  last_30_days_cents: number
+  last_7_days_cents: number
+  paid_invoice_count: number
+}
+
 export interface AdminMuxAsset {
   asset_id: string
   playback_id: string | null
@@ -326,6 +337,14 @@ export async function getAdminUsers(token: string) {
 export async function getAdminOrders(token: string) {
   return apiRequest<{ orders: AdminStripeRecord[] }>(
     '/api/admin/stripe/orders',
+    undefined,
+    token,
+  )
+}
+
+export async function getAdminRevenueSummary(token: string) {
+  return apiRequest<{ revenue: AdminStripeRevenueSummary }>(
+    '/api/admin/stripe/revenue',
     undefined,
     token,
   )

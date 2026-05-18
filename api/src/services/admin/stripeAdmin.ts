@@ -1,6 +1,14 @@
 import { desc, eq } from 'drizzle-orm'
+import Stripe from 'stripe'
 import { db } from '../../db/client.js'
 import { archivedAdminOrders, subscriptions, users } from '../../db/schema.js'
+import { env } from '../../env.js'
+
+const stripeClient = env.STRIPE_SECRET_KEY
+  ? new Stripe(env.STRIPE_SECRET_KEY, {
+      apiVersion: '2024-06-20' as never,
+    })
+  : null
 
 export interface AdminStripeRecord {
   clerk_user_id: string
@@ -12,6 +20,17 @@ export interface AdminStripeRecord {
   plan_type: 'single' | 'multi'
   created_at: string
   current_period_end: string | null
+}
+
+export interface AdminStripeRevenueSummary {
+  all_time_cents: number
+  calculated_at: string
+  configured: boolean
+  currency: string
+  last_24_hours_cents: number
+  last_30_days_cents: number
+  last_7_days_cents: number
+  paid_invoice_count: number
 }
 
 async function getArchivedOrderIds() {
@@ -73,6 +92,70 @@ export async function getAdminSubscribers() {
   return records.filter((record) =>
     ['active', 'canceled', 'past_due'].includes(record.status),
   )
+}
+
+export async function getAdminRevenueSummary(): Promise<AdminStripeRevenueSummary> {
+  const calculatedAt = new Date()
+
+  if (!stripeClient) {
+    return {
+      all_time_cents: 0,
+      calculated_at: calculatedAt.toISOString(),
+      configured: false,
+      currency: 'usd',
+      last_24_hours_cents: 0,
+      last_30_days_cents: 0,
+      last_7_days_cents: 0,
+      paid_invoice_count: 0,
+    }
+  }
+
+  const now = calculatedAt.getTime()
+  const last24Hours = now - 24 * 60 * 60 * 1000
+  const last7Days = now - 7 * 24 * 60 * 60 * 1000
+  const last30Days = now - 30 * 24 * 60 * 60 * 1000
+  let allTimeCents = 0
+  let last24HoursCents = 0
+  let last7DaysCents = 0
+  let last30DaysCents = 0
+  let currency = 'usd'
+  let paidInvoiceCount = 0
+
+  for await (const invoice of stripeClient.invoices.list({ limit: 100, status: 'paid' })) {
+    const amountPaid = invoice.amount_paid ?? 0
+
+    if (amountPaid <= 0) {
+      continue
+    }
+
+    const createdAt = invoice.created * 1000
+    allTimeCents += amountPaid
+    paidInvoiceCount += 1
+    currency = invoice.currency ?? currency
+
+    if (createdAt >= last30Days) {
+      last30DaysCents += amountPaid
+    }
+
+    if (createdAt >= last7Days) {
+      last7DaysCents += amountPaid
+    }
+
+    if (createdAt >= last24Hours) {
+      last24HoursCents += amountPaid
+    }
+  }
+
+  return {
+    all_time_cents: allTimeCents,
+    calculated_at: calculatedAt.toISOString(),
+    configured: true,
+    currency,
+    last_24_hours_cents: last24HoursCents,
+    last_30_days_cents: last30DaysCents,
+    last_7_days_cents: last7DaysCents,
+    paid_invoice_count: paidInvoiceCount,
+  }
 }
 
 export async function archiveAdminOrders(input: {

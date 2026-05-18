@@ -4,6 +4,7 @@ import { requireAdminAccess } from '../../plugins/adminAuth.js'
 import {
   archiveAdminOrders,
   getAdminOrders,
+  getAdminRevenueSummary,
   getAdminSubscribers,
 } from '../../services/admin/stripeAdmin.js'
 
@@ -14,6 +15,10 @@ const archiveOrdersSchema = z.object({
 export const adminStripeRoutes: FastifyPluginAsync = async (app) => {
   app.get('/orders', { preHandler: requireAdminAccess }, async () => ({
     orders: await getAdminOrders(),
+  }))
+
+  app.get('/revenue', { preHandler: requireAdminAccess }, async () => ({
+    revenue: await getAdminRevenueSummary(),
   }))
 
   app.post('/orders/archive', { preHandler: requireAdminAccess }, async (request) => {

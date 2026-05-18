@@ -9,9 +9,11 @@ import {
   getAdminMuxStats,
   getAdminOrders,
   getAdminOverview,
+  getAdminRevenueSummary,
   getAdminUsers,
   type AdminMuxStats,
   type AdminOverview,
+  type AdminStripeRevenueSummary,
   type AdminStripeRecord,
   type AdminUserRecord,
   type ContactMessageRecord,
@@ -26,11 +28,31 @@ const emptyOverview: AdminOverview = {
   averageVideoWatchTime: 0,
 }
 
+const emptyRevenue: AdminStripeRevenueSummary = {
+  all_time_cents: 0,
+  calculated_at: '',
+  configured: false,
+  currency: 'usd',
+  last_24_hours_cents: 0,
+  last_30_days_cents: 0,
+  last_7_days_cents: 0,
+  paid_invoice_count: 0,
+}
+
+function formatStripeMoney(amountCents: number, currency: string) {
+  return new Intl.NumberFormat('en-US', {
+    currency: currency.toUpperCase(),
+    maximumFractionDigits: 2,
+    style: 'currency',
+  }).format(amountCents / 100)
+}
+
 export function AdminDashboardPage() {
   const getAuthToken = useAuthToken()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [overview, setOverview] = useState<AdminOverview>(emptyOverview)
+  const [revenue, setRevenue] = useState<AdminStripeRevenueSummary>(emptyRevenue)
   const [users, setUsers] = useState<AdminUserRecord[]>([])
   const [orders, setOrders] = useState<AdminStripeRecord[]>([])
   const [messages, setMessages] = useState<ContactMessageRecord[]>([])
@@ -57,9 +79,13 @@ export function AdminDashboardPage() {
           throw new Error('Authentication token missing for admin overview.')
         }
 
-        const [overviewResponse, userResponse, orderResponse, messageResponse, muxResponse] =
+        const revenueRequest = getAdminRevenueSummary(token).catch(() => ({
+          revenue: emptyRevenue,
+        }))
+        const [overviewResponse, revenueResponse, userResponse, orderResponse, messageResponse, muxResponse] =
           await Promise.all([
             getAdminOverview(token),
+            revenueRequest,
             getAdminUsers(token),
             getAdminOrders(token),
             getAdminMessages(token),
@@ -68,6 +94,7 @@ export function AdminDashboardPage() {
 
         if (!cancelled) {
           setOverview(overviewResponse.overview)
+          setRevenue(revenueResponse.revenue)
           setUsers(userResponse.users)
           setOrders(orderResponse.orders)
           setMessages(messageResponse.messages)
@@ -93,7 +120,7 @@ export function AdminDashboardPage() {
     }
   }, [getAuthToken])
 
-  return <AdminDashboardHome error={error} loading={loading} messages={messages} muxStats={muxStats} orders={orders} overview={overview} users={users} />
+  return <AdminDashboardHome error={error} loading={loading} messages={messages} muxStats={muxStats} orders={orders} overview={overview} revenue={revenue} users={users} />
 }
 
 function AdminDashboardHome({
@@ -103,6 +130,7 @@ function AdminDashboardHome({
   muxStats,
   orders,
   overview,
+  revenue,
   users,
 }: {
   error: string | null
@@ -111,6 +139,7 @@ function AdminDashboardHome({
   muxStats: AdminMuxStats
   orders: AdminStripeRecord[]
   overview: AdminOverview
+  revenue: AdminStripeRevenueSummary
   users: AdminUserRecord[]
 }) {
   const { startSession } = useSession()
@@ -195,6 +224,46 @@ function AdminDashboardHome({
             label="Avg Video Watch Time"
             value={`${overview.averageVideoWatchTime} min`}
           />
+        </section>
+
+        <section className="rounded-[2rem] border border-white/12 bg-white/[0.05] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] backdrop-blur-2xl">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/60">
+                Stripe earnings
+              </p>
+              <h2 className="mt-3 text-2xl font-semibold text-white">Subscriber Revenue</h2>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
+                Gross paid invoice totals from Stripe across the key subscriber revenue windows.
+              </p>
+            </div>
+            <div className="rounded-full border border-emerald-200/20 bg-emerald-300/[0.08] px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100/80">
+              {revenue.configured ? `${revenue.paid_invoice_count} paid invoices` : 'Stripe not configured'}
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <AdminStatCard
+              detail={loading ? 'Loading Stripe earnings...' : 'Paid subscriber invoices in the past 24 hours.'}
+              label="Past 24 hours"
+              value={formatStripeMoney(revenue.last_24_hours_cents, revenue.currency)}
+            />
+            <AdminStatCard
+              detail={loading ? 'Loading Stripe earnings...' : 'Paid subscriber invoices in the past 7 days.'}
+              label="Past 7 days"
+              value={formatStripeMoney(revenue.last_7_days_cents, revenue.currency)}
+            />
+            <AdminStatCard
+              detail={loading ? 'Loading Stripe earnings...' : 'Paid subscriber invoices in the past 30 days.'}
+              label="Past 30 days"
+              value={formatStripeMoney(revenue.last_30_days_cents, revenue.currency)}
+            />
+            <AdminStatCard
+              detail={loading ? 'Loading Stripe earnings...' : 'All paid subscriber invoices recorded in Stripe.'}
+              label="All-time"
+              value={formatStripeMoney(revenue.all_time_cents, revenue.currency)}
+            />
+          </div>
         </section>
 
         <section className="rounded-[2rem] border border-white/12 bg-white/[0.05] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] backdrop-blur-2xl">
