@@ -75,11 +75,17 @@ export const RightControls: React.FC<RightControlsProps> = ({
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           activeOpacity={0.7}
         >
-          <Ionicons
-            name={!isMuted ? "volume-medium" : "volume-mute"}
-            size={24}
-            color="white"
-          />
+          {Platform.OS === "web" ? (
+            <Text style={styles.webVolumeIcon}>
+              {isMuted ? "🔇" : "🔊"}
+            </Text>
+          ) : (
+            <Ionicons
+              name={!isMuted ? "volume-medium" : "volume-mute"}
+              size={24}
+              color="white"
+            />
+          )}
         </TouchableOpacity>
         {Platform.OS !== "web" && (
           <Animated.View
@@ -182,6 +188,11 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: "rgba(255,255,255,0.2)",
     borderRadius: 20,
+  },
+  webVolumeIcon: {
+    color: "white",
+    fontSize: 20,
+    lineHeight: 22,
   },
   controlsContainer: {
     width: "100%",
