@@ -50,7 +50,9 @@ function SubscriberPlaceholderScreen() {
         <HamsaArtwork />
 
         <div className="rounded-[2rem] border border-white/10 bg-black/25 p-6 text-white shadow-[0_28px_90px_rgba(0,0,0,0.22)] backdrop-blur-2xl sm:p-8">
-          <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/80">REGEN Preview</p>
+          <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/80">
+            Available for REGEN Subscribers
+          </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[0.1em] text-white sm:text-5xl">
             HAMSA™
           </h1>
@@ -59,17 +61,29 @@ function SubscriberPlaceholderScreen() {
           </p>
           <div className="mt-6 space-y-4 text-sm leading-7 text-slate-300">
             <p>
-              HAMSA™ is being prepared for REGEN subscribers as a premium RAYD8®
-              environment. Playback, audio, session controls, and production entitlements
-              remain disabled while this surface stays in preview.
+              HAMSA™ is an immersive RAYD8® environment designed to support moments of
+              stillness, relaxation, meditation, and energetic balance through a focused
+              transcendental experience.
             </p>
             <p>
-              This placeholder preserves the visual preview without loading the HAMSA app,
-              media controllers, Mux playback, audio rails, or session engine.
+              Built upon the same foundational scalar and transcendental principles found
+              throughout the RAYD8 ecosystem, HAMSA introduces a unique hand-centered visual
+              environment designed to complement mindful rest, presence, and intentional
+              sessions.
+            </p>
+            <p>
+              Users can personalize their experience through multiple session modes, body
+              focus options, audio support, and adaptable pacing preferences — allowing
+              HAMSA™ to fit naturally into your daily wellness routine.
+            </p>
+            <p>
+              Whether used for quiet reflection, meditation, energetic restoration, or deep
+              relaxation, HAMSA™ offers a simple yet immersive way to experience RAYD8 in a
+              new format.
             </p>
           </div>
           <div className="mt-8 inline-flex rounded-full border border-emerald-200/20 bg-emerald-300/[0.08] px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100/80">
-            Subscriber Preview Only
+            Experience HAMSA™
           </div>
         </div>
       </section>
@@ -88,7 +102,9 @@ function LockedInfoScreen() {
         <HamsaArtwork />
 
         <div className="rounded-[2rem] border border-white/10 bg-black/25 p-6 text-white shadow-[0_28px_90px_rgba(0,0,0,0.22)] backdrop-blur-2xl sm:p-8">
-          <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/80">Upcoming Feature</p>
+          <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/80">
+            Available for REGEN Subscribers
+          </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[0.1em] text-white sm:text-5xl">
             HAMSA™
           </h1>
@@ -97,20 +113,25 @@ function LockedInfoScreen() {
           </p>
           <div className="mt-6 space-y-4 text-sm leading-7 text-slate-300">
             <p>
-              HAMSA™ combines the same scalar and transcendental energetic principles
-              found throughout the RAYD8® ecosystem, but applies them through an
-              advanced interactive field environment designed for deeper immersion,
-              stillness, and internal coherence.
+              HAMSA™ is an immersive RAYD8® environment designed to support moments of
+              stillness, relaxation, meditation, and energetic balance through a focused
+              transcendental experience.
             </p>
             <p>
-              Through sacred geometry-inspired interfaces, dynamic resonance systems,
-              and guided energetic harmonics, HAMSA™ is designed to support profound
-              states of calm, focus, meditation, regeneration, and expanded awareness.
+              Built upon the same foundational scalar and transcendental principles found
+              throughout the RAYD8 ecosystem, HAMSA introduces a unique hand-centered visual
+              environment designed to complement mindful rest, presence, and intentional
+              sessions.
             </p>
             <p>
-              Built upon the same foundational field architecture as Expansion,
-              Premium, and REGEN, HAMSA™ represents the next evolution of the RAYD8®
-              experience.
+              Users can personalize their experience through multiple session modes, body
+              focus options, audio support, and adaptable pacing preferences — allowing
+              HAMSA™ to fit naturally into your daily wellness routine.
+            </p>
+            <p>
+              Whether used for quiet reflection, meditation, energetic restoration, or deep
+              relaxation, HAMSA™ offers a simple yet immersive way to experience RAYD8 in a
+              new format.
             </p>
           </div>
         </div>
@@ -131,7 +152,7 @@ function LockedInfoScreen() {
             onClick={() => void navigateToUpgrade()}
             type="button"
           >
-            Upgrade to REGEN
+            Experience HAMSA™
           </button>
         </div>
       </section>
