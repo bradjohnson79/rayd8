@@ -3,6 +3,7 @@ import { immersiveDashboardOutletScrollClassName } from '../dashboard/immersiveD
 import { useAuthUser } from '../dashboard/useAuthUser'
 
 const HAMSA_PREP_IMAGE = '/hamsa/hamsa-prep.png'
+const HAMSA_APP_URL = '/hamsa-app/'
 
 const featureCallouts = [
   'Scalar & transcendental resonance technology',
@@ -43,52 +44,28 @@ function FeatureCallouts() {
   )
 }
 
-function SubscriberPlaceholderScreen() {
+function HamsaLaunchScreen() {
   return (
-    <div className="space-y-8 px-4 py-6 sm:px-6 lg:px-8">
-      <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.9fr)] lg:items-center">
-        <HamsaArtwork />
-
-        <div className="rounded-[2rem] border border-white/10 bg-black/25 p-6 text-white shadow-[0_28px_90px_rgba(0,0,0,0.22)] backdrop-blur-2xl sm:p-8">
-          <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/80">
-            Available for REGEN Subscribers
-          </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-[0.1em] text-white sm:text-5xl">
-            HAMSA™
+    <div className="flex min-h-[100dvh] flex-col bg-black text-white">
+      <header className="flex flex-col gap-3 border-b border-white/10 bg-black/50 px-4 py-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div>
+          <p className="text-xs uppercase tracking-[0.32em] text-fuchsia-200/80">HAMSA™</p>
+          <h1 className="mt-2 text-lg font-semibold tracking-[0.12em] text-white">
+            Virtual Healing Hand
           </h1>
-          <p className="mt-4 text-xl leading-8 text-fuchsia-100">
-            A next-generation transcendental field experience.
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-300">
+            Included with active REGEN access. HAMSA runs independently from RAYD8
+            playback sessions, Mux streaming, and time-limit systems.
           </p>
-          <div className="mt-6 space-y-4 text-sm leading-7 text-slate-300">
-            <p>
-              HAMSA™ is an immersive RAYD8® environment designed to support moments of
-              stillness, relaxation, meditation, and energetic balance through a focused
-              transcendental experience.
-            </p>
-            <p>
-              Built upon the same foundational scalar and transcendental principles found
-              throughout the RAYD8 ecosystem, HAMSA introduces a unique hand-centered visual
-              environment designed to complement mindful rest, presence, and intentional
-              sessions.
-            </p>
-            <p>
-              Users can personalize their experience through multiple session modes, body
-              focus options, audio support, and adaptable pacing preferences — allowing
-              HAMSA™ to fit naturally into your daily wellness routine.
-            </p>
-            <p>
-              Whether used for quiet reflection, meditation, energetic restoration, or deep
-              relaxation, HAMSA™ offers a simple yet immersive way to experience RAYD8 in a
-              new format.
-            </p>
-          </div>
-          <div className="mt-8 inline-flex rounded-full border border-emerald-200/20 bg-emerald-300/[0.08] px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100/80">
-            Experience HAMSA™
-          </div>
         </div>
-      </section>
+      </header>
 
-      <FeatureCallouts />
+      <iframe
+        allow="autoplay; fullscreen; clipboard-read; clipboard-write; screen-wake-lock"
+        className="block min-h-[42rem] w-full flex-1 border-0 bg-black"
+        src={HAMSA_APP_URL}
+        title="HAMSA virtual healing hand"
+      />
     </div>
   )
 }
@@ -177,7 +154,7 @@ export function HamsaRoutePage() {
           className="pointer-events-none absolute inset-x-0 top-0 z-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent"
         />
         <div className="relative z-10">
-          {hasHamsaAccess ? <SubscriberPlaceholderScreen /> : <LockedInfoScreen />}
+          {hasHamsaAccess ? <HamsaLaunchScreen /> : <LockedInfoScreen />}
         </div>
       </div>
     </div>
