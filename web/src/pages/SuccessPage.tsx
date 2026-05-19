@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Rayd8Background } from '../components/Rayd8Background'
 import { verifyBillingSession } from '../services/billing'
+import { trackRewardfulConversion } from '../services/rewardful'
 import { trackUmamiEvent } from '../services/umami'
 
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
@@ -13,16 +14,19 @@ export function SuccessPage() {
   const { user } = useUser()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const [statusMessage, setStatusMessage] = useState('Finalizing your subscription...')
+  const sessionId = searchParams.get('session_id')
+  const [statusMessage, setStatusMessage] = useState(() =>
+    sessionId
+      ? 'Finalizing your subscription...'
+      : 'Missing session ID. Return to subscription and try checkout again.',
+  )
   const [verificationState, setVerificationState] = useState<'idle' | 'verifying' | 'done' | 'error'>(
     'idle',
   )
   const [authPromptOpened, setAuthPromptOpened] = useState(false)
-  const sessionId = searchParams.get('session_id')
 
   useEffect(() => {
     if (!sessionId) {
-      setStatusMessage('Missing session ID. Return to subscription and try checkout again.')
       return
     }
 
@@ -31,7 +35,6 @@ export function SuccessPage() {
     }
 
     if (clerkEnabled && !isLoaded) {
-      setStatusMessage('Restoring your sign-in so we can finalize your subscription...')
       return
     }
 
@@ -63,12 +66,19 @@ export function SuccessPage() {
       }
 
       try {
-        await verifyBillingSession(verifiedSessionId, token)
+        const verification = await verifyBillingSession(verifiedSessionId, token)
         await user?.reload()
         trackUmamiEvent('subscription_started', {
           location: 'success_page',
           plan: 'regen',
         })
+
+        if (verification.rewardfulConversionEligible && verification.stripeCustomerEmail) {
+          trackRewardfulConversion({
+            email: verification.stripeCustomerEmail,
+            sessionId: verifiedSessionId,
+          })
+        }
 
         if (!cancelled) {
           setVerificationState('done')
@@ -94,6 +104,11 @@ export function SuccessPage() {
     }
   }, [authPromptOpened, getToken, isLoaded, isSignedIn, navigate, openSignIn, sessionId, user, verificationState])
 
+  const displayStatusMessage =
+    sessionId && clerkEnabled && !isLoaded
+      ? 'Restoring your sign-in so we can finalize your subscription...'
+      : statusMessage
+
   return (
     <Rayd8Background intensity="low" variant="landing">
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
@@ -102,7 +117,7 @@ export function SuccessPage() {
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
             Completing your subscription access
           </h1>
-          <p className="mt-5 text-base leading-8 text-slate-300">{statusMessage}</p>
+          <p className="mt-5 text-base leading-8 text-slate-300">{displayStatusMessage}</p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link

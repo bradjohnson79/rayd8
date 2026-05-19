@@ -59,7 +59,9 @@ export async function verifyBillingSession(sessionId: string, token: string) {
   return apiRequest<{
     alreadyProcessed: boolean
     plan: 'regen'
+    rewardfulConversionEligible: boolean
     status: 'active'
+    stripeCustomerEmail: string | null
   }>(
     '/v1/billing/verify-session',
     {

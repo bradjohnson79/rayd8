@@ -446,6 +446,33 @@ function getCheckoutSessionContext(session: Stripe.Checkout.Session) {
   }
 }
 
+function getCheckoutSessionCustomerEmail(session: Stripe.Checkout.Session) {
+  const customerRecord =
+    typeof session.customer === 'string' ? null : asRecord(session.customer)
+
+  return (
+    session.customer_details?.email ??
+    session.customer_email ??
+    (typeof customerRecord?.email === 'string' ? customerRecord.email : null)
+  )
+}
+
+function getRewardfulConversionDetails(session: Stripe.Checkout.Session) {
+  const sessionContext = getCheckoutSessionContext(session)
+  const stripeCustomerEmail = getCheckoutSessionCustomerEmail(session)
+  const rewardfulConversionEligible = Boolean(
+    sessionContext?.plan === 'regen' &&
+      session.status === 'complete' &&
+      session.payment_status === 'paid' &&
+      stripeCustomerEmail,
+  )
+
+  return {
+    rewardfulConversionEligible,
+    stripeCustomerEmail: rewardfulConversionEligible ? stripeCustomerEmail : null,
+  }
+}
+
 export async function upsertUserSubscription(input: {
   cancelAtPeriodEnd?: boolean
   clerkUserId: string
@@ -1244,7 +1271,7 @@ export async function verifyCheckoutSession(input: {
   }
 
   const checkoutSession = await stripeClient.checkout.sessions.retrieve(input.sessionId, {
-    expand: ['subscription'],
+    expand: ['customer', 'subscription'],
   })
   const sessionContext = getCheckoutSessionContext(checkoutSession)
 
@@ -1271,6 +1298,7 @@ export async function verifyCheckoutSession(input: {
   return {
     alreadyProcessed,
     plan: sessionContext.plan,
+    ...getRewardfulConversionDetails(checkoutSession),
     status: 'active' as const,
   }
 }
