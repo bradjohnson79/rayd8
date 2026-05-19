@@ -28,6 +28,7 @@ const adminItems = [
 const globalPlayerItems = [
   { label: 'Global Players', to: '/admin/global-players' },
   ...ADMIN_GLOBAL_PLAYERS.map((player) => ({ label: player.label, to: player.route })),
+  { label: 'RAYD8 Hamsa', to: '/admin/hamsa' },
 ]
 
 const contactItems = [{ label: 'Contact Admin', to: '/contact' }]

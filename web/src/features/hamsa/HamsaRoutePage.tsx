@@ -60,7 +60,7 @@ function detectHamsaAppUrl() {
   return isTabletOrMobile ? HAMSA_MOBILE_APP_URL : HAMSA_APP_URL
 }
 
-function HamsaLaunchScreen() {
+export function HamsaLaunchScreen() {
   const [hamsaSrc] = useState(detectHamsaAppUrl)
 
   return (
@@ -176,7 +176,7 @@ function LockedInfoScreen() {
 export function HamsaRoutePage() {
   const user = useAuthUser()
 
-  const hasHamsaAccess = user.plan === 'regen' || user.plan === 'amrita' || user.role === 'admin'
+  const hasHamsaAccess = user.plan === 'regen' || user.plan === 'amrita'
 
   return (
     <div className={immersiveDashboardOutletScrollClassName}>

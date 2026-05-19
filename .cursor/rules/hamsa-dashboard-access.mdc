@@ -1,0 +1,15 @@
+---
+description: Mandatory HAMSA dashboard access guardrails
+globs: web/src/features/hamsa/**/*.tsx,web/src/features/dashboard/**/*.tsx,web/src/app/router.tsx
+alwaysApply: false
+---
+
+# HAMSA Dashboard Access
+
+- The actual HAMSA app iframe must never be embedded in the FREE Dashboard, including localhost.
+- Localhost must mirror production access behavior.
+- The FREE Dashboard HAMSA route must show the preview/locked marketing page only.
+- Only REGEN/AMRITA dashboard users may load the actual HAMSA app iframe.
+- Do not use `admin` role as a bypass for HAMSA app access. Admin tooling access is separate from HAMSA entitlement.
+- Admin Dashboard may expose the actual HAMSA app only through a dedicated admin testing route, never by bypassing the FREE/member dashboard HAMSA gate.
+- Do not change REGEN/free trial gating or entitlement behavior when working on HAMSA layout, iframe, mobile/desktop switching, or fullscreen behavior.
