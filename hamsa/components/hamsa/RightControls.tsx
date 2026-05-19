@@ -25,6 +25,37 @@ interface RightControlsProps {
   isPlaying: boolean;
 }
 
+function SpeakerIcon({ muted }: { muted: boolean }) {
+  return React.createElement(
+    "svg",
+    {
+      height: 24,
+      viewBox: "0 0 24 24",
+      width: 24,
+      xmlns: "http://www.w3.org/2000/svg",
+    },
+    React.createElement("path", {
+      d: "M4 9.5v5h4l5 4v-13l-5 4H4Z",
+      fill: "white",
+    }),
+    muted
+      ? React.createElement("path", {
+          d: "M17 9l4 4m0-4-4 4",
+          fill: "none",
+          stroke: "white",
+          strokeLinecap: "round",
+          strokeWidth: 2,
+        })
+      : React.createElement("path", {
+          d: "M16 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12",
+          fill: "none",
+          stroke: "white",
+          strokeLinecap: "round",
+          strokeWidth: 2,
+        }),
+  );
+}
+
 export const RightControls: React.FC<RightControlsProps> = ({
   mode,
   setMode,
@@ -75,11 +106,15 @@ export const RightControls: React.FC<RightControlsProps> = ({
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           activeOpacity={0.7}
         >
-          <Ionicons
-            name={!isMuted ? "volume-medium" : "volume-mute"}
-            size={24}
-            color="white"
-          />
+          {Platform.OS === "web" ? (
+            <SpeakerIcon muted={isMuted} />
+          ) : (
+            <Ionicons
+              name={!isMuted ? "volume-medium" : "volume-mute"}
+              size={24}
+              color="white"
+            />
+          )}
         </TouchableOpacity>
         {Platform.OS !== "web" && (
           <Animated.View
