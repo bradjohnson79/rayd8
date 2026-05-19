@@ -112,6 +112,18 @@ const HamsaHealingScreen = () => {
     await document.documentElement.requestFullscreen();
   };
 
+  const requestFullscreenSafe = async () => {
+    if (!isWeb || typeof document === "undefined" || document.fullscreenElement) {
+      return;
+    }
+
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch {
+      // Fullscreen can be blocked by the browser; START should still work.
+    }
+  };
+
   const lockMobileLandscape = async () => {
     if (!isMobileWeb || typeof document === "undefined") {
       return;
@@ -129,6 +141,7 @@ const HamsaHealingScreen = () => {
 
   const handleStart = async () => {
     if (!isPlaying) {
+      await requestFullscreenSafe();
       await lockMobileLandscape();
     }
 

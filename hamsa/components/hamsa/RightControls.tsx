@@ -15,7 +15,6 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
-import Svg, { Path } from "react-native-svg";
 import { APP_URL, Mode, SHARE_MESSAGES } from "../../constants/hamsa";
 
 interface RightControlsProps {
@@ -24,42 +23,6 @@ interface RightControlsProps {
   isMuted: boolean;
   toggleMute: () => void;
   isPlaying: boolean;
-}
-
-function SpeakerIcon({ muted }: { muted: boolean }) {
-  return (
-    <Svg
-      height={24}
-      pointerEvents="none"
-      viewBox="0 0 24 24"
-      width={24}
-    >
-      <Path
-        d="M4 9.5v5h4l5 4v-13l-5 4H4Z"
-        fill="white"
-        pointerEvents="none"
-      />
-      {muted ? (
-        <Path
-          d="M17 9l4 4m0-4-4 4"
-          fill="none"
-          pointerEvents="none"
-          stroke="white"
-          strokeLinecap="round"
-          strokeWidth={2}
-        />
-      ) : (
-        <Path
-          d="M16 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"
-          fill="none"
-          pointerEvents="none"
-          stroke="white"
-          strokeLinecap="round"
-          strokeWidth={2}
-        />
-      )}
-    </Svg>
-  );
 }
 
 export const RightControls: React.FC<RightControlsProps> = ({
@@ -112,15 +75,11 @@ export const RightControls: React.FC<RightControlsProps> = ({
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           activeOpacity={0.7}
         >
-          {Platform.OS === "web" ? (
-            <SpeakerIcon muted={isMuted} />
-          ) : (
-            <Ionicons
-              name={!isMuted ? "volume-medium" : "volume-mute"}
-              size={24}
-              color="white"
-            />
-          )}
+          <Ionicons
+            name={!isMuted ? "volume-medium" : "volume-mute"}
+            size={24}
+            color="white"
+          />
         </TouchableOpacity>
         {Platform.OS !== "web" && (
           <Animated.View
