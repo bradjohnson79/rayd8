@@ -1,0 +1,29 @@
+{
+  "cli": {
+    "version": ">= 3.16.0"
+  },
+  "build": {
+    "internal": {
+      "android": {
+        "buildType": "apk"
+      },
+      "distribution": "internal",
+      "autoIncrement": "versionCode",
+      "developmentClient": false
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "distribution": "store",
+      "autoIncrement": "versionCode"
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "track": "alpha"
+      }
+    }
+  }
+}

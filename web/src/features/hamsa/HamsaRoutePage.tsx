@@ -1,9 +1,12 @@
+import { useState } from 'react'
+
 import { useUpgradeNavigation } from '../auth/useUpgradeNavigation'
 import { immersiveDashboardOutletScrollClassName } from '../dashboard/immersiveDashboardOutlet'
 import { useAuthUser } from '../dashboard/useAuthUser'
 
 const HAMSA_PREP_IMAGE = '/hamsa/hamsa-prep.png'
 const HAMSA_APP_URL = '/hamsa-app/'
+const HAMSA_MOBILE_APP_URL = '/hamsa-mobile-app/'
 
 const featureCallouts = [
   'Scalar & transcendental resonance technology',
@@ -44,10 +47,25 @@ function FeatureCallouts() {
   )
 }
 
+function detectHamsaAppUrl() {
+  if (typeof window === 'undefined') {
+    return HAMSA_APP_URL
+  }
+
+  const isTouch =
+    window.matchMedia?.('(pointer: coarse)').matches ||
+    window.navigator.maxTouchPoints > 0
+  const isTabletOrMobile = window.innerWidth < 1200 && isTouch
+
+  return isTabletOrMobile ? HAMSA_MOBILE_APP_URL : HAMSA_APP_URL
+}
+
 function HamsaLaunchScreen() {
+  const [hamsaSrc] = useState(detectHamsaAppUrl)
+
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-black text-white">
-      <header className="flex flex-col gap-3 border-b border-white/10 bg-black/50 px-4 py-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-6">
+    <div className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden bg-black text-white">
+      <header className="shrink-0 border-b border-white/10 bg-black/50 px-4 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
         <div>
           <p className="text-xs uppercase tracking-[0.32em] text-fuchsia-200/80">HAMSA™</p>
           <h1 className="mt-2 text-lg font-semibold tracking-[0.12em] text-white">
@@ -60,12 +78,30 @@ function HamsaLaunchScreen() {
         </div>
       </header>
 
-      <iframe
-        allow="autoplay; fullscreen; clipboard-read; clipboard-write; screen-wake-lock"
-        className="block min-h-[42rem] w-full flex-1 border-0 bg-black"
-        src={HAMSA_APP_URL}
-        title="HAMSA virtual healing hand"
-      />
+      <main
+        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black"
+        style={{
+          paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+          paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+          paddingRight: 'max(1rem, env(safe-area-inset-right))',
+          paddingTop: 'max(1rem, env(safe-area-inset-top))',
+        }}
+      >
+        <div
+          className="aspect-[16/9] max-h-full max-w-full overflow-hidden bg-black"
+          style={{
+            width:
+              'min(100%, calc((100dvh - 8.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 16 / 9))',
+          }}
+        >
+          <iframe
+            allow="autoplay; fullscreen; clipboard-read; clipboard-write; screen-wake-lock"
+            className="block h-full w-full border-0 bg-black"
+            src={hamsaSrc}
+            title="HAMSA virtual healing hand"
+          />
+        </div>
+      </main>
     </div>
   )
 }
