@@ -20,6 +20,7 @@ import {
 } from './PlayerSessionStatusOverlays'
 import { VideoSurface } from './VideoSurface'
 import { acquireBodyScrollLock } from './bodyScrollLock'
+import { isMobilePlaybackRefactorEnabled } from './mobilePlaybackFeatureFlag'
 import {
   formatRuntimeClock,
   formatRuntimeLimit,
@@ -83,6 +84,9 @@ import {
   shouldTriggerSessionWarning,
   type SessionPlaybackStatus,
 } from './sessionWarning'
+import { useMobilePlaybackLifecycle } from './useMobilePlaybackLifecycle'
+import { useRayd8Fullscreen } from './useRayd8Fullscreen'
+import { useWakeLock } from './useWakeLock'
 
 const FALLBACK_PLAYBACK_PRESENTATION: PlaybackPresentationSnapshot = {
   interactionOverlayVisible: false,
@@ -213,6 +217,7 @@ const PLAYER_CHROME_IDLE_MS = 2200
 const DEFAULT_BRIGHTNESS_PERCENT = 100
 const FREEZE_CHECK_INTERVAL_MS = 1000
 const FREEZE_THRESHOLD = 12
+const MOBILE_FREEZE_THRESHOLD = 15
 const RECOVERY_COOLDOWN_MS = 30_000
 const BUFFER_HEALTH_CHECK_MS = 60_000
 /** Refresh Mux signed URLs this long before JWT expiry so playback never hits 403 mid-stream. */
@@ -503,6 +508,7 @@ export function Rayd8PlayerEngine({
   const pendingBrightnessPercentRef = useRef(DEFAULT_BRIGHTNESS_PERCENT)
   const mobileViewportRef = useRef(isMobileViewport())
   const tabletViewportRef = useRef(isTabletViewport())
+  const orientationSettlingRef = useRef(false)
   const systemPausedRef = useRef(false)
   const playbackStateRef = useRef<SessionPlaybackStatus>('preloading')
   const singleAvAudioActiveRef = useRef(false)
@@ -518,7 +524,6 @@ export function Rayd8PlayerEngine({
   const [activePanel, setActivePanel] = useState<ControlPanel>(null)
   const [manualGuideOpen, setManualGuideOpen] = useState(false)
   const [manualGuideClosing, setManualGuideClosing] = useState(false)
-  const [isFullscreen, setIsFullscreen] = useState(false)
   const [showExitHint, setShowExitHint] = useState(false)
   const [chromeVisible, setChromeVisible] = useState(true)
   const [brightnessPercent, setBrightnessPercent] = useState(DEFAULT_BRIGHTNESS_PERCENT)
@@ -535,6 +540,7 @@ export function Rayd8PlayerEngine({
   )
 
   const playbackMode = isAdminPreview ? 'admin' : 'member'
+  const mobilePlaybackRefactorEnabled = isMobilePlaybackRefactorEnabled()
   const shouldUsePlaybackStability = true
   const smoothPlaybackMode = useMemo(
     () =>
@@ -607,16 +613,27 @@ export function Rayd8PlayerEngine({
     [mobileViewport, smoothPlaybackMode, tabletViewport],
   )
   const playbackStabilityProfileRef = useRef(playbackStabilityProfile)
-  const fitMode = mobileViewport || tabletViewport ? 'contain' : 'cover'
-  const pseudoFullscreenViewport = mobileViewport || tabletViewport
-  const isPseudoFullscreen = isFullscreen && pseudoFullscreenViewport
+  const touchLikeFullscreenViewport = mobileViewport || tabletViewport
+  const fitMode = touchLikeFullscreenViewport ? 'contain' : 'cover'
+  const {
+    exitFullscreen,
+    isAppShellFullscreen,
+    isFullscreen,
+    toggleFullscreen,
+  } = useRayd8Fullscreen({
+    enabled: mobilePlaybackRefactorEnabled,
+    playerRootRef,
+    touchLikeViewport: touchLikeFullscreenViewport,
+    videoRef: primaryVideoRef,
+  })
+  const isPseudoFullscreen = isAppShellFullscreen
   const isPreloading = playbackPresentation.legacyPlaybackState === 'preloading'
   const isRecovering = playbackPresentation.legacyPlaybackState === 'recovering'
   const interactionRequired = playbackPresentation.interactionOverlayVisible
   const isVideoLoading = isPreloading || isRecovering
   const topChromeInset = smallScreenViewport ? 12 : 16
   const bottomChromeInset = smallScreenViewport ? 20 : 24
-  const fullscreenExitHintLabel = pseudoFullscreenViewport
+  const fullscreenExitHintLabel = touchLikeFullscreenViewport
     ? 'Double-tap to exit full screen'
     : 'Press Esc to exit full screen'
   const sessionHeading = useMemo(() => {
@@ -830,17 +847,6 @@ export function Rayd8PlayerEngine({
     }
   }, [activePanel])
 
-  const exitFullscreen = useCallback(async () => {
-    if (pseudoFullscreenViewport) {
-      setIsFullscreen(false)
-      return
-    }
-
-    if (document.fullscreenElement) {
-      await document.exitFullscreen()
-    }
-  }, [pseudoFullscreenViewport])
-
   const handleUpgradeNavigation = useCallback(async () => {
     await exitFullscreen()
     onClose()
@@ -868,52 +874,6 @@ export function Rayd8PlayerEngine({
       manualGuideTimerRef.current = null
     }, GUIDE_MODAL_TRANSITION_MS)
   }, [experience])
-
-  const toggleFullscreen = useCallback(async () => {
-    const playerRoot = playerRootRef.current
-
-    if (!playerRoot) {
-      return
-    }
-
-    if (pseudoFullscreenViewport) {
-      setIsFullscreen((currentValue) => !currentValue)
-      return
-    }
-
-    if (document.fullscreenElement === playerRoot) {
-      await document.exitFullscreen()
-      return
-    }
-
-    if (document.fullscreenElement) {
-      await document.exitFullscreen()
-    }
-
-    await playerRoot.requestFullscreen()
-  }, [pseudoFullscreenViewport])
-
-  useEffect(() => {
-    const syncFullscreenState = () => {
-      if (pseudoFullscreenViewport) {
-        return
-      }
-
-      setIsFullscreen(document.fullscreenElement === playerRootRef.current)
-    }
-
-    const removeFullscreenListener = addTrackedDomEventListener(
-      document,
-      'fullscreenchange',
-      syncFullscreenState,
-      'document:fullscreenchange',
-    )
-    syncFullscreenState()
-
-    return () => {
-      removeFullscreenListener()
-    }
-  }, [pseudoFullscreenViewport])
 
   useEffect(() => {
     const handleEscapeFullscreen = (event: KeyboardEvent) => {
@@ -976,7 +936,7 @@ export function Rayd8PlayerEngine({
   useEffect(() => {
     if (isFullscreen && !previousFullscreenRef.current) {
       pingChromeVisibility()
-      showFullscreenExitHint(pseudoFullscreenViewport)
+      showFullscreenExitHint(touchLikeFullscreenViewport)
     }
 
     if (!isFullscreen && previousFullscreenRef.current) {
@@ -985,13 +945,7 @@ export function Rayd8PlayerEngine({
     }
 
     previousFullscreenRef.current = isFullscreen
-  }, [isFullscreen, pingChromeVisibility, pseudoFullscreenViewport, showFullscreenExitHint])
-
-  useEffect(() => {
-    if (!pseudoFullscreenViewport && isFullscreen && document.fullscreenElement !== playerRootRef.current) {
-      setIsFullscreen(false)
-    }
-  }, [isFullscreen, pseudoFullscreenViewport])
+  }, [isFullscreen, pingChromeVisibility, touchLikeFullscreenViewport, showFullscreenExitHint])
 
   const handlePseudoFullscreenSurfacePointerUp = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -1147,6 +1101,22 @@ export function Rayd8PlayerEngine({
         !systemPausedRef.current,
     )
   }, [])
+
+  useWakeLock({
+    enabled: mobilePlaybackRefactorEnabled,
+    playbackState: playbackPresentation.legacyPlaybackState,
+    systemPausedRef,
+    title: sessionHeading.title,
+    videoRef: primaryVideoRef,
+  })
+
+  useMobilePlaybackLifecycle({
+    enabled: mobilePlaybackRefactorEnabled && touchLikeFullscreenViewport,
+    getVideoElement,
+    orientationSettlingRef,
+    playbackAuthority,
+    shouldVideoBePlaying,
+  })
 
   const runVideoMajorRecovery = useCallback(
     async (reason: 'stalled' | 'error'): Promise<boolean> => {
@@ -1552,7 +1522,7 @@ export function Rayd8PlayerEngine({
         return
       }
 
-      if (!shouldVideoBePlaying(activeVideo) || activeVideo.paused) {
+      if (!shouldVideoBePlaying(activeVideo) || activeVideo.paused || orientationSettlingRef.current) {
         freezeCounterRef.current = 0
         lastObservedVideoTimeRef.current = activeVideo?.currentTime ?? null
         return
@@ -1567,8 +1537,12 @@ export function Rayd8PlayerEngine({
         isPlaybackStallCorroborated(activeVideo)
       ) {
         freezeCounterRef.current += 1
+        const freezeThreshold =
+          mobilePlaybackRefactorEnabled && (mobileViewportRef.current || tabletViewportRef.current)
+            ? MOBILE_FREEZE_THRESHOLD
+            : FREEZE_THRESHOLD
 
-        if (freezeCounterRef.current >= FREEZE_THRESHOLD) {
+        if (freezeCounterRef.current >= freezeThreshold) {
           playbackAuthority?.dispatch({ type: 'video_persistent_freeze', reason: 'stalled' })
         }
       } else {
@@ -1583,6 +1557,7 @@ export function Rayd8PlayerEngine({
     }
   }, [
     getVideoElement,
+    mobilePlaybackRefactorEnabled,
     playbackAuthority,
     playbackScheduler,
     shouldUsePlaybackStability,
@@ -1702,6 +1677,7 @@ export function Rayd8PlayerEngine({
       if (
         activeVideo &&
         shouldVideoBePlaying(activeVideo) &&
+        !orientationSettlingRef.current &&
         activeVideo.readyState < HTMLMediaElement.HAVE_FUTURE_DATA
       ) {
         playbackAuthority?.dispatch({ type: 'video_persistent_freeze', reason: 'buffer_health' })
@@ -1779,28 +1755,6 @@ export function Rayd8PlayerEngine({
       }
     }
   }, [audioError, playbackAuthority])
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        playbackAuthority?.dispatch({ type: 'tab_hidden' })
-        return
-      }
-
-      playbackAuthority?.dispatch({ type: 'tab_visible' })
-    }
-
-    const removeVisibilityListener = addTrackedDomEventListener(
-      document,
-      'visibilitychange',
-      handleVisibilityChange,
-      'document:visibilitychange',
-    )
-
-    return () => {
-      removeVisibilityListener()
-    }
-  }, [playbackAuthority])
 
   const handleResumePlayback = useCallback(() => {
     resetSessionContinuityTimer()
@@ -1948,6 +1902,7 @@ export function Rayd8PlayerEngine({
       >
         <VideoSurface
           brightnessPercent={brightnessPercent}
+          enforceWidescreen={mobilePlaybackRefactorEnabled}
           fitMode={fitMode}
           onPointerUp={handleVideoSurfacePointerUp}
           performanceMode={performancePresentationMode}

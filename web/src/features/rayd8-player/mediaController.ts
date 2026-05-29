@@ -47,6 +47,12 @@ export async function setMediaSource(input: {
     return false
   }
 
+  const currentSource = media.currentSrc || media.getAttribute('src')
+
+  if (currentSource === sourceUrl && (!controllerRef.current || controllerProfileRef?.current === profileKey)) {
+    return true
+  }
+
   if (options?.pauseBeforeLoad ?? true) {
     media.pause()
   }

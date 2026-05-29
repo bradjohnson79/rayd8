@@ -7,6 +7,9 @@ declare global {
 }
 
 const RAYD8_UMAMI_WEBSITE_ID = '012f9848-b387-4594-a1e6-69fc2ac354aa'
+const MAX_PENDING_EVENTS = 20
+const pendingEvents: Array<{ eventData?: Record<string, unknown>; eventName: string }> = []
+const trackedOnceEvents = new Set<string>()
 
 function getUmamiScriptUrl() {
   const baseUrl = import.meta.env.VITE_UMAMI_BASE_URL?.trim() || 'https://cloud.umami.is'
@@ -21,6 +24,29 @@ function hasExistingUmamiScript() {
     document.querySelector('script[data-r8-umami="true"]') ||
       document.querySelector('script[src*="umami"][data-website-id]'),
   )
+}
+
+function scheduleIdle(callback: () => void) {
+  if (window.requestIdleCallback) {
+    window.requestIdleCallback(callback, { timeout: 4000 })
+    return
+  }
+
+  window.setTimeout(callback, 1500)
+}
+
+function flushPendingEvents() {
+  if (!window.umami) {
+    return
+  }
+
+  while (pendingEvents.length > 0) {
+    const event = pendingEvents.shift()
+
+    if (event) {
+      window.umami.track(event.eventName, event.eventData)
+    }
+  }
 }
 
 export function initializeUmami() {
@@ -45,18 +71,19 @@ export function initializeUmami() {
     script.src = getUmamiScriptUrl()
     script.setAttribute('data-website-id', websiteId)
     script.setAttribute('data-r8-umami', 'true')
+    script.addEventListener('load', flushPendingEvents, { once: true })
     document.head.appendChild(script)
   }
 
   if (document.readyState === 'complete') {
-    window.requestIdleCallback?.(injectUmami, { timeout: 4000 }) ?? window.setTimeout(injectUmami, 1500)
+    scheduleIdle(injectUmami)
     return
   }
 
   window.addEventListener(
     'load',
     () => {
-      window.requestIdleCallback?.(injectUmami, { timeout: 4000 }) ?? window.setTimeout(injectUmami, 1500)
+      scheduleIdle(injectUmami)
     },
     { once: true },
   )
@@ -67,7 +94,27 @@ export function trackUmamiEvent(eventName: string, eventData?: Record<string, un
     return
   }
 
-  window.umami?.track(eventName, eventData)
+  if (window.umami) {
+    window.umami.track(eventName, eventData)
+    return
+  }
+
+  if (pendingEvents.length < MAX_PENDING_EVENTS) {
+    pendingEvents.push({ eventData, eventName })
+  }
+}
+
+export function trackUmamiEventOnce(
+  eventName: string,
+  eventData?: Record<string, unknown>,
+  dedupeKey = eventName,
+) {
+  if (trackedOnceEvents.has(dedupeKey)) {
+    return
+  }
+
+  trackedOnceEvents.add(dedupeKey)
+  trackUmamiEvent(eventName, eventData)
 }
 
 export {}

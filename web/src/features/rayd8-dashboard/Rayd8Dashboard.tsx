@@ -2,6 +2,7 @@ import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode
@@ -39,6 +40,7 @@ import { getUsage, type UsageResponse } from '../../services/usage'
 import { immersiveDashboardOutletScrollClassName } from '../dashboard/immersiveDashboardOutlet'
 import { useTrialStatus } from '../dashboard/useTrialStatus'
 import { useSession } from '../session/SessionProvider'
+import { Rayd8ExpressInstallCard } from './Rayd8ExpressInstallCard'
 
 interface Rayd8DashboardProps {
   adminAccessMode?: boolean
@@ -370,10 +372,13 @@ function MemberDashboardLaunchpad({
         : regenAllowed
         ? 'Start Session'
         : 'Upgrade to REGEN'
-  const sessionStartOptions =
-    adminAccessActive || (isPreviewMode && user?.role === 'admin')
-      ? { source: 'admin' as const }
-      : undefined
+  const sessionStartOptions = useMemo(
+    () =>
+      adminAccessActive || (isPreviewMode && user?.role === 'admin')
+        ? { source: 'admin' as const }
+        : undefined,
+    [adminAccessActive, isPreviewMode, user?.role],
+  )
   const visibleExperiences = adminExperience ? [adminExperience] : DASHBOARD_EXPERIENCES
 
   const startAdminSession = useCallback(
@@ -754,51 +759,49 @@ function MemberDashboardLaunchpad({
     <div className={immersiveDashboardOutletScrollClassName} id="member-dashboard-scroll">
       <MemberAccountCluster effectivePlan={effectivePlan} user={user} />
       {adminAccessActive ? <AdminAccessModeBadge label={adminModeLabel} /> : null}
-      {!adminAccessActive && !isPreviewMode && trialStatus?.plan === 'free_trial' ? (
-        <div className="relative z-20 mx-auto max-w-7xl px-4 pt-24 sm:px-6 sm:pt-28 lg:px-8">
-          <div
-            className={[
-              'rounded-[1.6rem] border px-5 py-4 shadow-[0_18px_60px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:px-6',
-              getTrialBannerTone(trialStatus.notification?.level),
-            ].join(' ')}
-          >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/70">
-                  Free Trial Status
-                </p>
-                <p className="mt-2 text-base font-medium text-white sm:text-lg">
-                  {trialStatus.notification?.message ?? 'Your free trial is active.'}
-                </p>
-                <p className="mt-2 text-sm text-slate-200/85">
-                  {typeof trialStatus.days_remaining === 'number'
-                    ? `${trialStatus.days_remaining} day${trialStatus.days_remaining === 1 ? '' : 's'} remaining`
-                    : 'Trial countdown unavailable'}
-                  {formatTrialHours(trialStatus.hours_remaining)
-                    ? ` • ${formatTrialHours(trialStatus.hours_remaining)}`
-                    : ''}
-                </p>
-              </div>
-
-              <button
-                className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-5 py-3 text-sm font-medium text-white shadow-[0_16px_45px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
-                onClick={() => void navigateToUpgrade()}
-                type="button"
+      {!adminAccessActive && !isPreviewMode ? (
+        <div className="relative z-20 mx-auto max-w-7xl px-4 pt-[calc(6rem+env(safe-area-inset-top))] sm:px-6 sm:pt-[calc(7rem+env(safe-area-inset-top))] lg:px-8">
+          <div className="grid gap-5 sm:gap-6">
+            <Rayd8ExpressInstallCard />
+            {trialStatus?.plan === 'free_trial' ? (
+              <div
+                className={[
+                  'rounded-[1.6rem] border px-5 py-4 shadow-[0_18px_60px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:px-6',
+                  getTrialBannerTone(trialStatus.notification?.level),
+                ].join(' ')}
               >
-                Upgrade Now
-              </button>
-            </div>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/70">
+                      Free Trial Status
+                    </p>
+                    <p className="mt-2 text-base font-medium text-white sm:text-lg">
+                      {trialStatus.notification?.message ?? 'Your free trial is active.'}
+                    </p>
+                    <p className="mt-2 text-sm text-slate-200/85">
+                      {typeof trialStatus.days_remaining === 'number'
+                        ? `${trialStatus.days_remaining} day${trialStatus.days_remaining === 1 ? '' : 's'} remaining`
+                        : 'Trial countdown unavailable'}
+                      {formatTrialHours(trialStatus.hours_remaining)
+                        ? ` • ${formatTrialHours(trialStatus.hours_remaining)}`
+                        : ''}
+                    </p>
+                  </div>
+
+                  <button
+                    className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-5 py-3 text-sm font-medium text-white shadow-[0_16px_45px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
+                    onClick={() => void navigateToUpgrade()}
+                    type="button"
+                  >
+                    Upgrade Now
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {usageSnapshot ? (
+              <DashboardUsageSummary access={usageSnapshot.access} plan={usageSnapshot.plan} />
+            ) : null}
           </div>
-        </div>
-      ) : null}
-      {!adminAccessActive && !isPreviewMode && usageSnapshot ? (
-        <div
-          className={[
-            'relative z-20 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8',
-            trialStatus?.plan === 'free_trial' ? 'pt-5 sm:pt-6' : 'pt-24 sm:pt-28',
-          ].join(' ')}
-        >
-          <DashboardUsageSummary access={usageSnapshot.access} plan={usageSnapshot.plan} />
         </div>
       ) : null}
       {visibleExperiences.map((experience) => {
@@ -907,7 +910,7 @@ function MemberAccountCluster({
   const planLabel = effectivePlan === 'free' ? 'FREE TRIAL' : effectivePlan.toUpperCase()
 
   return (
-    <div className="absolute right-4 top-4 z-30 flex items-center gap-3 pointer-events-auto sm:right-6 sm:top-6">
+    <div className="absolute right-[calc(1rem+env(safe-area-inset-right))] top-[calc(1rem+env(safe-area-inset-top))] z-30 flex items-center gap-3 pointer-events-auto sm:right-[calc(1.5rem+env(safe-area-inset-right))] sm:top-[calc(1.5rem+env(safe-area-inset-top))]">
       <div className="hidden rounded-[1.4rem] bg-[rgba(5,7,12,0.42)] px-4 py-3 text-right shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-2xl sm:block">
         <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/60">RAYD8® USER ACCOUNT</p>
         <p className="mt-2 text-sm font-medium text-white">{user?.email ?? 'Checking your session...'}</p>
@@ -962,7 +965,7 @@ function MemberAccountCluster({
 
 function AdminAccessModeBadge({ label }: { label: string }) {
   return (
-    <div className="pointer-events-none absolute left-4 top-4 z-30 sm:left-6 sm:top-6">
+    <div className="pointer-events-none absolute left-[calc(1rem+env(safe-area-inset-left))] top-[calc(1rem+env(safe-area-inset-top))] z-30 sm:left-[calc(1.5rem+env(safe-area-inset-left))] sm:top-[calc(1.5rem+env(safe-area-inset-top))]">
       <div className="rounded-full border border-emerald-200/20 bg-emerald-300/[0.08] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-emerald-100/80 shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-2xl">
         {label}
       </div>
@@ -1289,7 +1292,7 @@ function SectionLayout({
       <div className="absolute inset-0">{background}</div>
       <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/22 to-black/38" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/14 via-transparent to-black/42" />
-      <div className="relative z-10 flex min-h-screen items-center pb-20 pt-28 lg:pt-32">
+      <div className="relative z-10 flex min-h-screen items-center pb-[calc(5rem+env(safe-area-inset-bottom))] pt-[calc(7rem+env(safe-area-inset-top))] lg:pt-[calc(8rem+env(safe-area-inset-top))]">
         {children}
       </div>
     </section>
