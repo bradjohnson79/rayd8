@@ -181,7 +181,25 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
         ].join(' ')}
         inert={mobileDrawerClosed ? true : undefined}
       >
-        <div className="px-5 py-6 md:px-4 md:py-8">
+        {open ? (
+          <button
+            aria-label="Close navigation"
+            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-slate-100 shadow-[0_12px_32px_rgba(0,0,0,0.22)] backdrop-blur-xl transition hover:bg-white/[0.1] md:hidden"
+            onClick={onClose}
+            type="button"
+          >
+            <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
+              <path
+                d="m6 6 12 12M18 6 6 18"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="1.8"
+              />
+            </svg>
+          </button>
+        ) : null}
+
+        <div className="px-5 py-6 pr-16 md:px-4 md:py-8">
           <p className="text-2xl uppercase tracking-[0.24em] text-emerald-200/80 md:text-[22px] md:leading-[1.4rem]">
             RAYD8®
           </p>

@@ -3,18 +3,12 @@ import { useState } from 'react'
 import { useUpgradeNavigation } from '../auth/useUpgradeNavigation'
 import { immersiveDashboardOutletScrollClassName } from '../dashboard/immersiveDashboardOutlet'
 import { useAuthUser } from '../dashboard/useAuthUser'
-
-const HAMSA_PREP_IMAGE = '/hamsa/hamsa-prep.png'
-const HAMSA_APP_URL = '/hamsa-app/'
-const HAMSA_MOBILE_APP_URL = '/hamsa-mobile-app/'
-
-const featureCallouts = [
-  'Scalar & transcendental resonance technology',
-  'Deep meditative and restorative environments',
-  'Sacred geometry-inspired energetic systems',
-  'Designed for calm, focus, stillness & coherence',
-  'Exclusive to REGEN subscribers',
-]
+import {
+  detectHamsaAppUrl,
+  HAMSA_PREP_IMAGE,
+  hamsaFeatureCallouts,
+  hamsaPreviewCopy,
+} from './hamsaContent'
 
 function HamsaArtwork() {
   return (
@@ -35,7 +29,7 @@ function HamsaArtwork() {
 function FeatureCallouts() {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      {featureCallouts.map((feature) => (
+      {hamsaFeatureCallouts.map((feature) => (
         <div
           className="rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm leading-6 text-slate-200 shadow-[0_14px_45px_rgba(0,0,0,0.16)] backdrop-blur-xl"
           key={feature}
@@ -45,19 +39,6 @@ function FeatureCallouts() {
       ))}
     </div>
   )
-}
-
-function detectHamsaAppUrl() {
-  if (typeof window === 'undefined') {
-    return HAMSA_APP_URL
-  }
-
-  const isTouch =
-    window.matchMedia?.('(pointer: coarse)').matches ||
-    window.navigator.maxTouchPoints > 0
-  const isTabletOrMobile = window.innerWidth < 1200 && isTouch
-
-  return isTabletOrMobile ? HAMSA_MOBILE_APP_URL : HAMSA_APP_URL
 }
 
 export function HamsaLaunchScreen() {
@@ -119,16 +100,14 @@ function LockedInfoScreen() {
             Available for REGEN Subscribers
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[0.1em] text-white sm:text-5xl">
-            HAMSA™
+            {hamsaPreviewCopy.title}
           </h1>
           <p className="mt-4 text-xl leading-8 text-fuchsia-100">
-            A next-generation transcendental field experience.
+            {hamsaPreviewCopy.subtitle}
           </p>
           <div className="mt-6 space-y-4 text-sm leading-7 text-slate-300">
             <p>
-              HAMSA™ is an immersive RAYD8® environment designed to support moments of
-              stillness, relaxation, meditation, and energetic balance through a focused
-              transcendental experience.
+              {hamsaPreviewCopy.body}
             </p>
             <p>
               Built upon the same foundational scalar and transcendental principles found
@@ -137,9 +116,7 @@ function LockedInfoScreen() {
               sessions.
             </p>
             <p>
-              Users can personalize their experience through multiple session modes, body
-              focus options, audio support, and adaptable pacing preferences — allowing
-              HAMSA™ to fit naturally into your daily wellness routine.
+              {hamsaPreviewCopy.detail}
             </p>
             <p>
               Whether used for quiet reflection, meditation, energetic restoration, or deep

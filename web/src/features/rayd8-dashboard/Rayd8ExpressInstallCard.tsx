@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { trackUmamiEvent, trackUmamiEventOnce } from '../../services/umami'
-import { getExpressInstallCopy } from '../pwa/expressInstallCopy'
+import { getExpressInstallCopy, shouldUseNativeInstallPrompt } from '../pwa/expressInstallCopy'
 import { useExpressInstallDismissal } from '../pwa/useExpressInstallDismissal'
 import { usePlatformDetection, type ExpressPlatformKind } from '../pwa/usePlatformDetection'
 import { usePwaInstall } from '../pwa/usePwaInstall'
@@ -12,6 +12,7 @@ export function Rayd8ExpressInstallCard() {
   const [instructionsOpen, setInstructionsOpen] = useState(false)
   const launchTrackedRef = useRef(false)
   const copy = getExpressInstallCopy(platform.platformKind, canPrompt)
+  const canUseNativePrompt = shouldUseNativeInstallPrompt(platform.platformKind, canPrompt)
   const cardVisible = !standalone && !hidden && !isInstalled
 
   useEffect(() => {
@@ -65,7 +66,7 @@ export function Rayd8ExpressInstallCard() {
       platform: platform.platformKind,
     })
 
-    if (canPrompt) {
+    if (canUseNativePrompt) {
       const result = await promptInstall()
 
       if (result !== 'unavailable') {
@@ -104,7 +105,7 @@ export function Rayd8ExpressInstallCard() {
                 access your dashboard in one tap.
               </p>
               <p className="mt-2 text-xs font-medium uppercase tracking-[0.24em] text-cyan-100/58">
-                {copy.cue}
+                {copy.installMode} - {copy.cue}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {['One-tap access', 'Stay signed in', 'Faster launch', 'Phone, tablet and desktop', 'Immersive fullscreen'].map((benefit) => (
@@ -147,7 +148,9 @@ export function Rayd8ExpressInstallCard() {
 
       {instructionsOpen ? (
         <ExpressInstallInstructionsModal
-          canPrompt={canPrompt}
+          canUseNativePrompt={canUseNativePrompt}
+          cta={copy.cta}
+          fallbackMessage={copy.fallbackMessage}
           onInstall={() => void handleInstall()}
           onClose={() => setInstructionsOpen(false)}
           platformTitle={copy.platformTitle}
@@ -159,13 +162,17 @@ export function Rayd8ExpressInstallCard() {
 }
 
 function ExpressInstallInstructionsModal({
-  canPrompt,
+  canUseNativePrompt,
+  cta,
+  fallbackMessage,
   onInstall,
   onClose,
   platformTitle,
   steps,
 }: {
-  canPrompt: boolean
+  canUseNativePrompt: boolean
+  cta: string
+  fallbackMessage: string
   onInstall: () => void
   onClose: () => void
   platformTitle: string
@@ -188,18 +195,17 @@ function ExpressInstallInstructionsModal({
           RAYD8 Express installs from your browser, not an app store download. Use the browser
           install control below when available, or follow the steps for your device.
         </p>
-        {canPrompt ? (
+        {canUseNativePrompt ? (
           <button
             className="mt-5 w-full rounded-2xl bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-4 py-3 text-sm font-medium text-white shadow-[0_16px_45px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
             onClick={onInstall}
             type="button"
           >
-            Install RAYD8 Express
+            {cta}
           </button>
         ) : (
           <div className="mt-5 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.06] p-3 text-sm leading-6 text-cyan-50/82">
-            No download button is available in this browser. Open the browser menu or address-bar
-            install icon and choose Add to Home Screen, Add to Dock, or Install App.
+            {fallbackMessage}
           </div>
         )}
         <ol className="mt-5 grid gap-3">

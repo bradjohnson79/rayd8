@@ -2,6 +2,7 @@ export const dashboardSectionIds = [
   'expansion',
   'premium',
   'regen',
+  'hamsa',
   'amrita',
 ] as const
 

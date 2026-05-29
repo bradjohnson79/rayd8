@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { trackUmamiEvent, trackUmamiEventOnce } from '../../services/umami'
 import { useAuthUser } from '../dashboard/useAuthUser'
-import { getExpressInstallCopy } from '../pwa/expressInstallCopy'
+import { getExpressInstallCopy, shouldUseNativeInstallPrompt } from '../pwa/expressInstallCopy'
 import { usePlatformDetection } from '../pwa/usePlatformDetection'
 import { usePwaInstall } from '../pwa/usePwaInstall'
 import { MarketingButton } from './components/MarketingButton'
@@ -24,12 +24,9 @@ export function Rayd8ExpressPromoSection({
   const [instructionsOpen, setInstructionsOpen] = useState(false)
   const sectionRef = useRef<HTMLElement | null>(null)
   const copy = getExpressInstallCopy(platform.platformKind, canPrompt)
+  const canUseNativePrompt = shouldUseNativeInstallPrompt(platform.platformKind, canPrompt)
   const authenticated = user.isAuthenticated
-  const primaryLabel = authenticated
-    ? canPrompt && !isInstalled
-      ? copy.cta
-      : 'Open RAYD8 Express'
-    : 'Start Free Trial'
+  const primaryLabel = copy.cta
 
   useEffect(() => {
     const element = sectionRef.current
@@ -67,12 +64,12 @@ export function Rayd8ExpressPromoSection({
       platform: platform.platformKind,
     })
 
-    if (!authenticated) {
-      navigate('/subscription?plan=free&source=rayd8-express')
+    if (isInstalled) {
+      navigate('/dashboard?source=express')
       return
     }
 
-    if (canPrompt && !isInstalled) {
+    if (canUseNativePrompt) {
       const result = await promptInstall()
 
       if (result === 'accepted') {
@@ -87,10 +84,11 @@ export function Rayd8ExpressPromoSection({
       return
     }
 
-    navigate('/dashboard?source=express')
+    setInstructionsOpen(true)
   }, [
     authenticated,
     canPrompt,
+    canUseNativePrompt,
     isInstalled,
     navigate,
     platform.platformKind,
@@ -98,21 +96,13 @@ export function Rayd8ExpressPromoSection({
     promptInstall,
   ])
 
-  const handleInstallStepsClick = useCallback(() => {
-    trackUmamiEvent('rayd8_express_landing_install_steps_clicked', {
-      canPrompt,
-      platform: platform.platformKind,
-    })
-    setInstructionsOpen(true)
-  }, [canPrompt, platform.platformKind])
-
   const handleInstallPromptClick = useCallback(async () => {
     trackUmamiEvent('rayd8_express_landing_modal_install_clicked', {
       canPrompt,
       platform: platform.platformKind,
     })
 
-    if (!canPrompt) {
+    if (!canUseNativePrompt) {
       return
     }
 
@@ -121,7 +111,7 @@ export function Rayd8ExpressPromoSection({
     if (result !== 'unavailable') {
       setInstructionsOpen(false)
     }
-  }, [canPrompt, platform.platformKind, promptInstall])
+  }, [canPrompt, canUseNativePrompt, platform.platformKind, promptInstall])
 
   const handleRegenClick = useCallback(() => {
     trackUmamiEvent('rayd8_express_landing_regen_clicked', {
@@ -173,13 +163,6 @@ export function Rayd8ExpressPromoSection({
             <MarketingButton onClick={handleRegenClick} variant="ghost">
               Experience REGEN
             </MarketingButton>
-            <MarketingButton
-              className="border-cyan-200/20 bg-cyan-300/[0.06] text-cyan-50 hover:border-cyan-100/40 hover:bg-cyan-300/10"
-              onClick={handleInstallStepsClick}
-              variant="ghost"
-            >
-              {copy.platformTitle}
-            </MarketingButton>
           </div>
 
           <div className="mt-7 rounded-[1.4rem] border border-white/10 bg-black/18 p-4">
@@ -194,7 +177,7 @@ export function Rayd8ExpressPromoSection({
               ))}
             </div>
             <p className="mt-3 text-xs leading-5 text-slate-300/70">
-              Detected for {platform.deviceLabel}: {copy.cue}.
+              Detected for {platform.deviceLabel}: {copy.installMode}. {copy.cue}.
             </p>
           </div>
         </div>
@@ -204,7 +187,9 @@ export function Rayd8ExpressPromoSection({
 
       {instructionsOpen ? (
         <InstallStepsPanel
-          canPrompt={canPrompt}
+          canUseNativePrompt={canUseNativePrompt}
+          cta={copy.cta}
+          fallbackMessage={copy.fallbackMessage}
           onInstall={() => void handleInstallPromptClick()}
           onClose={() => setInstructionsOpen(false)}
           platformTitle={copy.platformTitle}
@@ -284,13 +269,17 @@ function ExpressDeviceMockup({
 }
 
 function InstallStepsPanel({
-  canPrompt,
+  canUseNativePrompt,
+  cta,
+  fallbackMessage,
   onInstall,
   onClose,
   platformTitle,
   steps,
 }: {
-  canPrompt: boolean
+  canUseNativePrompt: boolean
+  cta: string
+  fallbackMessage: string
   onInstall: () => void
   onClose: () => void
   platformTitle: string
@@ -307,18 +296,17 @@ function InstallStepsPanel({
           RAYD8 Express installs from your browser, not an app store download. Use the browser
           install control below when available, or follow the steps for your device.
         </p>
-        {canPrompt ? (
+        {canUseNativePrompt ? (
           <button
             className="mt-5 w-full rounded-2xl bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-4 py-3 text-sm font-medium text-white shadow-[0_16px_45px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
             onClick={onInstall}
             type="button"
           >
-            Install RAYD8 Express
+            {cta}
           </button>
         ) : (
           <div className="mt-5 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.06] p-3 text-sm leading-6 text-cyan-50/82">
-            No download button is available in this browser. Open the browser menu or address-bar
-            install icon and choose Add to Home Screen, Add to Dock, or Install App.
+            {fallbackMessage}
           </div>
         )}
         <ol className="mt-5 grid gap-3">

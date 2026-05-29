@@ -39,6 +39,12 @@ import { trackUmamiEvent } from '../../services/umami'
 import { getUsage, type UsageResponse } from '../../services/usage'
 import { immersiveDashboardOutletScrollClassName } from '../dashboard/immersiveDashboardOutlet'
 import { useTrialStatus } from '../dashboard/useTrialStatus'
+import {
+  detectHamsaAppUrl,
+  HAMSA_PREP_IMAGE,
+  hamsaFeatureCallouts,
+  hamsaPreviewCopy,
+} from '../hamsa/hamsaContent'
 import { useSession } from '../session/SessionProvider'
 import { Rayd8ExpressInstallCard } from './Rayd8ExpressInstallCard'
 
@@ -49,7 +55,7 @@ interface Rayd8DashboardProps {
   forcedPlan?: PlaybackPlanInput
 }
 
-type SectionTone = 'amrita' | 'expansion' | 'premium' | 'regen'
+type SectionTone = 'amrita' | 'expansion' | 'hamsa' | 'premium' | 'regen'
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
 const DASHBOARD_EXPERIENCES: Experience[] = ['expansion', 'premium', 'regen']
 const GUIDE_MODAL_TRANSITION_MS = 220
@@ -172,6 +178,7 @@ function MemberDashboardLaunchpad({
   const [guidePendingExperience, setGuidePendingExperience] = useState<Experience | null>(null)
   const [isGuideClosing, setIsGuideClosing] = useState(false)
   const [isSubmittingGuide, setIsSubmittingGuide] = useState(false)
+  const [hamsaSessionOpen, setHamsaSessionOpen] = useState(false)
   const [memberGuideSeenAt, setMemberGuideSeenAt] = useState<string | Date | null | undefined>(undefined)
   const [usageSnapshot, setUsageSnapshot] = useState<UsageResponse | null>(null)
   const [trialBlockReason, setTrialBlockReason] = useState<TrialBlockReason | null>(null)
@@ -344,6 +351,7 @@ function MemberDashboardLaunchpad({
     !adminAccessActive &&
     effectivePlan === 'free' &&
     (isPreviewMode ? true : (regenAccess?.remainingSeconds ?? 3600) >= 30)
+  const hamsaEntitled = !adminAccessActive && !isPreviewMode && (user?.plan === 'regen' || user?.plan === 'amrita')
   const expansionCtaLabel =
     adminAccessActive
       ? 'Start Admin Session'
@@ -755,6 +763,18 @@ function MemberDashboardLaunchpad({
     }, GUIDE_MODAL_TRANSITION_MS)
   }, [getTokenSafe, guidePendingExperience, isSubmittingGuide, startGuideApprovedSession])
 
+  const handleHamsaStart = useCallback(() => {
+    if (!hamsaEntitled) {
+      return
+    }
+
+    trackUmamiEvent('hamsa_session_started', {
+      plan: effectivePlan,
+      source: 'member_dashboard',
+    })
+    setHamsaSessionOpen(true)
+  }, [effectivePlan, hamsaEntitled])
+
   return (
     <div className={immersiveDashboardOutletScrollClassName} id="member-dashboard-scroll">
       <MemberAccountCluster effectivePlan={effectivePlan} user={user} />
@@ -861,6 +881,9 @@ function MemberDashboardLaunchpad({
           />
         )
       })}
+      {hamsaEntitled ? (
+        <HamsaDashboardSection onStart={handleHamsaStart} />
+      ) : null}
       {adminExperience ? null : <AmritaComingSoonSection />}
       <ConfirmModal
         description={trialBlockReason ? getTrialBlockContent(trialBlockReason).description : ''}
@@ -879,6 +902,97 @@ function MemberDashboardLaunchpad({
           onPrimary={handleGuidePrimary}
         />
       ) : null}
+      {hamsaSessionOpen ? (
+        <HamsaFullscreenSession onClose={() => setHamsaSessionOpen(false)} />
+      ) : null}
+    </div>
+  )
+}
+
+function HamsaDashboardSection({ onStart }: { onStart: () => void }) {
+  return (
+    <ExperienceSection
+      bodyPrimary={hamsaPreviewCopy.body}
+      bodySecondary={hamsaPreviewCopy.detail}
+      ctaLabel="Start Session"
+      ctaTone="active"
+      id="hamsa"
+      imageAlt="HAMSA virtual healing hand preview"
+      imageSrc={HAMSA_PREP_IMAGE}
+      onClick={onStart}
+      showcaseSubtitle={hamsaPreviewCopy.subtitle}
+      showcaseTitle="Virtual Healing Hand"
+      tags={hamsaFeatureCallouts.slice(0, 3)}
+      title={hamsaPreviewCopy.title}
+      tone="hamsa"
+    />
+  )
+}
+
+function HamsaFullscreenSession({ onClose }: { onClose: () => void }) {
+  const [hamsaSrc] = useState(detectHamsaAppUrl)
+  const shellRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const shell = shellRef.current
+
+    if (!shell?.requestFullscreen || document.fullscreenElement) {
+      return undefined
+    }
+
+    void shell.requestFullscreen().catch(() => {
+      // Browser fullscreen can be unavailable in installed app shells; the fixed overlay remains 16:9.
+    })
+
+    return undefined
+  }, [])
+
+  const handleClose = useCallback(() => {
+    if (document.fullscreenElement === shellRef.current) {
+      void document.exitFullscreen().finally(onClose)
+      return
+    }
+
+    onClose()
+  }, [onClose])
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        handleClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [handleClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center overflow-hidden bg-black text-white"
+      ref={shellRef}
+    >
+      <button
+        aria-label="Close HAMSA session"
+        className="absolute right-[calc(1rem+env(safe-area-inset-right))] top-[calc(1rem+env(safe-area-inset-top))] z-20 rounded-full border border-white/12 bg-black/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white shadow-[0_12px_36px_rgba(0,0,0,0.35)] backdrop-blur-xl transition hover:bg-white/10"
+        onClick={handleClose}
+        type="button"
+      >
+        Exit
+      </button>
+      <div
+        className="aspect-video max-h-full max-w-full overflow-hidden bg-black"
+        style={{
+          width: 'min(100vw, calc(100dvh * 16 / 9))',
+        }}
+      >
+        <iframe
+          allow="autoplay; fullscreen; clipboard-read; clipboard-write; screen-wake-lock"
+          className="block h-full w-full border-0 bg-black"
+          src={hamsaSrc}
+          title="HAMSA virtual healing hand"
+        />
+      </div>
     </div>
   )
 }
@@ -1305,6 +1419,8 @@ function SectionBackground({ tone }: { tone: SectionTone }) {
       'bg-[radial-gradient(circle_at_18%_24%,rgba(34,211,238,0.22),transparent_26%),radial-gradient(circle_at_74%_20%,rgba(168,85,247,0.26),transparent_28%),radial-gradient(circle_at_62%_72%,rgba(16,185,129,0.18),transparent_30%),linear-gradient(180deg,#02040a_0%,#090d1b_48%,#05070d_100%)]',
     expansion:
       'bg-[radial-gradient(circle_at_72%_22%,rgba(59,130,246,0.34),transparent_26%),radial-gradient(circle_at_18%_78%,rgba(14,165,233,0.18),transparent_34%),linear-gradient(180deg,#03060b_0%,#09101a_100%)]',
+    hamsa:
+      'bg-[radial-gradient(circle_at_70%_18%,rgba(217,70,239,0.3),transparent_28%),radial-gradient(circle_at_22%_76%,rgba(16,185,129,0.2),transparent_34%),radial-gradient(circle_at_48%_52%,rgba(132,204,22,0.14),transparent_34%),linear-gradient(180deg,#020403_0%,#090712_100%)]',
     premium:
       'bg-[radial-gradient(circle_at_70%_20%,rgba(124,58,237,0.38),transparent_26%),radial-gradient(circle_at_24%_78%,rgba(168,85,247,0.22),transparent_36%),linear-gradient(180deg,#03040a_0%,#11081b_100%)]',
     regen:
@@ -1339,6 +1455,8 @@ function ExperienceShowcase({
       'before:bg-[radial-gradient(circle_at_50%_50%,rgba(129,140,248,0.42),transparent_62%)] after:border-cyan-200/30',
     expansion:
       'before:bg-[radial-gradient(circle_at_50%_50%,rgba(96,165,250,0.54),transparent_62%)] after:border-sky-200/35',
+    hamsa:
+      'before:bg-[radial-gradient(circle_at_50%_50%,rgba(217,70,239,0.42),transparent_62%)] after:border-fuchsia-200/35',
     premium:
       'before:bg-[radial-gradient(circle_at_50%_50%,rgba(168,85,247,0.5),transparent_62%)] after:border-violet-200/35',
     regen:
