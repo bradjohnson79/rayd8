@@ -352,6 +352,7 @@ function MemberDashboardLaunchpad({
     effectivePlan === 'free' &&
     (isPreviewMode ? true : (regenAccess?.remainingSeconds ?? 3600) >= 30)
   const hamsaEntitled = !adminAccessActive && !isPreviewMode && (user?.plan === 'regen' || user?.plan === 'amrita')
+  const hamsaSectionVisible = !adminExperience && (hamsaEntitled || (isPreviewMode && effectivePlan === 'regen'))
   const expansionCtaLabel =
     adminAccessActive
       ? 'Start Admin Session'
@@ -881,8 +882,12 @@ function MemberDashboardLaunchpad({
           />
         )
       })}
-      {hamsaEntitled ? (
-        <HamsaDashboardSection onStart={handleHamsaStart} />
+      {hamsaSectionVisible ? (
+        <HamsaDashboardSection
+          ctaLabel={hamsaEntitled ? 'Start Session' : 'Preview Only'}
+          ctaTone={hamsaEntitled ? 'active' : 'disabled'}
+          onStart={handleHamsaStart}
+        />
       ) : null}
       {adminExperience ? null : <AmritaComingSoonSection />}
       <ConfirmModal
@@ -909,13 +914,21 @@ function MemberDashboardLaunchpad({
   )
 }
 
-function HamsaDashboardSection({ onStart }: { onStart: () => void }) {
+function HamsaDashboardSection({
+  ctaLabel,
+  ctaTone,
+  onStart,
+}: {
+  ctaLabel: string
+  ctaTone: 'active' | 'disabled'
+  onStart: () => void
+}) {
   return (
     <ExperienceSection
       bodyPrimary={hamsaPreviewCopy.body}
       bodySecondary={hamsaPreviewCopy.detail}
-      ctaLabel="Start Session"
-      ctaTone="active"
+      ctaLabel={ctaLabel}
+      ctaTone={ctaTone}
       id="hamsa"
       imageAlt="HAMSA virtual healing hand preview"
       imageSrc={HAMSA_PREP_IMAGE}
