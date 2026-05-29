@@ -31,7 +31,7 @@ export function getExpressInstallCopy(
       eyebrow: 'Android',
       platformTitle: 'Install App',
       steps: [
-        'Open this dashboard in Chrome.',
+        'Open this dashboard in Firefox first, or Chrome if needed.',
         'Tap Install App or Add to Home Screen.',
         'Launch RAYD8 from your launcher.',
       ],
@@ -56,7 +56,7 @@ export function getExpressInstallCopy(
     eyebrow: 'Desktop',
     platformTitle: 'Install RAYD8 Express',
     steps: [
-      'Use Chrome, Edge, or Brave.',
+      'Use Firefox first, or Chrome, Edge, or Brave if your Firefox version does not show an install option.',
       'Click the install icon in the address bar or browser menu.',
       'Launch RAYD8 in its standalone app window.',
     ],

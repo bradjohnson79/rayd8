@@ -83,6 +83,8 @@ export function Rayd8ExpressPromoSection({
         setInstructionsOpen(true)
         return
       }
+
+      return
     }
 
     navigate('/dashboard?source=express')
@@ -103,6 +105,23 @@ export function Rayd8ExpressPromoSection({
     })
     setInstructionsOpen(true)
   }, [canPrompt, platform.platformKind])
+
+  const handleInstallPromptClick = useCallback(async () => {
+    trackUmamiEvent('rayd8_express_landing_modal_install_clicked', {
+      canPrompt,
+      platform: platform.platformKind,
+    })
+
+    if (!canPrompt) {
+      return
+    }
+
+    const result = await promptInstall()
+
+    if (result !== 'unavailable') {
+      setInstructionsOpen(false)
+    }
+  }, [canPrompt, platform.platformKind, promptInstall])
 
   const handleRegenClick = useCallback(() => {
     trackUmamiEvent('rayd8_express_landing_regen_clicked', {
@@ -185,6 +204,8 @@ export function Rayd8ExpressPromoSection({
 
       {instructionsOpen ? (
         <InstallStepsPanel
+          canPrompt={canPrompt}
+          onInstall={() => void handleInstallPromptClick()}
           onClose={() => setInstructionsOpen(false)}
           platformTitle={copy.platformTitle}
           steps={copy.steps}
@@ -263,10 +284,14 @@ function ExpressDeviceMockup({
 }
 
 function InstallStepsPanel({
+  canPrompt,
+  onInstall,
   onClose,
   platformTitle,
   steps,
 }: {
+  canPrompt: boolean
+  onInstall: () => void
   onClose: () => void
   platformTitle: string
   steps: string[]
@@ -278,6 +303,24 @@ function InstallStepsPanel({
           RAYD8 Express
         </p>
         <h3 className="mt-3 text-2xl font-semibold">{platformTitle}</h3>
+        <p className="mt-3 text-sm leading-6 text-slate-300">
+          RAYD8 Express installs from your browser, not an app store download. Use the browser
+          install control below when available, or follow the steps for your device.
+        </p>
+        {canPrompt ? (
+          <button
+            className="mt-5 w-full rounded-2xl bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-4 py-3 text-sm font-medium text-white shadow-[0_16px_45px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
+            onClick={onInstall}
+            type="button"
+          >
+            Install RAYD8 Express
+          </button>
+        ) : (
+          <div className="mt-5 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.06] p-3 text-sm leading-6 text-cyan-50/82">
+            No download button is available in this browser. Open the browser menu or address-bar
+            install icon and choose Add to Home Screen, Add to Dock, or Install App.
+          </div>
+        )}
         <ol className="mt-5 grid gap-3">
           {steps.map((step, index) => (
             <li
@@ -292,11 +335,11 @@ function InstallStepsPanel({
           ))}
         </ol>
         <button
-          className="mt-6 w-full rounded-2xl bg-emerald-300/20 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-300/30"
+          className="mt-6 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white transition hover:bg-white/[0.08]"
           onClick={onClose}
           type="button"
         >
-          Done
+          Got it
         </button>
       </div>
     </div>

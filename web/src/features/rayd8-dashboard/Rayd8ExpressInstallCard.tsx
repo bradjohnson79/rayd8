@@ -147,6 +147,8 @@ export function Rayd8ExpressInstallCard() {
 
       {instructionsOpen ? (
         <ExpressInstallInstructionsModal
+          canPrompt={canPrompt}
+          onInstall={() => void handleInstall()}
           onClose={() => setInstructionsOpen(false)}
           platformTitle={copy.platformTitle}
           steps={copy.steps}
@@ -157,10 +159,14 @@ export function Rayd8ExpressInstallCard() {
 }
 
 function ExpressInstallInstructionsModal({
+  canPrompt,
+  onInstall,
   onClose,
   platformTitle,
   steps,
 }: {
+  canPrompt: boolean
+  onInstall: () => void
   onClose: () => void
   platformTitle: string
   steps: string[]
@@ -179,8 +185,23 @@ function ExpressInstallInstructionsModal({
         </p>
         <h2 className="mt-3 text-2xl font-semibold">{platformTitle}</h2>
         <p className="mt-3 text-sm leading-6 text-slate-300">
-          Add RAYD8 Express to your device for one-tap dashboard access.
+          RAYD8 Express installs from your browser, not an app store download. Use the browser
+          install control below when available, or follow the steps for your device.
         </p>
+        {canPrompt ? (
+          <button
+            className="mt-5 w-full rounded-2xl bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-4 py-3 text-sm font-medium text-white shadow-[0_16px_45px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
+            onClick={onInstall}
+            type="button"
+          >
+            Install RAYD8 Express
+          </button>
+        ) : (
+          <div className="mt-5 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.06] p-3 text-sm leading-6 text-cyan-50/82">
+            No download button is available in this browser. Open the browser menu or address-bar
+            install icon and choose Add to Home Screen, Add to Dock, or Install App.
+          </div>
+        )}
         <ol className="mt-5 grid gap-3">
           {steps.map((step, index) => (
             <li className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-200" key={step}>
@@ -192,11 +213,11 @@ function ExpressInstallInstructionsModal({
           ))}
         </ol>
         <button
-          className="mt-6 w-full rounded-2xl bg-emerald-300/20 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-300/30"
+          className="mt-6 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white transition hover:bg-white/[0.08]"
           onClick={onClose}
           type="button"
         >
-          Done
+          Got it
         </button>
       </div>
     </div>
