@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { trackUmamiEvent, trackUmamiEventOnce } from '../../services/umami'
 import { useAuthUser } from '../dashboard/useAuthUser'
-import { getExpressInstallCopy, shouldUseNativeInstallPrompt } from '../pwa/expressInstallCopy'
+import { ExpressDownloadSheet, ExpressInstallSuccessToast } from '../pwa/ExpressDownloadSheet'
+import {
+  getExpressInstallCopy,
+  requestExpressDownload,
+  shouldUseNativeInstallPrompt,
+} from '../pwa/expressInstallCopy'
 import { usePlatformDetection } from '../pwa/usePlatformDetection'
 import { usePwaInstall } from '../pwa/usePwaInstall'
 import { MarketingButton } from './components/MarketingButton'
@@ -21,12 +26,22 @@ export function Rayd8ExpressPromoSection({
   const user = useAuthUser()
   const platform = usePlatformDetection()
   const { canPrompt, isInstalled, promptInstall, standalone } = usePwaInstall()
-  const [instructionsOpen, setInstructionsOpen] = useState(false)
+  const [downloadSheetOpen, setDownloadSheetOpen] = useState(false)
+  const [installSuccessVisible, setInstallSuccessVisible] = useState(false)
   const sectionRef = useRef<HTMLElement | null>(null)
-  const copy = getExpressInstallCopy(platform.platformKind, canPrompt)
+  const copy = getExpressInstallCopy(platform.platformKind)
   const canUseNativePrompt = shouldUseNativeInstallPrompt(platform.platformKind, canPrompt)
   const authenticated = user.isAuthenticated
   const primaryLabel = copy.cta
+
+  useEffect(() => {
+    if (!installSuccessVisible) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => setInstallSuccessVisible(false), 2600)
+    return () => window.clearTimeout(timeoutId)
+  }, [installSuccessVisible])
 
   useEffect(() => {
     const element = sectionRef.current
@@ -69,22 +84,19 @@ export function Rayd8ExpressPromoSection({
       return
     }
 
-    if (canUseNativePrompt) {
-      const result = await promptInstall()
+    const result = await requestExpressDownload({
+      canUseNativePrompt,
+      promptInstall,
+    })
 
-      if (result === 'accepted') {
-        return
-      }
-
-      if (result === 'unavailable') {
-        setInstructionsOpen(true)
-        return
-      }
-
+    if (result === 'accepted') {
+      setInstallSuccessVisible(true)
       return
     }
 
-    setInstructionsOpen(true)
+    if (result === 'fallback') {
+      setDownloadSheetOpen(true)
+    }
   }, [
     authenticated,
     canPrompt,
@@ -95,23 +107,6 @@ export function Rayd8ExpressPromoSection({
     primaryLabel,
     promptInstall,
   ])
-
-  const handleInstallPromptClick = useCallback(async () => {
-    trackUmamiEvent('rayd8_express_landing_modal_install_clicked', {
-      canPrompt,
-      platform: platform.platformKind,
-    })
-
-    if (!canUseNativePrompt) {
-      return
-    }
-
-    const result = await promptInstall()
-
-    if (result !== 'unavailable') {
-      setInstructionsOpen(false)
-    }
-  }, [canPrompt, canUseNativePrompt, platform.platformKind, promptInstall])
 
   const handleRegenClick = useCallback(() => {
     trackUmamiEvent('rayd8_express_landing_regen_clicked', {
@@ -135,14 +130,13 @@ export function Rayd8ExpressPromoSection({
       <div className="mx-auto grid max-w-7xl gap-8 overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_18%_18%,rgba(16,185,129,0.20),transparent_32%),radial-gradient(circle_at_82%_24%,rgba(59,130,246,0.18),transparent_32%),linear-gradient(135deg,rgba(5,9,16,0.88),rgba(4,7,12,0.96))] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:p-10">
         <div>
           <p className="text-[10px] font-medium uppercase tracking-[0.36em] text-emerald-200/75">
-            New RAYD8 Express PWA
+            RAYD8 Express
           </p>
           <h2 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">
-            Install RAYD8 on your home screen and come back in one tap.
+            Download RAYD8 Express
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-8 text-slate-200/82 sm:text-lg">
-            RAYD8 Express gives members a lightweight app-style launcher for daily sessions,
-            dashboard access, and REGEN upgrades without searching for the site again.
+            {copy.body}
           </p>
 
           <div className="mt-6 flex flex-wrap gap-2">
@@ -176,26 +170,19 @@ export function Rayd8ExpressPromoSection({
                 </span>
               ))}
             </div>
-            <p className="mt-3 text-xs leading-5 text-slate-300/70">
-              Detected for {platform.deviceLabel}: {copy.installMode}. {copy.cue}.
-            </p>
           </div>
         </div>
 
         <ExpressDeviceMockup reducedEffects={reducedEffects} standalone={standalone} />
       </div>
 
-      {instructionsOpen ? (
-        <InstallStepsPanel
-          canUseNativePrompt={canUseNativePrompt}
-          cta={copy.cta}
-          fallbackMessage={copy.fallbackMessage}
-          onInstall={() => void handleInstallPromptClick()}
-          onClose={() => setInstructionsOpen(false)}
-          platformTitle={copy.platformTitle}
-          steps={copy.steps}
+      {downloadSheetOpen ? (
+        <ExpressDownloadSheet
+          copy={copy.sheet}
+          onClose={() => setDownloadSheetOpen(false)}
         />
       ) : null}
+      <ExpressInstallSuccessToast visible={installSuccessVisible} />
     </section>
   )
 }
@@ -259,76 +246,10 @@ function ExpressDeviceMockup({
               ))}
             </div>
             <div className="mt-4 rounded-2xl bg-emerald-300/18 px-3 py-2 text-center text-xs font-medium text-emerald-50">
-              {standalone ? 'Running standalone' : 'Add to Home Screen'}
+              {standalone ? 'Running standalone' : 'One-tap launch'}
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  )
-}
-
-function InstallStepsPanel({
-  canUseNativePrompt,
-  cta,
-  fallbackMessage,
-  onInstall,
-  onClose,
-  platformTitle,
-  steps,
-}: {
-  canUseNativePrompt: boolean
-  cta: string
-  fallbackMessage: string
-  onInstall: () => void
-  onClose: () => void
-  platformTitle: string
-  steps: string[]
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-950/95 p-6 text-white shadow-2xl">
-        <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/60">
-          RAYD8 Express
-        </p>
-        <h3 className="mt-3 text-2xl font-semibold">{platformTitle}</h3>
-        <p className="mt-3 text-sm leading-6 text-slate-300">
-          RAYD8 Express installs from your browser, not an app store download. Use the browser
-          install control below when available, or follow the steps for your device.
-        </p>
-        {canUseNativePrompt ? (
-          <button
-            className="mt-5 w-full rounded-2xl bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-4 py-3 text-sm font-medium text-white shadow-[0_16px_45px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
-            onClick={onInstall}
-            type="button"
-          >
-            {cta}
-          </button>
-        ) : (
-          <div className="mt-5 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.06] p-3 text-sm leading-6 text-cyan-50/82">
-            {fallbackMessage}
-          </div>
-        )}
-        <ol className="mt-5 grid gap-3">
-          {steps.map((step, index) => (
-            <li
-              className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-200"
-              key={step}
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-300/18 text-xs font-semibold text-emerald-100">
-                {index + 1}
-              </span>
-              <span>{step}</span>
-            </li>
-          ))}
-        </ol>
-        <button
-          className="mt-6 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white transition hover:bg-white/[0.08]"
-          onClick={onClose}
-          type="button"
-        >
-          Got it
-        </button>
       </div>
     </div>
   )

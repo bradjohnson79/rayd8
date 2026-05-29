@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { trackUmamiEvent, trackUmamiEventOnce } from '../../services/umami'
-import { getExpressInstallCopy, shouldUseNativeInstallPrompt } from '../pwa/expressInstallCopy'
+import { ExpressDownloadSheet, ExpressInstallSuccessToast } from '../pwa/ExpressDownloadSheet'
+import {
+  getExpressInstallCopy,
+  requestExpressDownload,
+  shouldUseNativeInstallPrompt,
+} from '../pwa/expressInstallCopy'
 import { useExpressInstallDismissal } from '../pwa/useExpressInstallDismissal'
 import { usePlatformDetection, type ExpressPlatformKind } from '../pwa/usePlatformDetection'
 import { usePwaInstall } from '../pwa/usePwaInstall'
@@ -9,9 +14,10 @@ export function Rayd8ExpressInstallCard() {
   const platform = usePlatformDetection()
   const { canPrompt, isInstalled, promptInstall, standalone } = usePwaInstall()
   const { dismiss, hidden, remindLater } = useExpressInstallDismissal()
-  const [instructionsOpen, setInstructionsOpen] = useState(false)
+  const [downloadSheetOpen, setDownloadSheetOpen] = useState(false)
+  const [installSuccessVisible, setInstallSuccessVisible] = useState(false)
   const launchTrackedRef = useRef(false)
-  const copy = getExpressInstallCopy(platform.platformKind, canPrompt)
+  const copy = getExpressInstallCopy(platform.platformKind)
   const canUseNativePrompt = shouldUseNativeInstallPrompt(platform.platformKind, canPrompt)
   const cardVisible = !standalone && !hidden && !isInstalled
 
@@ -46,18 +52,30 @@ export function Rayd8ExpressInstallCard() {
     })
   }, [canPrompt, cardVisible, platform.platformKind])
 
+  useEffect(() => {
+    if (!installSuccessVisible) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => setInstallSuccessVisible(false), 2600)
+    return () => window.clearTimeout(timeoutId)
+  }, [installSuccessVisible])
+
   if (standalone) {
     return (
-      <div className="rounded-[1.35rem] border border-emerald-200/15 bg-emerald-300/[0.07] px-4 py-3 text-sm text-emerald-50/86 shadow-[0_14px_44px_rgba(16,185,129,0.12)] backdrop-blur-xl">
-        <span className="text-[10px] uppercase tracking-[0.28em] text-emerald-200/70">
-          Running in RAYD8 Express
-        </span>
-      </div>
+      <>
+        <div className="rounded-[1.35rem] border border-emerald-200/15 bg-emerald-300/[0.07] px-4 py-3 text-sm text-emerald-50/86 shadow-[0_14px_44px_rgba(16,185,129,0.12)] backdrop-blur-xl">
+          <span className="text-[10px] uppercase tracking-[0.28em] text-emerald-200/70">
+            Running in RAYD8 Express
+          </span>
+        </div>
+        <ExpressInstallSuccessToast visible={installSuccessVisible} />
+      </>
     )
   }
 
   if (hidden || isInstalled) {
-    return null
+    return <ExpressInstallSuccessToast visible={installSuccessVisible} />
   }
 
   const handleInstall = async () => {
@@ -66,15 +84,19 @@ export function Rayd8ExpressInstallCard() {
       platform: platform.platformKind,
     })
 
-    if (canUseNativePrompt) {
-      const result = await promptInstall()
+    const result = await requestExpressDownload({
+      canUseNativePrompt,
+      promptInstall,
+    })
 
-      if (result !== 'unavailable') {
-        return
-      }
+    if (result === 'accepted') {
+      setInstallSuccessVisible(true)
+      return
     }
 
-    setInstructionsOpen(true)
+    if (result === 'fallback') {
+      setDownloadSheetOpen(true)
+    }
   }
 
   const handleRemindLater = () => {
@@ -101,11 +123,7 @@ export function Rayd8ExpressInstallCard() {
                 {copy.title}
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200/82">
-                Launch RAYD8 instantly from your phone, tablet, or desktop. Stay signed in and
-                access your dashboard in one tap.
-              </p>
-              <p className="mt-2 text-xs font-medium uppercase tracking-[0.24em] text-cyan-100/58">
-                {copy.installMode} - {copy.cue}
+                {copy.body}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {['One-tap access', 'Stay signed in', 'Faster launch', 'Phone, tablet and desktop', 'Immersive fullscreen'].map((benefit) => (
@@ -146,87 +164,14 @@ export function Rayd8ExpressInstallCard() {
         </div>
       </div>
 
-      {instructionsOpen ? (
-        <ExpressInstallInstructionsModal
-          canUseNativePrompt={canUseNativePrompt}
-          cta={copy.cta}
-          fallbackMessage={copy.fallbackMessage}
-          onInstall={() => void handleInstall()}
-          onClose={() => setInstructionsOpen(false)}
-          platformTitle={copy.platformTitle}
-          steps={copy.steps}
+      {downloadSheetOpen ? (
+        <ExpressDownloadSheet
+          copy={copy.sheet}
+          onClose={() => setDownloadSheetOpen(false)}
         />
       ) : null}
+      <ExpressInstallSuccessToast visible={installSuccessVisible} />
     </>
-  )
-}
-
-function ExpressInstallInstructionsModal({
-  canUseNativePrompt,
-  cta,
-  fallbackMessage,
-  onInstall,
-  onClose,
-  platformTitle,
-  steps,
-}: {
-  canUseNativePrompt: boolean
-  cta: string
-  fallbackMessage: string
-  onInstall: () => void
-  onClose: () => void
-  platformTitle: string
-  steps: string[]
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
-      style={{
-        paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
-        paddingTop: 'calc(1rem + env(safe-area-inset-top))',
-      }}
-    >
-      <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[2rem] border border-white/10 bg-slate-950/95 p-6 text-white shadow-2xl backdrop-blur-xl">
-        <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/60">
-          RAYD8 Express
-        </p>
-        <h2 className="mt-3 text-2xl font-semibold">{platformTitle}</h2>
-        <p className="mt-3 text-sm leading-6 text-slate-300">
-          RAYD8 Express installs from your browser, not an app store download. Use the browser
-          install control below when available, or follow the steps for your device.
-        </p>
-        {canUseNativePrompt ? (
-          <button
-            className="mt-5 w-full rounded-2xl bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-4 py-3 text-sm font-medium text-white shadow-[0_16px_45px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
-            onClick={onInstall}
-            type="button"
-          >
-            {cta}
-          </button>
-        ) : (
-          <div className="mt-5 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.06] p-3 text-sm leading-6 text-cyan-50/82">
-            {fallbackMessage}
-          </div>
-        )}
-        <ol className="mt-5 grid gap-3">
-          {steps.map((step, index) => (
-            <li className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-200" key={step}>
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-300/18 text-xs font-semibold text-emerald-100">
-                {index + 1}
-              </span>
-              <span>{step}</span>
-            </li>
-          ))}
-        </ol>
-        <button
-          className="mt-6 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white transition hover:bg-white/[0.08]"
-          onClick={onClose}
-          type="button"
-        >
-          Got it
-        </button>
-      </div>
-    </div>
   )
 }
 
