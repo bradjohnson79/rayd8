@@ -10,6 +10,11 @@ import { useLandingPerformanceMode } from '../features/landing/useLandingPerform
 const HeroSection = lazyWithPreload(() =>
   import('../features/landing/HeroSection').then((module) => ({ default: module.HeroSection })),
 )
+const Rayd8ExpressPromoSection = lazyWithPreload(() =>
+  import('../features/landing/Rayd8ExpressPromoSection').then((module) => ({
+    default: module.Rayd8ExpressPromoSection,
+  })),
+)
 const BenefitsImageSection = lazyWithPreload(() =>
   import('../features/landing/BenefitsImageSection').then((module) => ({
     default: module.BenefitsImageSection,
@@ -85,6 +90,7 @@ export function LandingPage() {
     }
 
     const preloadNearFoldSections = () => {
+      void Rayd8ExpressPromoSection.preload()
       void BenefitsImageSection.preload()
       void NewsletterSignup.preload()
       void TeaserSection.preload()
@@ -198,6 +204,9 @@ export function LandingPage() {
             fallback={<LandingSectionFallback className="pt-4" minHeightClassName="min-h-[100svh]" />}
           >
             <HeroSection reducedEffects={reducedEffects} />
+          </Suspense>
+          <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[34svh]" />}>
+            <Rayd8ExpressPromoSection reducedEffects={reducedEffects} />
           </Suspense>
           {shouldEagerRenderDeferredSections ? (
             <>

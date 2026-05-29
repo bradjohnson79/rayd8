@@ -1,52 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { trackUmamiEvent, trackUmamiEventOnce } from '../../services/umami'
+import { getExpressInstallCopy } from '../pwa/expressInstallCopy'
 import { useExpressInstallDismissal } from '../pwa/useExpressInstallDismissal'
 import { usePlatformDetection, type ExpressPlatformKind } from '../pwa/usePlatformDetection'
 import { usePwaInstall } from '../pwa/usePwaInstall'
-
-function getInstallCopy(platformKind: ExpressPlatformKind, canPrompt: boolean) {
-  if (platformKind === 'ios') {
-    return {
-      cta: 'Add to Home Screen',
-      cue: 'Safari share sheet',
-      eyebrow: 'iPhone and iPad',
-      title: 'Install RAYD8 Express',
-      platformTitle: 'Add to Home Screen',
-      steps: ['Tap Share in Safari.', 'Tap Add to Home Screen.', 'Launch RAYD8 from your Home Screen.'],
-    }
-  }
-
-  if (platformKind === 'android') {
-    return {
-      cta: 'Install App',
-      cue: canPrompt ? 'Native install prompt' : 'Chrome menu',
-      eyebrow: 'Android',
-      title: 'Install RAYD8 Express',
-      platformTitle: 'Install App',
-      steps: ['Open this dashboard in Chrome.', 'Tap Install App or Add to Home Screen.', 'Launch RAYD8 from your launcher.'],
-    }
-  }
-
-  if (platformKind === 'mac-safari') {
-    return {
-      cta: 'Add to Dock',
-      cue: 'Safari File menu',
-      eyebrow: 'Mac Safari',
-      title: 'Add RAYD8 to Dock',
-      platformTitle: 'Add RAYD8 to Dock',
-      steps: ['Open the Share menu in Safari.', 'Choose Add to Dock when available.', 'Launch RAYD8 from your Dock.'],
-    }
-  }
-
-  return {
-    cta: 'Install RAYD8 Express',
-    cue: canPrompt ? 'Browser install prompt' : 'Address bar install icon',
-    eyebrow: 'Desktop',
-    title: 'Install RAYD8 Express',
-    platformTitle: 'Install RAYD8 Express',
-    steps: ['Use Chrome, Edge, or Brave.', 'Click the install icon in the address bar or browser menu.', 'Launch RAYD8 in its standalone app window.'],
-  }
-}
 
 export function Rayd8ExpressInstallCard() {
   const platform = usePlatformDetection()
@@ -54,7 +11,7 @@ export function Rayd8ExpressInstallCard() {
   const { dismiss, hidden, remindLater } = useExpressInstallDismissal()
   const [instructionsOpen, setInstructionsOpen] = useState(false)
   const launchTrackedRef = useRef(false)
-  const copy = getInstallCopy(platform.platformKind, canPrompt)
+  const copy = getExpressInstallCopy(platform.platformKind, canPrompt)
   const cardVisible = !standalone && !hidden && !isInstalled
 
   useEffect(() => {
