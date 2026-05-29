@@ -12,6 +12,7 @@ export function SignupReferralPage() {
   const { status } = useAuthReadiness()
   const openedRef = useRef(false)
   const [isResettingSession, setIsResettingSession] = useState(false)
+  const isExpressSignup = searchParams.get('source') === 'express'
   const referralCode = useMemo(
     () => normalizeReferralCode(searchParams.get('ref')),
     [searchParams],
@@ -22,7 +23,7 @@ export function SignupReferralPage() {
   useEffect(() => {
     if (status === 'signed-in') {
       if (!allowAuthenticatedDevOverride) {
-        navigate('/dashboard', { replace: true })
+        navigate(isExpressSignup ? '/dashboard?source=express' : '/dashboard', { replace: true })
       }
       return
     }
@@ -33,7 +34,7 @@ export function SignupReferralPage() {
 
     openedRef.current = true
     void openSignUp()
-  }, [allowAuthenticatedDevOverride, navigate, openSignUp, status])
+  }, [allowAuthenticatedDevOverride, isExpressSignup, navigate, openSignUp, status])
 
   async function handleTestAsNewUser() {
     if (!import.meta.env.DEV) {
@@ -55,13 +56,16 @@ export function SignupReferralPage() {
     <Rayd8Background intensity="low" variant="landing">
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
         <div className="w-full max-w-3xl rounded-[2rem] border border-white/12 bg-white/[0.04] p-8 shadow-[0_24px_70px_rgba(0,0,0,0.22)] backdrop-blur-2xl sm:p-10">
-          <p className="text-[11px] uppercase tracking-[0.34em] text-emerald-200/70">Affiliate invite</p>
+          <p className="text-[11px] uppercase tracking-[0.34em] text-emerald-200/70">
+            {isExpressSignup ? 'RAYD8 Express' : 'Affiliate invite'}
+          </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-            Create your RAYD8 account to get started.
+            {isExpressSignup ? 'Create your RAYD8 account.' : 'Create your RAYD8 account to get started.'}
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-8 text-slate-300">
-            Start your account, claim your free trial, and unlock your own affiliate link as soon as
-            you sign in.
+            {isExpressSignup
+              ? 'Sign up or sign in to enter your dashboard. From there, Free Trial and REGEN members can launch RAYD8 from the same Express app.'
+              : 'Start your account, claim your free trial, and unlock your own affiliate link as soon as you sign in.'}
           </p>
 
           {allowAuthenticatedDevOverride ? (
@@ -106,7 +110,7 @@ export function SignupReferralPage() {
                   onClick={() => void openSignUp()}
                   type="button"
                 >
-                  Create Your Account
+                  {isExpressSignup ? 'Sign Up for RAYD8' : 'Create Your Account'}
                 </button>
                 <button
                   className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/[0.04] px-6 py-3 text-sm font-medium text-white transition hover:bg-white/[0.08]"
@@ -119,12 +123,14 @@ export function SignupReferralPage() {
             )}
           </div>
 
-          <div className="mt-8 text-sm text-slate-400">
-            Prefer to browse first?{' '}
-            <Link className="text-emerald-200 transition hover:text-emerald-100" to="/rayd8-affiliate">
-              Learn how the affiliate program works.
-            </Link>
-          </div>
+          {isExpressSignup ? null : (
+            <div className="mt-8 text-sm text-slate-400">
+              Prefer to browse first?{' '}
+              <Link className="text-emerald-200 transition hover:text-emerald-100" to="/rayd8-affiliate">
+                Learn how the affiliate program works.
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </Rayd8Background>

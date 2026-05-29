@@ -1,6 +1,6 @@
 import { RedirectToSignIn } from '@clerk/react'
 import { useEffect, useState } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { DashboardShell } from '../../components/DashboardShell'
 import {
   AUTH_LOADING_MESSAGE,
@@ -22,7 +22,6 @@ export function DashboardLayout() {
 
   useEffect(() => {
     if (status !== 'loading') {
-      setShowSlowLoadingCopy(false)
       return
     }
 
@@ -61,6 +60,10 @@ export function DashboardLayout() {
   }
 
   if (status === 'signed-out') {
+    if (new URLSearchParams(location.search).get('source') === 'express') {
+      return <Navigate replace to="/signup?source=express" />
+    }
+
     return (
       <>
         <div className="flex min-h-screen items-center justify-center bg-[var(--rayd8-bg)] px-6 text-white">

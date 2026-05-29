@@ -1,11 +1,13 @@
 import { Suspense, useEffect, useMemo } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Rayd8Background } from '../components/Rayd8Background'
+import { useAuthReadiness } from '../features/auth/useAuthReadiness'
 import { LandingNavbar } from '../features/landing/LandingNavbar'
 import { LandingPerformanceProfileProvider } from '../features/landing/LandingPerformanceProfileProvider'
 import { DeferredRender } from '../features/landing/components/DeferredRender'
 import { lazyWithPreload } from '../features/landing/lazyWithPreload'
 import { useLandingPerformanceMode } from '../features/landing/useLandingPerformanceMode'
+import { useStandaloneMode } from '../features/pwa/useStandaloneMode'
 
 const HeroSection = lazyWithPreload(() =>
   import('../features/landing/HeroSection').then((module) => ({ default: module.HeroSection })),
@@ -66,6 +68,9 @@ function LandingSectionFallback({
 
 export function LandingPage() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const standalone = useStandaloneMode()
+  const { status } = useAuthReadiness()
   const { isMobileViewport, reducedEffects, profile } = useLandingPerformanceMode()
   const shouldEagerRenderDeferredSections = Boolean(location.hash)
 
@@ -78,6 +83,16 @@ export function LandingPage() {
     }
     return isMobileViewport ? '48px 0px' : '96px 0px'
   }, [isMobileViewport, profile])
+
+  useEffect(() => {
+    if (!standalone || status === 'loading') {
+      return
+    }
+
+    navigate(status === 'signed-in' ? '/dashboard?source=express' : '/signup?source=express', {
+      replace: true,
+    })
+  }, [navigate, standalone, status])
 
   useEffect(() => {
     if (shouldEagerRenderDeferredSections) {
