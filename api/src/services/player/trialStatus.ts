@@ -33,6 +33,10 @@ type TrialUserRow = Pick<
   'id' | 'plan' | 'role' | 'trialEndsAt' | 'trialHoursUsed' | 'trialNotificationsSent' | 'trialStartedAt'
 >
 
+export function normalizeTrialNotificationsSent(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : []
+}
+
 function roundHours(value: number) {
   return Math.max(0, Math.round(value * 10) / 10)
 }
@@ -185,13 +189,14 @@ export async function incrementTrialHours(input: {
 
 export async function consumeTrialNotification(input: {
   daysRemaining: number
-  trialNotificationsSent: string[]
+  trialNotificationsSent: string[] | null
   userId: string
 }) {
   const checkpoint = String(input.daysRemaining)
   const notification = getTrialNotification(input.daysRemaining)
+  const trialNotificationsSent = normalizeTrialNotificationsSent(input.trialNotificationsSent)
 
-  if (!notification || input.trialNotificationsSent.includes(checkpoint) || !db) {
+  if (!notification || trialNotificationsSent.includes(checkpoint) || !db) {
     return null
   }
 
@@ -257,6 +262,9 @@ export async function getTrialStatusForUser(input: {
       daysRemaining: status.days_remaining,
       trialNotificationsSent: user.trialNotificationsSent,
       userId: input.userId,
+    }).catch((error) => {
+      console.error('[trial-notification]', error)
+      return null
     }),
   }
 }

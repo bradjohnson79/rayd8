@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { getTrialNotification, getTrialStatus } from './trialStatus.js'
+import {
+  getTrialNotification,
+  getTrialStatus,
+  normalizeTrialNotificationsSent,
+} from './trialStatus.js'
 
 function buildFreeUser(overrides?: Partial<Parameters<typeof getTrialStatus>[0]>) {
   return {
@@ -104,5 +108,12 @@ describe('getTrialNotification', () => {
 
   it('skips non-checkpoint days', () => {
     expect(getTrialNotification(18)).toBeNull()
+  })
+})
+
+describe('normalizeTrialNotificationsSent', () => {
+  it('normalizes legacy null or malformed notification state', () => {
+    expect(normalizeTrialNotificationsSent(null)).toEqual([])
+    expect(normalizeTrialNotificationsSent(['14', 7, null, '3'])).toEqual(['14', '3'])
   })
 })
