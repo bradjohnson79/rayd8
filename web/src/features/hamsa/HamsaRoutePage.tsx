@@ -9,6 +9,7 @@ import {
   hamsaFeatureCallouts,
   hamsaPreviewCopy,
 } from './hamsaContent'
+import { ImmersiveViewport } from '../rayd8-player/ImmersiveViewport'
 
 function HamsaArtwork() {
   return (
@@ -60,7 +61,7 @@ export function HamsaLaunchScreen() {
       </header>
 
       <main
-        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black"
+        className="relative min-h-0 flex-1 overflow-hidden bg-black"
         style={{
           paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
           paddingLeft: 'max(1rem, env(safe-area-inset-left))',
@@ -68,20 +69,14 @@ export function HamsaLaunchScreen() {
           paddingTop: 'max(1rem, env(safe-area-inset-top))',
         }}
       >
-        <div
-          className="aspect-[16/9] max-h-full max-w-full overflow-hidden bg-black"
-          style={{
-            width:
-              'min(100%, calc((100dvh - 8.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 16 / 9))',
-          }}
-        >
+        <ImmersiveViewport surface="fill">
           <iframe
             allow="autoplay; fullscreen; clipboard-read; clipboard-write; screen-wake-lock"
             className="block h-full w-full border-0 bg-black"
             src={hamsaSrc}
             title="HAMSA virtual healing hand"
           />
-        </div>
+        </ImmersiveViewport>
       </main>
     </div>
   )

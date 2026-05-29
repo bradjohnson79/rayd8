@@ -1,53 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { logExpressPlaybackDebug } from '../features/rayd8-player/expressPlaybackDebug'
 import { Rayd8PlayerEngine } from '../features/rayd8-player/Rayd8PlayerEngine'
 import { useSession } from '../features/session/SessionProvider'
 
-const EXIT_TRANSITION_MS = 260
-
 export function Rayd8SessionOverlay() {
   const { endSession, isActive, sessionSource, sessionType } = useSession()
-  const [mountedSessionType, setMountedSessionType] = useState<typeof sessionType>(null)
-  const [visible, setVisible] = useState(false)
+  const activeSessionType = isActive ? sessionType : null
 
   useEffect(() => {
-    if (isActive && sessionType) {
-      let visibleFrameId: number | null = null
-
-      const mountFrameId = window.requestAnimationFrame(() => {
-        setMountedSessionType(sessionType)
-        visibleFrameId = window.requestAnimationFrame(() => {
-          setVisible(true)
-        })
-      })
-
-      return () => {
-        window.cancelAnimationFrame(mountFrameId)
-
-        if (visibleFrameId !== null) {
-          window.cancelAnimationFrame(visibleFrameId)
-        }
-      }
+    if (activeSessionType) {
+      logExpressPlaybackDebug('overlay_mount', { sessionType })
+      logExpressPlaybackDebug('overlay_visible', { sessionType })
     }
-
-    if (mountedSessionType) {
-      const fadeFrameId = window.requestAnimationFrame(() => {
-        setVisible(false)
-      })
-
-      const timeoutId = window.setTimeout(() => {
-        setMountedSessionType(null)
-      }, EXIT_TRANSITION_MS)
-
-      return () => {
-        window.cancelAnimationFrame(fadeFrameId)
-        window.clearTimeout(timeoutId)
-      }
-    }
-  }, [isActive, mountedSessionType, sessionType])
+  }, [activeSessionType, sessionType])
 
   useEffect(() => {
-    if (!mountedSessionType) {
+    if (!activeSessionType) {
       document.body.classList.remove('session-active')
       return
     }
@@ -57,9 +26,9 @@ export function Rayd8SessionOverlay() {
     return () => {
       document.body.classList.remove('session-active')
     }
-  }, [mountedSessionType])
+  }, [activeSessionType])
 
-  if (!mountedSessionType) {
+  if (!activeSessionType) {
     return null
   }
 
@@ -71,14 +40,13 @@ export function Rayd8SessionOverlay() {
     <div
       className={[
         'fixed inset-0 z-[9000] h-[100dvh] w-screen bg-black',
-        'transition-opacity duration-300 ease-out',
-        visible ? 'opacity-100' : 'pointer-events-none opacity-0',
+        'opacity-100',
       ].join(' ')}
     >
       <Rayd8PlayerEngine
         isAdminPreview={sessionSource === 'admin'}
         onClose={endSession}
-        sessionType={mountedSessionType}
+        sessionType={activeSessionType}
       />
     </div>,
     document.body,

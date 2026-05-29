@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom'
 import type { Experience } from '../../app/types'
 import { ConfirmModal } from '../../components/ConfirmModal'
 import { GuideModal } from '../rayd8-player/GuideModal'
+import { logExpressPlaybackDebug } from '../rayd8-player/expressPlaybackDebug'
 import { ApiRequestError } from '../../services/api'
 import {
   AUTH_LOADING_MESSAGE,
@@ -39,12 +40,13 @@ import { trackUmamiEvent } from '../../services/umami'
 import { getUsage, type UsageResponse } from '../../services/usage'
 import { immersiveDashboardOutletScrollClassName } from '../dashboard/immersiveDashboardOutlet'
 import { useTrialStatus } from '../dashboard/useTrialStatus'
+import { useOptionalExpressNavigation } from '../dashboard/useExpressNavigation'
 import {
-  detectHamsaAppUrl,
   HAMSA_PREP_IMAGE,
   hamsaFeatureCallouts,
   hamsaPreviewCopy,
 } from '../hamsa/hamsaContent'
+import { HamsaFullscreenSession } from '../hamsa/HamsaFullscreenSession'
 import { useSession } from '../session/SessionProvider'
 import { Rayd8ExpressInstallCard } from './Rayd8ExpressInstallCard'
 
@@ -173,6 +175,7 @@ function MemberDashboardLaunchpad({
 }) {
   const trialStatus = useTrialStatus()
   const { experienceAccess, isActive: sessionIsActive, startSession, updateExperienceAccess } = useSession()
+  const expressNavigation = useOptionalExpressNavigation()
   const [checkingExperience, setCheckingExperience] = useState<Experience | null>(null)
   const [experiencePrompts, setExperiencePrompts] = useState<Partial<Record<Experience, string>>>({})
   const [guidePendingExperience, setGuidePendingExperience] = useState<Experience | null>(null)
@@ -389,6 +392,14 @@ function MemberDashboardLaunchpad({
     [adminAccessActive, isPreviewMode, user?.role],
   )
   const visibleExperiences = adminExperience ? [adminExperience] : DASHBOARD_EXPERIENCES
+  const closeExpressSidebar = expressNavigation?.closeSidebar
+  const runAfterExpressSidebarClose = useCallback(
+    (callback: () => void) => {
+      closeExpressSidebar?.()
+      callback()
+    },
+    [closeExpressSidebar],
+  )
 
   const startAdminSession = useCallback(
     (experience: Experience) => {
@@ -397,9 +408,10 @@ function MemberDashboardLaunchpad({
         playbackMode: 'admin',
         sessionSource: 'admin',
       })
-      startSession(experience, { source: 'admin' })
+      logExpressPlaybackDebug('session_launch', { experience, source: 'admin' })
+      runAfterExpressSidebarClose(() => startSession(experience, { source: 'admin' }))
     },
-    [startSession],
+    [runAfterExpressSidebarClose, startSession],
   )
 
   const openGuideModal = useCallback((experience: Experience) => {
@@ -436,9 +448,13 @@ function MemberDashboardLaunchpad({
 
   const startGuideApprovedSession = useCallback(
     (experience: Experience) => {
-      startSession(experience, sessionStartOptions)
+      logExpressPlaybackDebug('session_launch', {
+        experience,
+        source: sessionStartOptions?.source ?? 'member',
+      })
+      runAfterExpressSidebarClose(() => startSession(experience, sessionStartOptions))
     },
-    [sessionStartOptions, startSession],
+    [runAfterExpressSidebarClose, sessionStartOptions, startSession],
   )
 
   const maybeStartGuideCheckedSession = useCallback(
@@ -773,8 +789,9 @@ function MemberDashboardLaunchpad({
       plan: effectivePlan,
       source: 'member_dashboard',
     })
-    setHamsaSessionOpen(true)
-  }, [effectivePlan, hamsaEntitled])
+    logExpressPlaybackDebug('session_launch', { experience: 'hamsa', source: 'member_dashboard' })
+    runAfterExpressSidebarClose(() => setHamsaSessionOpen(true))
+  }, [effectivePlan, hamsaEntitled, runAfterExpressSidebarClose])
 
   return (
     <div className={immersiveDashboardOutletScrollClassName} id="member-dashboard-scroll">
@@ -939,74 +956,6 @@ function HamsaDashboardSection({
       title={hamsaPreviewCopy.title}
       tone="hamsa"
     />
-  )
-}
-
-function HamsaFullscreenSession({ onClose }: { onClose: () => void }) {
-  const [hamsaSrc] = useState(detectHamsaAppUrl)
-  const shellRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    const shell = shellRef.current
-
-    if (!shell?.requestFullscreen || document.fullscreenElement) {
-      return undefined
-    }
-
-    void shell.requestFullscreen().catch(() => {
-      // Browser fullscreen can be unavailable in installed app shells; the fixed overlay remains 16:9.
-    })
-
-    return undefined
-  }, [])
-
-  const handleClose = useCallback(() => {
-    if (document.fullscreenElement === shellRef.current) {
-      void document.exitFullscreen().finally(onClose)
-      return
-    }
-
-    onClose()
-  }, [onClose])
-
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        handleClose()
-      }
-    }
-
-    window.addEventListener('keydown', handleEscape)
-    return () => window.removeEventListener('keydown', handleEscape)
-  }, [handleClose])
-
-  return (
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center overflow-hidden bg-black text-white"
-      ref={shellRef}
-    >
-      <button
-        aria-label="Close HAMSA session"
-        className="absolute right-[calc(1rem+env(safe-area-inset-right))] top-[calc(1rem+env(safe-area-inset-top))] z-20 rounded-full border border-white/12 bg-black/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white shadow-[0_12px_36px_rgba(0,0,0,0.35)] backdrop-blur-xl transition hover:bg-white/10"
-        onClick={handleClose}
-        type="button"
-      >
-        Exit
-      </button>
-      <div
-        className="aspect-video max-h-full max-w-full overflow-hidden bg-black"
-        style={{
-          width: 'min(100vw, calc(100dvh * 16 / 9))',
-        }}
-      >
-        <iframe
-          allow="autoplay; fullscreen; clipboard-read; clipboard-write; screen-wake-lock"
-          className="block h-full w-full border-0 bg-black"
-          src={hamsaSrc}
-          title="HAMSA virtual healing hand"
-        />
-      </div>
-    </div>
   )
 }
 

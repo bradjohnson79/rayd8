@@ -11,9 +11,11 @@ interface DashboardShellProps extends PropsWithChildren {
   desktopSidebarOffsetClass: string
   description: string
   eyebrow: string
+  isSessionActive?: boolean
+  isSidebarOpen: boolean
   menuButtonClassName: string
   menuButtonLabel: string
-  onOpenSidebar: () => void
+  onToggleSidebar: () => void
   presentation?: 'immersive' | 'standard'
   sidebar: ReactNode
   user: AuthUser
@@ -26,9 +28,11 @@ export function DashboardShell({
   desktopSidebarOffsetClass,
   description,
   eyebrow,
+  isSessionActive = false,
+  isSidebarOpen,
   menuButtonClassName,
   menuButtonLabel,
-  onOpenSidebar,
+  onToggleSidebar,
   presentation = 'standard',
   sidebar,
   user,
@@ -48,6 +52,7 @@ export function DashboardShell({
 
   const hideImmersiveIdentityCluster =
     presentation === 'immersive' && location.pathname === '/dashboard'
+  const resolvedMenuButtonLabel = isSidebarOpen ? 'Close navigation' : menuButtonLabel
 
   return (
     <Rayd8Background>
@@ -55,7 +60,7 @@ export function DashboardShell({
 
       <div
         className={[
-          'relative z-10',
+          'relative',
           presentation === 'immersive'
             ? `h-[100dvh] ${desktopSidebarOffsetClass}`
             : `min-h-[100dvh] ${desktopSidebarOffsetClass}`,
@@ -63,19 +68,22 @@ export function DashboardShell({
       >
         {presentation === 'immersive' ? (
           <>
-            <div
-              className="fixed left-4 z-50 md:hidden"
-              style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}
-            >
-              <button
-                aria-label={menuButtonLabel}
-                className={`inline-flex h-11 w-11 items-center justify-center rounded-lg border border-white/12 bg-white/10 text-white shadow-[0_8px_30px_rgba(0,0,0,0.16)] backdrop-blur-xl ${menuButtonClassName}`}
-                onClick={onOpenSidebar}
-                type="button"
+            {!isSessionActive ? (
+              <div
+                className="fixed left-4 z-50 lg:hidden"
+                style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}
               >
-                <span className="text-lg">≡</span>
-              </button>
-            </div>
+                <button
+                  aria-expanded={isSidebarOpen}
+                  aria-label={resolvedMenuButtonLabel}
+                  className={`inline-flex h-11 w-11 items-center justify-center rounded-lg border border-white/12 bg-white/10 text-white shadow-[0_8px_30px_rgba(0,0,0,0.16)] backdrop-blur-xl ${menuButtonClassName}`}
+                  onClick={onToggleSidebar}
+                  type="button"
+                >
+                  <span className="text-lg">≡</span>
+                </button>
+              </div>
+            ) : null}
 
             {!hideImmersiveIdentityCluster ? (
               <div
@@ -143,9 +151,10 @@ export function DashboardShell({
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
               <div className="flex items-center gap-3">
                 <button
-                  aria-label={menuButtonLabel}
+                  aria-expanded={isSidebarOpen}
+                  aria-label={resolvedMenuButtonLabel}
                   className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.06] text-white shadow-[0_8px_30px_rgba(0,0,0,0.16)] backdrop-blur-xl ${menuButtonClassName}`}
-                  onClick={onOpenSidebar}
+                  onClick={onToggleSidebar}
                   type="button"
                 >
                   <span className="text-lg">≡</span>

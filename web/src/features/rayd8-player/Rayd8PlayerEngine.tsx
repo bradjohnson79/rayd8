@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
@@ -70,6 +71,7 @@ import {
   tryPlay,
   type HlsController,
 } from './mediaController'
+import { logExpressPlaybackDebug } from './expressPlaybackDebug'
 import { PlaybackScheduler } from './playbackScheduler'
 import {
   addTrackedDomEventListener,
@@ -231,6 +233,8 @@ const MUX_REFRESH_MIN_DELAY_MS = 30 * 60 * 1000
 const SESSION_WARNING_CHECK_MS = 10_000
 const FULLSCREEN_EXIT_HINT_MS = 2500
 const DOUBLE_TAP_EXIT_WINDOW_MS = 300
+const VIDEO_REF_RETRY_FRAMES = [1, 2, 4] as const
+const COMPACT_PLAYER_STAGE_HEIGHT_PX = 600
 const DESKTOP_FULLSCREEN_EXIT_HINT_STORAGE_KEY = 'rayd8_fullscreen_exit_hint_desktop'
 const MOBILE_FULLSCREEN_EXIT_HINT_STORAGE_KEY = 'rayd8_fullscreen_exit_hint_mobile'
 const playbackPresentationMode =
@@ -244,6 +248,31 @@ interface PlaybackStabilityProfile {
   maxBufferLength: number
   maxMaxBufferLength: number
   startLevel: number
+}
+
+type PlayerUiDensity = 'compact' | 'desktop'
+
+interface PlayerControlSizing {
+  density: PlayerUiDensity
+  dockOuterClassName: string
+  dockInnerClassName: string
+  dockRowClassName: string
+  flyoutClassName: string
+  flyoutGridClassName: string
+  flyoutScrollClassName: string
+  flyoutScrollStyle?: CSSProperties
+  flyoutMaxHeight: number | null
+  flyoutPanelHeaderClassName: string
+  flyoutPanelTitleClassName: string
+  flyoutPanelMetaClassName: string
+  flyoutOptionClassName: string
+  statusPillClassName: string
+  guideButtonClassName: string
+  guideLabelClassName: string
+  iconButtonClassName: string
+  volumePanelClassName: string
+  volumeButtonClassName: string
+  errorClassName: string
 }
 
 function getPlaybackStabilityProfile(mobileOptimized: boolean): PlaybackStabilityProfile {
@@ -263,6 +292,107 @@ function getPlaybackStabilityProfile(mobileOptimized: boolean): PlaybackStabilit
     maxBufferLength: 40,
     maxMaxBufferLength: 120,
     startLevel: -1,
+  }
+}
+
+function waitForAnimationFrames(frameCount: number) {
+  if (typeof window === 'undefined') {
+    return Promise.resolve()
+  }
+
+  return new Promise<void>((resolve) => {
+    let remainingFrames = frameCount
+
+    const tick = () => {
+      remainingFrames -= 1
+
+      if (remainingFrames <= 0) {
+        resolve()
+        return
+      }
+
+      window.requestAnimationFrame(tick)
+    }
+
+    window.requestAnimationFrame(tick)
+  })
+}
+
+function getCinematicStageHeight() {
+  if (typeof window === 'undefined') {
+    return 0
+  }
+
+  return Math.min(window.innerHeight, window.innerWidth * (9 / 16))
+}
+
+function createPlayerControlSizing({
+  bottomChromeInset,
+  cinematicStageHeight,
+  isCompact,
+}: {
+  bottomChromeInset: number
+  cinematicStageHeight: number
+  isCompact: boolean
+}): PlayerControlSizing {
+  if (!isCompact) {
+    return {
+      density: 'desktop',
+      dockInnerClassName: 'rounded-[1.6rem] border border-white/10 bg-black/48 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.42)] backdrop-blur-2xl',
+      dockOuterClassName: 'mx-auto flex w-full max-w-4xl flex-col items-center gap-3',
+      dockRowClassName: 'flex items-center gap-2',
+      errorClassName: 'w-full max-w-[23rem] rounded-[1.4rem] border border-amber-300/20 bg-slate-950/90 px-4 py-3 text-sm leading-6 text-amber-100',
+      flyoutClassName: 'w-full max-w-[23rem] rounded-[1.5rem] border border-white/10 bg-black/58 p-3 shadow-[0_18px_60px_rgba(0,0,0,0.42)] backdrop-blur-2xl',
+      flyoutGridClassName: 'grid gap-2',
+      flyoutMaxHeight: null,
+      flyoutOptionClassName: 'flex w-full items-center justify-between gap-3 rounded-[1.1rem] border px-3 py-3 text-left text-sm transition',
+      flyoutPanelHeaderClassName: 'mb-3 flex items-center justify-between gap-3 px-1',
+      flyoutPanelMetaClassName: 'text-[10px] text-slate-400',
+      flyoutPanelTitleClassName: 'text-[10px] uppercase tracking-[0.3em] text-emerald-200/60',
+      flyoutScrollClassName: '',
+      guideButtonClassName: 'inline-flex h-11 items-center gap-2 rounded-[1rem] border border-emerald-300/20 bg-[linear-gradient(135deg,rgba(16,185,129,0.14),rgba(59,130,246,0.14))] px-3 text-sm font-medium text-white transition hover:bg-[linear-gradient(135deg,rgba(16,185,129,0.2),rgba(59,130,246,0.2))]',
+      guideLabelClassName: '',
+      iconButtonClassName: 'inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border transition',
+      statusPillClassName: 'rounded-full border border-white/10 bg-black/25 px-2 py-1 text-[10px] uppercase tracking-[0.24em] text-slate-300',
+      volumeButtonClassName: 'inline-flex h-9 items-center justify-center rounded-[0.95rem] border border-white/10 bg-black/20 px-3 text-[11px] font-medium uppercase tracking-[0.24em] text-slate-200 transition hover:bg-white/[0.06]',
+      volumePanelClassName: 'space-y-3 rounded-[1.15rem] border border-white/10 bg-white/[0.045] px-4 py-4',
+    }
+  }
+
+  const flyoutMaxHeight = Math.max(
+    144,
+    Math.round(
+      Math.min(
+        cinematicStageHeight * 0.72,
+        Math.max(144, cinematicStageHeight - bottomChromeInset - 84),
+      ),
+    ),
+  )
+
+  return {
+    density: 'compact',
+    dockInnerClassName: 'rounded-[1.25rem] border border-white/10 bg-black/52 p-1.5 shadow-[0_14px_44px_rgba(0,0,0,0.4)] backdrop-blur-2xl',
+    dockOuterClassName: 'mx-auto flex w-full max-w-[min(100vw,30rem)] flex-col items-center gap-2',
+    dockRowClassName: 'flex max-w-full items-center gap-1.5 overflow-x-auto overscroll-x-contain px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+    errorClassName: 'w-[min(88vw,18rem)] max-w-[calc(100vw-1rem)] rounded-[1.1rem] border border-amber-300/20 bg-slate-950/90 px-3 py-2.5 text-xs leading-5 text-amber-100',
+    flyoutClassName: 'w-[min(88vw,18rem)] max-w-[calc(100vw-1rem)] overflow-hidden rounded-[1.2rem] border border-white/10 bg-black/62 p-2 shadow-[0_14px_44px_rgba(0,0,0,0.44)] backdrop-blur-2xl',
+    flyoutGridClassName: 'grid gap-1.5',
+    flyoutMaxHeight,
+    flyoutOptionClassName: 'flex w-full min-h-10 items-center justify-between gap-2 rounded-[0.95rem] border px-2.5 py-2 text-left text-xs transition',
+    flyoutPanelHeaderClassName: 'mb-2 flex items-center justify-between gap-2 px-0.5',
+    flyoutPanelMetaClassName: 'max-w-[8.5rem] truncate text-[10px] text-slate-400',
+    flyoutPanelTitleClassName: 'text-[9px] uppercase tracking-[0.24em] text-emerald-200/60',
+    flyoutScrollClassName: 'overflow-y-auto overscroll-contain pr-1',
+    flyoutScrollStyle: {
+      maskImage: 'linear-gradient(to bottom, transparent, black 0.75rem, black calc(100% - 0.75rem), transparent)',
+      WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 0.75rem, black calc(100% - 0.75rem), transparent)',
+    },
+    guideButtonClassName: 'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.9rem] border border-emerald-300/20 bg-[linear-gradient(135deg,rgba(16,185,129,0.16),rgba(59,130,246,0.16))] text-white transition hover:bg-[linear-gradient(135deg,rgba(16,185,129,0.22),rgba(59,130,246,0.22))] [&>svg]:h-4 [&>svg]:w-4',
+    guideLabelClassName: 'sr-only',
+    iconButtonClassName: 'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.9rem] border transition [&>svg]:h-4 [&>svg]:w-4',
+    statusPillClassName: 'shrink-0 rounded-full border border-white/10 bg-black/25 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.18em] text-slate-300',
+    volumeButtonClassName: 'inline-flex h-8 items-center justify-center rounded-[0.85rem] border border-white/10 bg-black/20 px-2.5 text-[10px] font-medium uppercase tracking-[0.18em] text-slate-200 transition hover:bg-white/[0.06]',
+    volumePanelClassName: 'space-y-2 rounded-[1rem] border border-white/10 bg-white/[0.045] px-3 py-3',
   }
 }
 
@@ -532,9 +662,13 @@ export function Rayd8PlayerEngine({
   const [showExitHint, setShowExitHint] = useState(false)
   const [chromeVisible, setChromeVisible] = useState(true)
   const [brightnessPercent, setBrightnessPercent] = useState(DEFAULT_BRIGHTNESS_PERCENT)
+  const [primaryVideoReady, setPrimaryVideoReady] = useState(false)
+  const [initFailureVisible, setInitFailureVisible] = useState(false)
+  const [initRetryKey, setInitRetryKey] = useState(0)
   const [mobileViewport, setMobileViewport] = useState(() => isMobileViewport())
   const [tabletViewport, setTabletViewport] = useState(() => isTabletViewport())
   const [smallScreenViewport, setSmallScreenViewport] = useState(() => isSmallScreen())
+  const [cinematicStageHeight, setCinematicStageHeight] = useState(() => getCinematicStageHeight())
   const [allowExtendedSessions, setAllowExtendedSessions] = useState(false)
 
   const playbackAuthority = usePlaybackAuthority()
@@ -622,7 +756,6 @@ export function Rayd8PlayerEngine({
   )
   const playbackStabilityProfileRef = useRef(playbackStabilityProfile)
   const touchLikeFullscreenViewport = mobileViewport || tabletViewport
-  const fitMode = touchLikeFullscreenViewport ? 'contain' : 'cover'
   const {
     exitFullscreen,
     isAppShellFullscreen,
@@ -641,6 +774,17 @@ export function Rayd8PlayerEngine({
   const isVideoLoading = isPreloading || isRecovering
   const topChromeInset = smallScreenViewport ? 12 : 16
   const bottomChromeInset = smallScreenViewport ? 20 : 24
+  const isCompactPlayerUI =
+    mobileViewport || smallScreenViewport || cinematicStageHeight < COMPACT_PLAYER_STAGE_HEIGHT_PX
+  const playerControlSizing = useMemo(
+    () =>
+      createPlayerControlSizing({
+        bottomChromeInset,
+        cinematicStageHeight,
+        isCompact: isCompactPlayerUI,
+      }),
+    [bottomChromeInset, cinematicStageHeight, isCompactPlayerUI],
+  )
   const fullscreenExitHintLabel = touchLikeFullscreenViewport
     ? 'Double-tap to exit full screen'
     : 'Press Esc to exit full screen'
@@ -677,6 +821,10 @@ export function Rayd8PlayerEngine({
   }, [playbackPresentation.legacyPlaybackState])
 
   useEffect(() => {
+    logExpressPlaybackDebug('player_mount', { sessionType })
+  }, [sessionType])
+
+  useEffect(() => {
     playbackAuthority?.setAllowExtendedSessions(effectiveAllowExtendedSessions)
   }, [effectiveAllowExtendedSessions, playbackAuthority])
 
@@ -704,6 +852,8 @@ export function Rayd8PlayerEngine({
 
     recordVideoMount('primary', node !== null)
     primaryVideoRef.current = node
+    setPrimaryVideoReady(node !== null)
+    logExpressPlaybackDebug('video_ref_attached', { attached: node !== null })
   }, [])
 
   useEffect(() => {
@@ -785,6 +935,7 @@ export function Rayd8PlayerEngine({
       const nextMobileViewport = isMobileViewport()
       const nextTabletViewport = isTabletViewport()
       const nextSmallScreenViewport = isSmallScreen()
+      const nextCinematicStageHeight = getCinematicStageHeight()
 
       setMobileViewport((currentValue) =>
         currentValue === nextMobileViewport ? currentValue : nextMobileViewport,
@@ -794,6 +945,9 @@ export function Rayd8PlayerEngine({
       )
       setSmallScreenViewport((currentValue) =>
         currentValue === nextSmallScreenViewport ? currentValue : nextSmallScreenViewport,
+      )
+      setCinematicStageHeight((currentValue) =>
+        Math.abs(currentValue - nextCinematicStageHeight) < 1 ? currentValue : nextCinematicStageHeight,
       )
     }
 
@@ -1305,11 +1459,43 @@ export function Rayd8PlayerEngine({
       }
     }
 
+    async function waitForPrimaryVideoElement() {
+      const immediateVideo = primaryVideoRef.current
+
+      if (immediateVideo) {
+        return immediateVideo
+      }
+
+      for (const frameCount of VIDEO_REF_RETRY_FRAMES) {
+        logExpressPlaybackDebug('syncVideoMode_retry', { frameCount, reason: 'video_ref_missing' })
+        await waitForAnimationFrames(frameCount)
+
+        if (cancelled || requestId !== videoRequestRef.current) {
+          return null
+        }
+
+        const retryVideo = primaryVideoRef.current
+
+        if (retryVideo) {
+          return retryVideo
+        }
+      }
+
+      logExpressPlaybackDebug('syncVideoMode_fail', { reason: 'video_ref_missing' })
+      return null
+    }
+
     async function syncVideoMode() {
       resetSessionContinuityTimer()
       playbackAuthority?.dispatch({ type: 'lifecycle_preloading' })
       setPreloadPercent(0)
       setVideoError(null)
+      setInitFailureVisible(false)
+      logExpressPlaybackDebug('syncVideoMode_start', {
+        audioTrack,
+        experience,
+        mode: sessionConfig.videoMode,
+      })
 
       try {
         const videoAssetInput = {
@@ -1335,9 +1521,16 @@ export function Rayd8PlayerEngine({
           return
         }
 
-        const video = primaryVideoRef.current
+        const video = await waitForPrimaryVideoElement()
 
         if (!video) {
+          if (!cancelled) {
+            setPreloadPercent(0)
+            setInitFailureVisible(true)
+            playbackAuthority?.dispatch({ type: 'lifecycle_fatal', message: 'Video element was not ready.' })
+            logExpressPlaybackDebug('init_failure_fallback_shown', { reason: 'video_ref_missing' })
+          }
+
           return
         }
 
@@ -1354,6 +1547,7 @@ export function Rayd8PlayerEngine({
         clearMuxRefreshTimer()
 
         const diagnosticsLabel = `primary:${experience}:${sessionConfig.videoMode}`
+        logExpressPlaybackDebug('mux_source_load', { diagnosticsLabel })
         const applied = await setMediaSource({
           controllerProfileRef: primaryVideoControllerProfileRef,
           controllerRef: primaryVideoControllerRef,
@@ -1476,13 +1670,16 @@ export function Rayd8PlayerEngine({
           return
         }
 
+        logExpressPlaybackDebug('playback_ready', { preloadThreshold })
         playbackAuthority?.dispatch({ type: 'lifecycle_ready' })
         const started = await tryPlay(video)
+        logExpressPlaybackDebug('play_called', { started })
 
         if (!cancelled) {
           systemPausedRef.current = false
           setPreloadPercent(100)
           playbackAuthority?.dispatch({ type: 'lifecycle_play_attempt_finished', ok: started })
+          logExpressPlaybackDebug('play_result', { started })
         }
       } catch (error) {
         if (!cancelled) {
@@ -1496,6 +1693,10 @@ export function Rayd8PlayerEngine({
           }
 
           playbackAuthority?.dispatch({ type: 'lifecycle_ready' })
+          setInitFailureVisible(true)
+          logExpressPlaybackDebug('init_failure_fallback_shown', {
+            reason: error instanceof Error ? error.message : 'unknown',
+          })
           setVideoError(
             error instanceof Error ? error.message : 'Unable to load the current video mode.',
           )
@@ -1527,6 +1728,8 @@ export function Rayd8PlayerEngine({
     sessionConfig.videoMode,
     sessionType,
     setSingleAvAudioActive,
+    primaryVideoReady,
+    initRetryKey,
   ])
 
   useEffect(() => {
@@ -1788,6 +1991,16 @@ export function Rayd8PlayerEngine({
     playbackAuthority?.dispatch({ type: 'user_resume_requested' })
   }, [playbackAuthority, resetSessionContinuityTimer])
 
+  const handleRetryInitialization = useCallback(() => {
+    logExpressPlaybackDebug('init_retry_tapped', {
+      experience,
+      mode: sessionConfig.videoMode,
+    })
+    setInitFailureVisible(false)
+    setVideoError(null)
+    setInitRetryKey((currentValue) => currentValue + 1)
+  }, [experience, sessionConfig.videoMode])
+
   const setVideoMode = useCallback((videoMode: FreeTrialVideoMode) => {
     setSessionConfig((currentValue) => ({ ...currentValue, videoMode }))
     setActivePanel(null)
@@ -1928,8 +2141,6 @@ export function Rayd8PlayerEngine({
       >
         <VideoSurface
           brightnessPercent={brightnessPercent}
-          enforceWidescreen={mobilePlaybackRefactorEnabled}
-          fitMode={fitMode}
           onPointerUp={handleVideoSurfacePointerUp}
           performanceMode={performancePresentationMode}
           videoRef={setPrimaryVideoElement}
@@ -2016,6 +2227,38 @@ export function Rayd8PlayerEngine({
 
         {interactionRequired ? (
           <InteractionRequiredOverlay onResume={() => void handleResumePlayback()} />
+        ) : null}
+
+        {initFailureVisible && !activeSoftDenialState ? (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/78 p-6 text-center">
+            <div className="max-w-sm rounded-[2rem] border border-white/12 bg-slate-950/92 p-6 text-white shadow-[0_18px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+              <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/70">
+                Session interrupted
+              </p>
+              <h3 className="mt-3 text-2xl font-semibold text-white">
+                Unable to initialize session.
+              </h3>
+              <p className="mt-3 text-sm leading-6 text-slate-300">
+                The session did not become ready. Try again when the app is foregrounded and connected.
+              </p>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <button
+                  className="rounded-2xl bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-5 py-3 text-sm font-medium text-white transition hover:-translate-y-0.5"
+                  onClick={handleRetryInitialization}
+                  type="button"
+                >
+                  Tap to Retry
+                </button>
+                <button
+                  className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/5"
+                  onClick={onClose}
+                  type="button"
+                >
+                  Exit session
+                </button>
+              </div>
+            </div>
+          </div>
         ) : null}
 
         {activeSoftDenialState ? (
@@ -2132,166 +2375,185 @@ export function Rayd8PlayerEngine({
         >
           <div
             className={[
-              'mx-auto flex w-full max-w-4xl flex-col items-center gap-3',
+              playerControlSizing.dockOuterClassName,
               shouldShowChrome ? 'pointer-events-auto' : 'pointer-events-none',
             ].join(' ')}
             ref={controlDockRef}
           >
             {activePanel ? (
-              <div className="w-full max-w-[23rem] rounded-[1.5rem] border border-white/10 bg-black/58 p-3 shadow-[0_18px_60px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
-                {activePanel === 'mode' ? (
-                  <FlyoutPanel title="Motion state">
-                    <div className="grid gap-2">
-                      {videoModes.map(([modeKey, modeValue]) => {
-                        const isActive = sessionConfig.videoMode === modeKey
+              <div className={playerControlSizing.flyoutClassName}>
+                <div
+                  className={playerControlSizing.flyoutScrollClassName}
+                  style={
+                    playerControlSizing.flyoutMaxHeight
+                      ? {
+                          ...playerControlSizing.flyoutScrollStyle,
+                          maxHeight: playerControlSizing.flyoutMaxHeight,
+                        }
+                      : undefined
+                  }
+                >
+                  {activePanel === 'mode' ? (
+                    <FlyoutPanel sizing={playerControlSizing} title="Motion state">
+                      <div className={playerControlSizing.flyoutGridClassName}>
+                        {videoModes.map(([modeKey, modeValue]) => {
+                          const isActive = sessionConfig.videoMode === modeKey
 
-                        return (
-                          <FlyoutOptionButton
-                            active={isActive}
-                            key={modeKey}
-                            onClick={() => setVideoMode(modeKey as FreeTrialVideoMode)}
-                          >
-                            <span>{modeValue.label}</span>
-                            {isActive ? <StatusPill label="Active" /> : null}
-                          </FlyoutOptionButton>
-                        )
-                      })}
-                    </div>
-                  </FlyoutPanel>
-                ) : null}
+                          return (
+                            <FlyoutOptionButton
+                              active={isActive}
+                              key={modeKey}
+                              onClick={() => setVideoMode(modeKey as FreeTrialVideoMode)}
+                              sizing={playerControlSizing}
+                            >
+                              <span>{modeValue.label}</span>
+                              {isActive ? <StatusPill label="Active" sizing={playerControlSizing} /> : null}
+                            </FlyoutOptionButton>
+                          )
+                        })}
+                      </div>
+                    </FlyoutPanel>
+                  ) : null}
 
-                {activePanel === 'audio' ? (
-                  <FlyoutPanel
-                    meta={isAudioLoading ? 'Updating sound layer...' : 'Independent from video mode switching'}
-                    title="Audio track"
-                  >
-                    <div className="grid gap-2">
-                      {audioTracks.map(([audioKey, audioValue]) => {
-                        const isActive = audioTrack === audioKey
+                  {activePanel === 'audio' ? (
+                    <FlyoutPanel
+                      meta={isAudioLoading ? 'Updating sound layer...' : 'Independent from video mode switching'}
+                      sizing={playerControlSizing}
+                      title="Audio track"
+                    >
+                      <div className={playerControlSizing.flyoutGridClassName}>
+                        {audioTracks.map(([audioKey, audioValue]) => {
+                          const isActive = audioTrack === audioKey
 
-                        return (
-                          <FlyoutOptionButton
-                            active={isActive}
-                            key={audioKey}
-                            onClick={() =>
-                              handleAudioTrackChange(audioKey as keyof typeof FREE_TRIAL_AUDIO_TRACKS)
-                            }
-                          >
-                            <span>{audioValue.label}</span>
-                            {isActive ? <StatusPill label="Active" /> : null}
-                          </FlyoutOptionButton>
-                        )
-                      })}
-                    </div>
-                  </FlyoutPanel>
-                ) : null}
-
-                {activePanel === 'volume' ? (
-                  <FlyoutPanel
-                    meta={audioIsSilent ? 'Muted' : `${Math.round(audioVolume * 100)}%`}
-                    title="Volume"
-                  >
-                    <div className="space-y-3 rounded-[1.15rem] border border-white/10 bg-white/[0.045] px-4 py-4">
-                      <button
-                        className="inline-flex h-9 items-center justify-center rounded-[0.95rem] border border-white/10 bg-black/20 px-3 text-[11px] font-medium uppercase tracking-[0.24em] text-slate-200 transition hover:bg-white/[0.06]"
-                        onClick={handleMuteToggle}
-                        type="button"
-                      >
-                        {volumeActionLabel}
-                      </button>
-                      <input
-                        className="w-full accent-emerald-300"
-                        id="rayd8-volume"
-                        max="1"
-                        min="0"
-                        onChange={(event) => setAudioVolume(Number(event.target.value))}
-                        step="0.05"
-                        type="range"
-                        value={audioVolume}
-                      />
-                    </div>
-                  </FlyoutPanel>
-                ) : null}
-
-                {activePanel === 'amplification' ? (
-                  <FlyoutPanel title="Amplifiers">
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['off', '5x', '10x', '20x'] as const).map((amplification) => (
-                        <FlyoutOptionButton
-                          active={sessionConfig.amplification === amplification}
-                          key={amplification}
-                          onClick={() => setAmplification(amplification)}
-                        >
-                          <span>{amplification === 'off' ? 'Off' : amplification}</span>
-                          {sessionConfig.amplification === amplification ? (
-                            <StatusPill label="Active" />
-                          ) : null}
-                        </FlyoutOptionButton>
-                      ))}
-                    </div>
-                  </FlyoutPanel>
-                ) : null}
-
-                {activePanel === 'gear' ? (
-                  <FlyoutPanel title="Gearbox">
-                    <div className="grid gap-2">
-                      {[
-                        {
-                          checked: blueLightEnabled,
-                          label: 'Anti-blue light',
-                          onToggle: () =>
-                            setBlueLightEnabled((currentValue) => {
-                              const nextValue = !currentValue
-
-                              if (nextValue) {
-                                trackUmamiEvent('anti_blue_light_enabled')
+                          return (
+                            <FlyoutOptionButton
+                              active={isActive}
+                              key={audioKey}
+                              onClick={() =>
+                                handleAudioTrackChange(audioKey as keyof typeof FREE_TRIAL_AUDIO_TRACKS)
                               }
+                              sizing={playerControlSizing}
+                            >
+                              <span>{audioValue.label}</span>
+                              {isActive ? <StatusPill label="Active" sizing={playerControlSizing} /> : null}
+                            </FlyoutOptionButton>
+                          )
+                        })}
+                      </div>
+                    </FlyoutPanel>
+                  ) : null}
 
-                              return nextValue
-                            }),
-                        },
-                        {
-                          checked: circadianEnabled,
-                          label: 'Circadian rhythm',
-                          onToggle: () => setCircadianEnabled((currentValue) => !currentValue),
-                        },
-                        {
-                          checked: nightModeEnabled,
-                          label: 'Night mode',
-                          onToggle: () =>
-                            setNightModeEnabled((currentValue) => {
-                              const nextValue = !currentValue
-
-                              if (nextValue) {
-                                trackUmamiEvent('night_mode_enabled')
-                              }
-
-                              return nextValue
-                            }),
-                        },
-                      ].map((item) => (
-                        <FlyoutOptionButton
-                          active={item.checked}
-                          key={item.label}
-                          onClick={item.onToggle}
+                  {activePanel === 'volume' ? (
+                    <FlyoutPanel
+                      meta={audioIsSilent ? 'Muted' : `${Math.round(audioVolume * 100)}%`}
+                      sizing={playerControlSizing}
+                      title="Volume"
+                    >
+                      <div className={playerControlSizing.volumePanelClassName}>
+                        <button
+                          className={playerControlSizing.volumeButtonClassName}
+                          onClick={handleMuteToggle}
+                          type="button"
                         >
-                          <span>{item.label}</span>
-                          <StatusPill label={item.checked ? 'On' : 'Off'} />
-                        </FlyoutOptionButton>
-                      ))}
-                    </div>
-                  </FlyoutPanel>
-                ) : null}
+                          {volumeActionLabel}
+                        </button>
+                        <input
+                          className="w-full accent-emerald-300"
+                          id="rayd8-volume"
+                          max="1"
+                          min="0"
+                          onChange={(event) => setAudioVolume(Number(event.target.value))}
+                          step="0.05"
+                          type="range"
+                          value={audioVolume}
+                        />
+                      </div>
+                    </FlyoutPanel>
+                  ) : null}
+
+                  {activePanel === 'amplification' ? (
+                    <FlyoutPanel sizing={playerControlSizing} title="Amplifiers">
+                      <div className={`${playerControlSizing.flyoutGridClassName} grid-cols-2`}>
+                        {(['off', '5x', '10x', '20x'] as const).map((amplification) => (
+                          <FlyoutOptionButton
+                            active={sessionConfig.amplification === amplification}
+                            key={amplification}
+                            onClick={() => setAmplification(amplification)}
+                            sizing={playerControlSizing}
+                          >
+                            <span>{amplification === 'off' ? 'Off' : amplification}</span>
+                            {sessionConfig.amplification === amplification ? (
+                              <StatusPill label="Active" sizing={playerControlSizing} />
+                            ) : null}
+                          </FlyoutOptionButton>
+                        ))}
+                      </div>
+                    </FlyoutPanel>
+                  ) : null}
+
+                  {activePanel === 'gear' ? (
+                    <FlyoutPanel sizing={playerControlSizing} title="Gearbox">
+                      <div className={playerControlSizing.flyoutGridClassName}>
+                        {[
+                          {
+                            checked: blueLightEnabled,
+                            label: 'Anti-blue light',
+                            onToggle: () =>
+                              setBlueLightEnabled((currentValue) => {
+                                const nextValue = !currentValue
+
+                                if (nextValue) {
+                                  trackUmamiEvent('anti_blue_light_enabled')
+                                }
+
+                                return nextValue
+                              }),
+                          },
+                          {
+                            checked: circadianEnabled,
+                            label: 'Circadian rhythm',
+                            onToggle: () => setCircadianEnabled((currentValue) => !currentValue),
+                          },
+                          {
+                            checked: nightModeEnabled,
+                            label: 'Night mode',
+                            onToggle: () =>
+                              setNightModeEnabled((currentValue) => {
+                                const nextValue = !currentValue
+
+                                if (nextValue) {
+                                  trackUmamiEvent('night_mode_enabled')
+                                }
+
+                                return nextValue
+                              }),
+                          },
+                        ].map((item) => (
+                          <FlyoutOptionButton
+                            active={item.checked}
+                            key={item.label}
+                            onClick={item.onToggle}
+                            sizing={playerControlSizing}
+                          >
+                            <span>{item.label}</span>
+                            <StatusPill label={item.checked ? 'On' : 'Off'} sizing={playerControlSizing} />
+                          </FlyoutOptionButton>
+                        ))}
+                      </div>
+                    </FlyoutPanel>
+                  ) : null}
+                </div>
               </div>
             ) : null}
 
-            <div className="rounded-[1.6rem] border border-white/10 bg-black/48 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
-              <div className="flex items-center gap-2">
-                <GuideControlButton onClick={openManualGuide} />
+            <div className={playerControlSizing.dockInnerClassName}>
+              <div className={playerControlSizing.dockRowClassName}>
+                <GuideControlButton onClick={openManualGuide} sizing={playerControlSizing} />
                 <CompactIconButton
                   active={activePanel === 'mode'}
                   ariaLabel={`Select motion state. Current ${videoModeLabel}`}
                   onClick={() => setActivePanel((currentValue) => (currentValue === 'mode' ? null : 'mode'))}
+                  sizing={playerControlSizing}
                   title={videoModeLabel}
                 >
                   <MotionIcon />
@@ -2300,6 +2562,7 @@ export function Rayd8PlayerEngine({
                   active={activePanel === 'audio'}
                   ariaLabel={`Select audio track. Current ${audioTrackLabel}`}
                   onClick={() => setActivePanel((currentValue) => (currentValue === 'audio' ? null : 'audio'))}
+                  sizing={playerControlSizing}
                   title={audioTrackLabel}
                 >
                   <AudioTrackIcon />
@@ -2308,6 +2571,7 @@ export function Rayd8PlayerEngine({
                   active={activePanel === 'volume'}
                   ariaLabel={`Adjust volume. Current ${audioIsSilent ? 'muted' : `${Math.round(audioVolume * 100)} percent`}`}
                   onClick={() => setActivePanel((currentValue) => (currentValue === 'volume' ? null : 'volume'))}
+                  sizing={playerControlSizing}
                   title={audioIsSilent ? 'Muted' : `${Math.round(audioVolume * 100)}%`}
                 >
                   <VolumeIcon muted={audioIsSilent} />
@@ -2320,6 +2584,7 @@ export function Rayd8PlayerEngine({
                       currentValue === 'amplification' ? null : 'amplification',
                     )
                   }
+                  sizing={playerControlSizing}
                   title={`Amplifier ${amplificationLabel}`}
                 >
                   <AmplifierIcon />
@@ -2328,6 +2593,7 @@ export function Rayd8PlayerEngine({
                   active={activePanel === 'gear'}
                   ariaLabel="Open gearbox settings"
                   onClick={() => setActivePanel((currentValue) => (currentValue === 'gear' ? null : 'gear'))}
+                  sizing={playerControlSizing}
                   title="Gearbox"
                 >
                   <GearIcon />
@@ -2336,6 +2602,7 @@ export function Rayd8PlayerEngine({
                   active={isFullscreen}
                   ariaLabel={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
                   onClick={() => void toggleFullscreen()}
+                  sizing={playerControlSizing}
                   title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                 >
                   <FullscreenIcon active={isFullscreen} />
@@ -2344,7 +2611,7 @@ export function Rayd8PlayerEngine({
             </div>
 
             {(videoError || audioError) && !trialOverlayState ? (
-              <div className="w-full max-w-[23rem] rounded-[1.4rem] border border-amber-300/20 bg-slate-950/90 px-4 py-3 text-sm leading-6 text-amber-100">
+              <div className={playerControlSizing.errorClassName}>
                 {videoError ?? audioError}
               </div>
             ) : null}
@@ -2376,17 +2643,19 @@ export function Rayd8PlayerEngine({
 function FlyoutPanel({
   children,
   meta,
+  sizing,
   title,
 }: {
   children: ReactNode
   meta?: string
+  sizing: PlayerControlSizing
   title: string
 }) {
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between gap-3 px-1">
-        <p className="text-[10px] uppercase tracking-[0.3em] text-emerald-200/60">{title}</p>
-        {meta ? <p className="text-[10px] text-slate-400">{meta}</p> : null}
+      <div className={sizing.flyoutPanelHeaderClassName}>
+        <p className={sizing.flyoutPanelTitleClassName}>{title}</p>
+        {meta ? <p className={sizing.flyoutPanelMetaClassName}>{meta}</p> : null}
       </div>
       {children}
     </div>
@@ -2397,15 +2666,17 @@ function FlyoutOptionButton({
   active,
   children,
   onClick,
+  sizing,
 }: {
   active?: boolean
   children: ReactNode
   onClick: () => void
+  sizing: PlayerControlSizing
 }) {
   return (
     <button
       className={[
-        'flex w-full items-center justify-between gap-3 rounded-[1.1rem] border px-3 py-3 text-left text-sm transition',
+        sizing.flyoutOptionClassName,
         active
           ? 'border-emerald-300/30 bg-emerald-300/14 text-white'
           : 'border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]',
@@ -2418,23 +2689,30 @@ function FlyoutOptionButton({
   )
 }
 
-function StatusPill({ label }: { label: string }) {
+function StatusPill({ label, sizing }: { label: string; sizing: PlayerControlSizing }) {
   return (
-    <span className="rounded-full border border-white/10 bg-black/25 px-2 py-1 text-[10px] uppercase tracking-[0.24em] text-slate-300">
+    <span className={sizing.statusPillClassName}>
       {label}
     </span>
   )
 }
 
-function GuideControlButton({ onClick }: { onClick: () => void }) {
+function GuideControlButton({
+  onClick,
+  sizing,
+}: {
+  onClick: () => void
+  sizing: PlayerControlSizing
+}) {
   return (
     <button
-      className="inline-flex h-11 items-center gap-2 rounded-[1rem] border border-emerald-300/20 bg-[linear-gradient(135deg,rgba(16,185,129,0.14),rgba(59,130,246,0.14))] px-3 text-sm font-medium text-white transition hover:bg-[linear-gradient(135deg,rgba(16,185,129,0.2),rgba(59,130,246,0.2))]"
+      aria-label="Guide"
+      className={sizing.guideButtonClassName}
       onClick={onClick}
       type="button"
     >
       <GuideIcon />
-      <span>Guide</span>
+      <span className={sizing.guideLabelClassName}>Guide</span>
     </button>
   )
 }
@@ -2444,19 +2722,21 @@ function CompactIconButton({
   ariaLabel,
   children,
   onClick,
+  sizing,
   title,
 }: {
   active?: boolean
   ariaLabel: string
   children: ReactNode
   onClick: () => void
+  sizing: PlayerControlSizing
   title: string
 }) {
   return (
     <button
       aria-label={ariaLabel}
       className={[
-        'inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border transition',
+        sizing.iconButtonClassName,
         active
           ? 'border-emerald-300/30 bg-emerald-300/16 text-white'
           : 'border-white/10 bg-white/[0.05] text-slate-200 hover:bg-white/[0.1]',

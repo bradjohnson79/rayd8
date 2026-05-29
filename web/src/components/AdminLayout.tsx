@@ -14,9 +14,10 @@ export function AdminLayout() {
       description="Identity, billing, content, and streaming orchestration stay active while plan previews change the dashboard core."
       desktopSidebarOffsetClass="xl:pl-[25vw]"
       eyebrow="RAYD8® operating system"
+      isSidebarOpen={sidebarOpen}
       menuButtonClassName=""
       menuButtonLabel="Open admin navigation"
-      onOpenSidebar={() => setSidebarOpen(true)}
+      onToggleSidebar={() => setSidebarOpen((currentValue) => !currentValue)}
       sidebar={<AdminSidebar onClose={() => setSidebarOpen(false)} open={sidebarOpen} />}
       user={user}
     >

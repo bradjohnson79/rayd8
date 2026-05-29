@@ -1,6 +1,7 @@
 import { RedirectToSignIn } from '@clerk/react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import type { AuthUser } from '../../app/types'
 import { DashboardShell } from '../../components/DashboardShell'
 import {
   AUTH_LOADING_MESSAGE,
@@ -9,11 +10,12 @@ import {
   useAuthReadiness,
 } from '../auth/useAuthReadiness'
 import { consumeStoredAuthReturnTo } from '../auth/useUpgradeNavigation'
+import { useSession } from '../session/SessionProvider'
 import { useAuthUser } from './useAuthUser'
 import { Sidebar } from './Sidebar'
+import { ExpressNavigationProvider, useExpressNavigation } from './useExpressNavigation'
 
 export function DashboardLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const user = useAuthUser()
   const { authUser, status } = useAuthReadiness()
   const location = useLocation()
@@ -77,17 +79,64 @@ export function DashboardLayout() {
   }
 
   return (
+    <ExpressNavigationProvider>
+      <SignedInDashboardLayout user={authUser ?? user} />
+    </ExpressNavigationProvider>
+  )
+}
+
+function SignedInDashboardLayout({ user }: { user: AuthUser }) {
+  const location = useLocation()
+  const { isActive } = useSession()
+  const {
+    closeSidebar,
+    isSidebarOpen,
+    shellMode,
+    toggleSidebar,
+  } = useExpressNavigation()
+
+  useEffect(() => {
+    if (shellMode === 'drawer') {
+      closeSidebar()
+    }
+  }, [closeSidebar, location.pathname, shellMode])
+
+  useEffect(() => {
+    if (isActive) {
+      closeSidebar()
+    }
+  }, [closeSidebar, isActive])
+
+  const handleToggleSidebar = useCallback(() => {
+    if (isActive) {
+      closeSidebar()
+      return
+    }
+
+    toggleSidebar()
+  }, [closeSidebar, isActive, toggleSidebar])
+
+  return (
     <DashboardShell
       accent="emerald"
       description="One shared dashboard surface for session launch, guidance, and account controls."
-      desktopSidebarOffsetClass="md:pl-[25vw]"
+      desktopSidebarOffsetClass="lg:pl-[25vw]"
       eyebrow="RAYD8® USER ACCOUNT"
+      isSessionActive={isActive}
+      isSidebarOpen={isSidebarOpen}
       menuButtonClassName=""
       menuButtonLabel="Open navigation"
-      onOpenSidebar={() => setSidebarOpen(true)}
+      onToggleSidebar={handleToggleSidebar}
       presentation="immersive"
-      sidebar={<Sidebar onClose={() => setSidebarOpen(false)} open={sidebarOpen} user={authUser ?? user} />}
-      user={authUser ?? user}
+      sidebar={
+        <Sidebar
+          onClose={closeSidebar}
+          open={isSidebarOpen}
+          shellMode={shellMode}
+          user={user}
+        />
+      }
+      user={user}
     >
       <Outlet />
     </DashboardShell>

@@ -4,23 +4,22 @@ import type { AuthUser } from '../../app/types'
 import { useUpgradeNavigation } from '../auth/useUpgradeNavigation'
 import { dashboardSectionIds, type DashboardSectionId } from './dashboardSections'
 import { getSidebarItems } from './sidebarItems'
+import type { ExpressShellMode } from './useExpressNavigation'
 
 interface SidebarProps {
   user: AuthUser
   open: boolean
   onClose: () => void
+  shellMode: ExpressShellMode
 }
 
-export function Sidebar({ user, open, onClose }: SidebarProps) {
+export function Sidebar({ user, open, onClose, shellMode }: SidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const navigateToUpgrade = useUpgradeNavigation()
   const items = getSidebarItems(user)
   const [observerActiveSection, setObserverActiveSection] =
     useState<DashboardSectionId>('expansion')
-  const [isMdBreakpoint, setIsMdBreakpoint] = useState(() =>
-    typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : false,
-  )
 
   const isDashboardRoute = location.pathname === '/dashboard'
 
@@ -35,20 +34,6 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
   }, [isDashboardRoute, location.hash])
 
   const activeSection = hashSyncedSection ?? observerActiveSection
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 768px)')
-
-    const handleChange = () => {
-      setIsMdBreakpoint(mediaQuery.matches)
-    }
-
-    mediaQuery.addEventListener('change', handleChange)
-
-    return () => {
-      mediaQuery.removeEventListener('change', handleChange)
-    }
-  }, [])
 
   useEffect(() => {
     if (!isDashboardRoute) {
@@ -158,33 +143,33 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
     onClose()
   }
 
-  const mobileDrawerClosed = !isMdBreakpoint && !open
+  const drawerClosed = shellMode === 'drawer' && !open
 
   return (
     <>
-      {open ? (
+      {shellMode === 'drawer' && open ? (
         <button
           aria-label="Close navigation"
-          className="fixed inset-0 z-20 bg-black/40 md:hidden"
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
           onClick={onClose}
           type="button"
         />
       ) : null}
 
       <aside
-        aria-hidden={mobileDrawerClosed}
+        aria-hidden={drawerClosed}
         className={[
-          'fixed inset-y-0 left-0 z-30 flex w-72 flex-col bg-[rgba(7,12,16,0.82)] shadow-[0_18px_80px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition-[transform,visibility] duration-300',
-          open ? 'translate-x-0' : '-translate-x-full',
-          mobileDrawerClosed ? 'max-md:invisible max-md:pointer-events-none' : '',
-          'md:w-[25vw] md:bg-transparent md:shadow-none md:backdrop-blur-0 md:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex w-[min(18rem,75vw)] flex-col bg-[rgba(7,12,16,0.82)] shadow-[0_18px_80px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition-[transform,visibility] duration-300',
+          drawerClosed ? '-translate-x-full' : 'translate-x-0',
+          drawerClosed ? 'max-lg:invisible max-lg:pointer-events-none' : '',
+          'lg:w-[25vw] lg:bg-transparent lg:shadow-none lg:backdrop-blur-0 lg:translate-x-0',
         ].join(' ')}
-        inert={mobileDrawerClosed ? true : undefined}
+        inert={drawerClosed ? true : undefined}
       >
-        {open ? (
+        {shellMode === 'drawer' && open ? (
           <button
             aria-label="Close navigation"
-            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-slate-100 shadow-[0_12px_32px_rgba(0,0,0,0.22)] backdrop-blur-xl transition hover:bg-white/[0.1] md:hidden"
+            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-slate-100 shadow-[0_12px_32px_rgba(0,0,0,0.22)] backdrop-blur-xl transition hover:bg-white/[0.1] lg:hidden"
             onClick={onClose}
             type="button"
           >
@@ -199,22 +184,22 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
           </button>
         ) : null}
 
-        <div className="px-5 py-6 pr-16 md:px-4 md:py-8">
-          <p className="text-2xl uppercase tracking-[0.24em] text-emerald-200/80 md:text-[22px] md:leading-[1.4rem]">
+        <div className="px-5 py-6 pr-16 lg:px-4 lg:py-8">
+          <p className="text-2xl uppercase tracking-[0.24em] text-emerald-200/80 lg:text-[22px] lg:leading-[1.4rem]">
             RAYD8®
           </p>
-          <p className="mt-3 text-2xl uppercase leading-[1.4rem] tracking-[0.24em] text-slate-400 md:text-[22px]">
+          <p className="mt-3 text-2xl uppercase leading-[1.4rem] tracking-[0.24em] text-slate-400 lg:text-[22px]">
             {user.plan}
           </p>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 pb-6 md:px-3 md:pb-10">
+        <nav className="flex-1 overflow-y-auto px-3 pb-6 lg:px-3 lg:pb-10">
           <ul className="w-full space-y-2">
             {items.map((item) => (
               <li key={item.to}>
                 <button
                   className={[
-                    'flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-xs uppercase tracking-[0.24em] transition-colors md:min-h-[4.5rem] md:flex-col md:items-start md:justify-center md:gap-2 md:px-4 md:py-3.5 md:leading-[1.15rem] md:text-[11px]',
+                    'flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-xs uppercase tracking-[0.24em] transition-colors lg:min-h-[4.5rem] lg:flex-col lg:items-start lg:justify-center lg:gap-2 lg:px-4 lg:py-3.5 lg:leading-[1.15rem] lg:text-[11px]',
                     item.emphasis === 'upgrade'
                       ? 'border border-emerald-200/20 bg-[linear-gradient(135deg,rgba(16,185,129,0.22),rgba(59,130,246,0.22))] text-white shadow-[0_14px_45px_rgba(16,185,129,0.18)] hover:border-emerald-200/30 hover:bg-[linear-gradient(135deg,rgba(16,185,129,0.3),rgba(59,130,246,0.28))]'
                       : isItemActive(item)
@@ -234,7 +219,7 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
                         ? 'bg-emerald-200 opacity-100 shadow-[0_0_12px_rgba(167,243,208,0.8)]'
                         : isItemActive(item)
                           ? 'bg-emerald-300 opacity-100'
-                          : 'bg-white/20 opacity-0 md:opacity-40',
+                          : 'bg-white/20 opacity-0 lg:opacity-40',
                     ].join(' ')}
                   />
                 </button>
@@ -243,7 +228,7 @@ export function Sidebar({ user, open, onClose }: SidebarProps) {
           </ul>
         </nav>
 
-        <div className="px-3 pb-6 md:px-3 md:pb-8">
+        <div className="px-3 pb-6 lg:px-3 lg:pb-8">
           <button
             className="flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs uppercase tracking-[0.24em] text-white transition-colors hover:bg-white/[0.08]"
             onClick={handleBackToHome}
