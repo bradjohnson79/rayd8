@@ -16,6 +16,7 @@ const baseItems: SidebarItem[] = [
   { kind: 'route', label: 'HAMSA', to: '/dashboard/hamsa' },
   { kind: 'route', label: 'AMRITA', to: '/dashboard/amrita' },
   { kind: 'route', label: 'Affiliate', to: '/dashboard/affiliate' },
+  { kind: 'route', label: 'Settings', to: '/dashboard/settings' },
   { kind: 'route', label: 'Instructions', to: '/dashboard/instructions' },
 ]
 

@@ -53,6 +53,10 @@ export function shouldSuppressContinuityTimer(
   profile: PlaybackPolicyProfile,
   allowExtendedSessionsFromSettings: boolean,
 ): boolean {
+  if (allowExtendedSessionsFromSettings) {
+    return true
+  }
+
   if (profile === 'strict') {
     return false
   }
@@ -61,5 +65,5 @@ export function shouldSuppressContinuityTimer(
     return true
   }
 
-  return allowExtendedSessionsFromSettings
+  return false
 }

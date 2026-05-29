@@ -80,8 +80,13 @@ import {
   recordVideoMount,
 } from './playerDiagnostics'
 import {
+  resolvePlaybackPolicyProfile,
+  shouldSuppressContinuityTimer,
+} from '../playback-authority/playbackPolicy'
+import {
   getConsecutivePlaybackStartTime,
   shouldTriggerSessionWarning,
+  TWO_HOURS_MS,
   type SessionPlaybackStatus,
 } from './sessionWarning'
 import { useMobilePlaybackLifecycle } from './useMobilePlaybackLifecycle'
@@ -550,7 +555,10 @@ export function Rayd8PlayerEngine({
     [],
   )
   const effectiveAllowExtendedSessions = playbackMode === 'member' && allowExtendedSessions
-  const continuityTimerSuppressed = playbackAuthority?.continuityTimerSuppressed() ?? true
+  const continuityTimerSuppressed = shouldSuppressContinuityTimer(
+    resolvePlaybackPolicyProfile(),
+    effectiveAllowExtendedSessions,
+  )
   const experience = useMemo(() => getExperienceFromSessionType(sessionType), [sessionType])
   const playbackPlan = useMemo(
     () =>
@@ -1229,27 +1237,45 @@ export function Rayd8PlayerEngine({
     sessionStartTimeRef.current = nextSessionStartTime
 
     const checkTimer = () => {
+      const now = Date.now()
+
       if (
         shouldTriggerSessionWarning({
           allowExtendedSessions: continuityTimerSuppressed,
-          now: Date.now(),
+          now,
           sessionStartTime: sessionStartTimeRef.current,
         })
       ) {
         triggerSessionContinuityCheck()
       }
 
+      const nextDelay =
+        sessionStartTimeRef.current === null
+          ? SESSION_WARNING_CHECK_MS
+          : Math.max(
+              0,
+              Math.min(
+                SESSION_WARNING_CHECK_MS,
+                TWO_HOURS_MS - (Date.now() - sessionStartTimeRef.current),
+              ),
+            )
+
       sessionWarningTimerRef.current = playbackScheduler.setTimeout(
         'session-warning',
         checkTimer,
-        SESSION_WARNING_CHECK_MS,
+        nextDelay,
       )
     }
+
+    const initialDelay = Math.max(
+      0,
+      Math.min(SESSION_WARNING_CHECK_MS, TWO_HOURS_MS - (Date.now() - nextSessionStartTime)),
+    )
 
     sessionWarningTimerRef.current = playbackScheduler.setTimeout(
       'session-warning',
       checkTimer,
-      SESSION_WARNING_CHECK_MS,
+      initialDelay,
     )
 
     return () => {
