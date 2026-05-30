@@ -13,8 +13,6 @@ import { usePlatformDetection } from '../pwa/usePlatformDetection'
 import { usePwaInstall } from '../pwa/usePwaInstall'
 import { MarketingButton } from './components/MarketingButton'
 
-const FIREFOX_DOWNLOAD_URL = 'https://www.mozilla.org/firefox/new/'
-
 interface Rayd8ExpressPromoSectionProps {
   reducedEffects?: boolean
 }
@@ -173,16 +171,7 @@ export function Rayd8ExpressPromoSection({
             Download RAYD8 Express
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-8 text-slate-200/82 sm:text-lg">
-            {copy.body} We recommend using{' '}
-            <a
-              className="font-medium !text-sky-300 !underline !decoration-sky-300 underline-offset-4 transition hover:!text-sky-200"
-              href={FIREFOX_DOWNLOAD_URL}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Mozilla Firefox
-            </a>{' '}
-            Browser for the best RAYD8 Experience.
+            {copy.body}
           </p>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -196,11 +185,17 @@ export function Rayd8ExpressPromoSection({
               </MarketingButton>
             </div>
 
-            <div className="rounded-[1.35rem] border border-white/10 bg-black/18 p-5">
-              <h3 className="text-sm font-medium tracking-wide text-white/90">iPhone / Mac Users</h3>
-              <MarketingButton className="mt-4 w-full" onClick={() => openInstallDialog('apple')}>
-                {DOWNLOAD_EXPRESS_CTA}
-              </MarketingButton>
+            <div className="flex flex-col gap-3">
+              <div className="rounded-[1.35rem] border border-white/10 bg-black/18 p-5">
+                <h3 className="text-sm font-medium tracking-wide text-white/90">iPhone / Mac Users</h3>
+                <MarketingButton className="mt-4 w-full" onClick={() => openInstallDialog('apple')}>
+                  {DOWNLOAD_EXPRESS_CTA}
+                </MarketingButton>
+              </div>
+              <p className="text-xs leading-5 text-slate-200/60">
+                RAYD8 Express not available through Mozilla Firefox browser. Please use your member
+                dashboard to access RAYD8 when using this browser.
+              </p>
             </div>
           </div>
         </div>

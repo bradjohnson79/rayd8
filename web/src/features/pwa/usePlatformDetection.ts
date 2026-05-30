@@ -15,6 +15,7 @@ export function usePlatformDetection() {
         isAndroid: false,
         isChromium: false,
         isDesktop: false,
+        isFirefox: false,
         isIos: false,
         isMacSafari: false,
         isSafari: false,
@@ -27,6 +28,7 @@ export function usePlatformDetection() {
     const isIos = /iPhone|iPad|iPod/i.test(userAgent) || isIpadOs(userAgent)
     const isSafari = /Safari/i.test(userAgent) && !/Chrome|CriOS|Chromium|Edg|OPR|Brave/i.test(userAgent)
     const isChromium = /Chrome|CriOS|Chromium|Edg|OPR|Brave/i.test(userAgent)
+    const isFirefox = /firefox/i.test(userAgent)
     const isMac = /Macintosh|Mac OS X/i.test(userAgent) && !isIos
     const isMobile = isAndroid || isIos || /Mobile/i.test(userAgent)
     const isMacSafari = isMac && isSafari
@@ -47,6 +49,7 @@ export function usePlatformDetection() {
       isAndroid,
       isChromium,
       isDesktop,
+      isFirefox,
       isIos,
       isMacSafari,
       isSafari,
