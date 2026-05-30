@@ -16,6 +16,7 @@ import { GuideModal } from './GuideModal'
 import { PlayerPerformanceNotice } from './PlayerPerformanceNotice'
 import {
   InteractionRequiredOverlay,
+  PlaybackHealthFallbackOverlay,
   PreloadOverlay,
   UsageWarningOverlay,
 } from './PlayerSessionStatusOverlays'
@@ -92,6 +93,7 @@ import {
   type SessionPlaybackStatus,
 } from './sessionWarning'
 import { useMobilePlaybackLifecycle } from './useMobilePlaybackLifecycle'
+import { usePlaybackHealthGuard } from './usePlaybackHealthGuard'
 import { useRayd8Fullscreen } from './useRayd8Fullscreen'
 import { useWakeLock } from './useWakeLock'
 
@@ -234,6 +236,7 @@ const SESSION_WARNING_CHECK_MS = 10_000
 const FULLSCREEN_EXIT_HINT_MS = 2500
 const DOUBLE_TAP_EXIT_WINDOW_MS = 300
 const VIDEO_REF_RETRY_FRAMES = [1, 2, 4] as const
+const PLAYBACK_READY_TIMEOUT_MS = 8_000
 const COMPACT_PLAYER_STAGE_HEIGHT_PX = 600
 const DESKTOP_FULLSCREEN_EXIT_HINT_STORAGE_KEY = 'rayd8_fullscreen_exit_hint_desktop'
 const MOBILE_FULLSCREEN_EXIT_HINT_STORAGE_KEY = 'rayd8_fullscreen_exit_hint_mobile'
@@ -469,6 +472,7 @@ async function waitForPlaybackReady(
   threshold: number,
   onProgress: (percent: number) => void,
   signal?: AbortSignal,
+  timeoutMs = PLAYBACK_READY_TIMEOUT_MS,
 ) {
   if (!media) {
     return false
@@ -477,11 +481,17 @@ async function waitForPlaybackReady(
   return await new Promise<boolean>((resolve, reject) => {
     let settled = false
     let removeListeners: Array<() => void> = []
+    let timeoutId: number | null = null
 
     const cleanup = () => {
       removeListeners.forEach((removeListener) => removeListener())
       removeListeners = []
       signal?.removeEventListener('abort', handleAbort)
+
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+        timeoutId = null
+      }
     }
 
     const finish = (ready: boolean) => {
@@ -535,6 +545,17 @@ async function waitForPlaybackReady(
       resolve(false)
     }
 
+    const handleTimeout = () => {
+      logExpressPlaybackDebug('playback_ready_timeout', {
+        bufferedPercent: getBufferedPercent(media),
+        currentTime: media.currentTime,
+        readyState: media.readyState,
+        timeoutMs,
+        videoWidth: media instanceof HTMLVideoElement ? media.videoWidth : 0,
+      })
+      finish(false)
+    }
+
     removeListeners = [
       addTrackedEventListener(media, 'canplay', handleCanPlay, 'video:ready:canplay'),
       addTrackedEventListener(media, 'progress', handleProgress, 'video:ready:progress'),
@@ -553,6 +574,7 @@ async function waitForPlaybackReady(
       addTrackedEventListener(media, 'error', handleError, 'video:ready:error'),
     ]
     signal?.addEventListener('abort', handleAbort, { once: true })
+    timeoutId = window.setTimeout(handleTimeout, timeoutMs)
 
     evaluate(false)
   })
@@ -615,6 +637,7 @@ export function Rayd8PlayerEngine({
     setAudioVolume,
     setSingleAvAudioActive,
     softDenialState,
+    startSession,
     usageWarningState,
   } = useSession()
   const primaryVideoControllerRef = useRef<HlsController | null>(null)
@@ -853,8 +876,39 @@ export function Rayd8PlayerEngine({
     recordVideoMount('primary', node !== null)
     primaryVideoRef.current = node
     setPrimaryVideoReady(node !== null)
-    logExpressPlaybackDebug('video_ref_attached', { attached: node !== null })
+    if (!node) {
+      logExpressPlaybackDebug('video_ref_null', { attached: false })
+      return
+    }
+
+    logExpressPlaybackDebug('video_ref_attached', {
+      attached: true,
+      readyState: node.readyState,
+      videoWidth: node.videoWidth,
+    })
   }, [])
+
+  useEffect(() => {
+    const video = primaryVideoRef.current
+
+    if (!video) {
+      return
+    }
+
+    return addTrackedEventListener(
+      video,
+      'loadedmetadata',
+      () => {
+        logExpressPlaybackDebug('video_metadata_loaded', {
+          currentTime: video.currentTime,
+          readyState: video.readyState,
+          videoHeight: video.videoHeight,
+          videoWidth: video.videoWidth,
+        })
+      },
+      'video:metadata:express-playback-debug',
+    )
+  }, [primaryVideoReady, initRetryKey])
 
   useEffect(() => {
     if (playbackMode !== 'member') {
@@ -1205,6 +1259,29 @@ export function Rayd8PlayerEngine({
     return await tryPlay(media)
   }, [])
 
+  const playbackHealthResetKey = `${sessionType}:${sessionConfig.videoMode}:${audioTrack}:${initRetryKey}`
+  const handlePlaybackHealthSoftRecovery = useCallback(
+    async (reason: string) => {
+      logExpressPlaybackDebug('health_soft_recovery_attempt', {
+        reason,
+        currentTime: getVideoElement()?.currentTime ?? null,
+        readyState: getVideoElement()?.readyState ?? null,
+        videoWidth: getVideoElement()?.videoWidth ?? null,
+      })
+      return await resumeMediaWithRetry(getVideoElement())
+    },
+    [getVideoElement, resumeMediaWithRetry],
+  )
+  const playbackHealthGuard = usePlaybackHealthGuard({
+    enabled: !activeSoftDenialState,
+    getVideoElement,
+    onSoftRecovery: handlePlaybackHealthSoftRecovery,
+    resetKey: playbackHealthResetKey,
+  })
+  const playbackHealthFallbackVisible = playbackHealthGuard.fallbackVisible
+  const reportPlaybackStartupFailure = playbackHealthGuard.reportStartupFailure
+  const resetPlaybackHealth = playbackHealthGuard.reset
+
   const triggerSessionContinuityCheck = useCallback(() => {
     playbackAuthority?.dispatch({ type: 'continuity_threshold_reached' })
     resetSessionContinuityTimer()
@@ -1491,6 +1568,7 @@ export function Rayd8PlayerEngine({
       setPreloadPercent(0)
       setVideoError(null)
       setInitFailureVisible(false)
+      resetPlaybackHealth()
       logExpressPlaybackDebug('syncVideoMode_start', {
         audioTrack,
         experience,
@@ -1564,6 +1642,9 @@ export function Rayd8PlayerEngine({
         })
 
         if (!applied || cancelled || requestId !== videoRequestRef.current) {
+          if (!cancelled && requestId === videoRequestRef.current) {
+            reportPlaybackStartupFailure('media_source_not_applied')
+          }
           return
         }
 
@@ -1667,19 +1748,29 @@ export function Rayd8PlayerEngine({
         )
 
         if (!readyToStart || cancelled || requestId !== videoRequestRef.current) {
+          if (!cancelled && requestId === videoRequestRef.current) {
+            reportPlaybackStartupFailure('playback_not_ready')
+          }
           return
         }
 
-        logExpressPlaybackDebug('playback_ready', { preloadThreshold })
+        logExpressPlaybackDebug('playback_ready', {
+          currentTime: video.currentTime,
+          preloadThreshold,
+          readyState: video.readyState,
+          videoWidth: video.videoWidth,
+        })
         playbackAuthority?.dispatch({ type: 'lifecycle_ready' })
         const started = await tryPlay(video)
-        logExpressPlaybackDebug('play_called', { started })
 
         if (!cancelled) {
           systemPausedRef.current = false
           setPreloadPercent(100)
           playbackAuthority?.dispatch({ type: 'lifecycle_play_attempt_finished', ok: started })
-          logExpressPlaybackDebug('play_result', { started })
+
+          if (!started) {
+            reportPlaybackStartupFailure('play_failed')
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -1725,6 +1816,8 @@ export function Rayd8PlayerEngine({
     playbackPlan,
     playbackScheduler,
     resetSessionContinuityTimer,
+    reportPlaybackStartupFailure,
+    resetPlaybackHealth,
     sessionConfig.videoMode,
     sessionType,
     setSingleAvAudioActive,
@@ -1998,8 +2091,21 @@ export function Rayd8PlayerEngine({
     })
     setInitFailureVisible(false)
     setVideoError(null)
+    resetPlaybackHealth()
     setInitRetryKey((currentValue) => currentValue + 1)
-  }, [experience, sessionConfig.videoMode])
+  }, [experience, resetPlaybackHealth, sessionConfig.videoMode])
+
+  const handleReloadSession = useCallback(() => {
+    logExpressPlaybackDebug('health_reload_session', {
+      experience,
+      mode: sessionConfig.videoMode,
+      sessionType,
+    })
+    onClose()
+    window.requestAnimationFrame(() => {
+      startSession(sessionType, { source: isAdminPreview ? 'admin' : 'member' })
+    })
+  }, [experience, isAdminPreview, onClose, sessionConfig.videoMode, sessionType, startSession])
 
   const setVideoMode = useCallback((videoMode: FreeTrialVideoMode) => {
     setSessionConfig((currentValue) => ({ ...currentValue, videoMode }))
@@ -2229,7 +2335,15 @@ export function Rayd8PlayerEngine({
           <InteractionRequiredOverlay onResume={() => void handleResumePlayback()} />
         ) : null}
 
-        {initFailureVisible && !activeSoftDenialState ? (
+        {playbackHealthFallbackVisible && !activeSoftDenialState ? (
+          <PlaybackHealthFallbackOverlay
+            onReloadSession={handleReloadSession}
+            onReturnHome={onClose}
+            onTryAgain={handleRetryInitialization}
+          />
+        ) : null}
+
+        {initFailureVisible && !activeSoftDenialState && !playbackHealthFallbackVisible ? (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/78 p-6 text-center">
             <div className="max-w-sm rounded-[2rem] border border-white/12 bg-slate-950/92 p-6 text-white shadow-[0_18px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
               <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/70">

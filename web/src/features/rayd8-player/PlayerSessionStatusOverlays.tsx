@@ -13,6 +13,12 @@ interface InteractionRequiredOverlayProps {
   onResume: () => void
 }
 
+interface PlaybackHealthFallbackOverlayProps {
+  onReloadSession: () => void
+  onReturnHome: () => void
+  onTryAgain: () => void
+}
+
 interface UsageWarningOverlayProps {
   smallScreenViewport: boolean
   usageWarningState: UsageWarningState
@@ -66,6 +72,51 @@ export const InteractionRequiredOverlay = memo(function InteractionRequiredOverl
         >
           Resume Session
         </button>
+      </div>
+    </div>
+  )
+})
+
+export const PlaybackHealthFallbackOverlay = memo(function PlaybackHealthFallbackOverlay({
+  onReloadSession,
+  onReturnHome,
+  onTryAgain,
+}: PlaybackHealthFallbackOverlayProps) {
+  return (
+    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/78 p-6 text-center">
+      <div className="max-w-sm rounded-[2rem] border border-white/12 bg-slate-950/92 p-6 text-white shadow-[0_18px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+        <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/70">
+          Session startup
+        </p>
+        <h3 className="mt-3 text-2xl font-semibold text-white">
+          Trouble Starting Your Session
+        </h3>
+        <p className="mt-3 text-sm leading-6 text-slate-300">
+          We're having trouble initializing your session.
+        </p>
+        <div className="mt-6 flex flex-col gap-3">
+          <button
+            className="rounded-2xl bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-5 py-3 text-sm font-medium text-white transition hover:-translate-y-0.5"
+            onClick={onTryAgain}
+            type="button"
+          >
+            Try Again
+          </button>
+          <button
+            className="rounded-2xl border border-emerald-200/20 bg-emerald-300/10 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-300/15"
+            onClick={onReloadSession}
+            type="button"
+          >
+            Reload Session
+          </button>
+          <button
+            className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/5"
+            onClick={onReturnHome}
+            type="button"
+          >
+            Return Home
+          </button>
+        </div>
       </div>
     </div>
   )

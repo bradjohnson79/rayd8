@@ -11,7 +11,7 @@ export function Rayd8SessionOverlay() {
   useEffect(() => {
     if (activeSessionType) {
       logExpressPlaybackDebug('overlay_mount', { sessionType })
-      logExpressPlaybackDebug('overlay_visible', { sessionType })
+      logExpressPlaybackDebug('overlay_visible', { sessionType, visibleImmediately: true })
     }
   }, [activeSessionType, sessionType])
 

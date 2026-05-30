@@ -1,5 +1,7 @@
 import type { MutableRefObject } from 'react'
 import { loadHls, type HlsController } from '../../lib/loadHls'
+import { logExpressPlaybackDebug } from './expressPlaybackDebug'
+import { waitForVisiblePlaybackSurface } from './playbackSurfaceReady'
 
 export type { HlsController }
 
@@ -115,13 +117,50 @@ export async function setMediaSource(input: {
 
 export async function tryPlay(media: HTMLMediaElement | null) {
   if (!media) {
+    logExpressPlaybackDebug('play_failed', {
+      message: 'No media element available.',
+      name: 'MediaElementMissing',
+      readyState: 0,
+      videoWidth: 0,
+    })
     return false
   }
 
+  const surfaceReady = await waitForVisiblePlaybackSurface(media)
+
+  if (!surfaceReady) {
+    logExpressPlaybackDebug('play_failed', {
+      currentTime: media.currentTime,
+      message: 'Playback surface was not visible or laid out before play().',
+      name: 'PlaybackSurfaceNotReady',
+      readyState: media.readyState,
+      videoWidth: media instanceof HTMLVideoElement ? media.videoWidth : 0,
+    })
+    return false
+  }
+
+  logExpressPlaybackDebug('play_called', {
+    currentTime: media.currentTime,
+    readyState: media.readyState,
+    videoWidth: media instanceof HTMLVideoElement ? media.videoWidth : 0,
+  })
+
   try {
     await media.play()
+    logExpressPlaybackDebug('play_success', {
+      currentTime: media.currentTime,
+      readyState: media.readyState,
+      videoWidth: media instanceof HTMLVideoElement ? media.videoWidth : 0,
+    })
     return true
-  } catch {
+  } catch (error) {
+    logExpressPlaybackDebug('play_failed', {
+      currentTime: media.currentTime,
+      message: error instanceof Error ? error.message : String(error),
+      name: error instanceof Error ? error.name : 'unknown',
+      readyState: media.readyState,
+      videoWidth: media instanceof HTMLVideoElement ? media.videoWidth : 0,
+    })
     return false
   }
 }
