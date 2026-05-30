@@ -21,6 +21,7 @@ interface ExpressNavigationContextValue {
   isSidebarOpen: boolean
   openSidebar: () => void
   shellMode: ExpressShellMode
+  shouldRenderSidebar: boolean
   toggleSidebar: () => void
 }
 
@@ -64,6 +65,14 @@ export function ExpressNavigationProvider({
   const shellMode: ExpressShellMode =
     forceDrawerMode || !hasPersistentViewport ? 'drawer' : 'persistent'
   const isMobileShell = shellMode === 'drawer'
+  /**
+   * shellMode is the single authority
+   * for Express sidebar rendering.
+   *
+   * Do not reintroduce CSS breakpoint
+   * logic (lg/xl) for sidebar visibility.
+   */
+  const shouldRenderSidebar = shellMode === 'persistent' || isSidebarOpen
 
   const closeSidebar = useCallback(() => {
     setIsSidebarOpen(false)
@@ -103,6 +112,7 @@ export function ExpressNavigationProvider({
       isSidebarOpen,
       openSidebar,
       shellMode,
+      shouldRenderSidebar,
       toggleSidebar,
     }),
     [
@@ -112,6 +122,7 @@ export function ExpressNavigationProvider({
       isSidebarOpen,
       openSidebar,
       shellMode,
+      shouldRenderSidebar,
       toggleSidebar,
     ],
   )

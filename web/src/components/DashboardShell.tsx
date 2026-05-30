@@ -2,6 +2,7 @@ import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
 import type { PropsWithChildren, ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import type { AuthUser } from '../app/types'
+import type { ExpressShellMode } from '../features/dashboard/useExpressNavigation'
 import { Rayd8Background } from './Rayd8Background'
 
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
@@ -18,6 +19,7 @@ interface DashboardShellProps extends PropsWithChildren {
   onToggleSidebar: () => void
   presentation?: 'immersive' | 'standard'
   sidebar: ReactNode
+  shellMode?: ExpressShellMode
   user: AuthUser
   withGuestActions?: boolean
 }
@@ -35,6 +37,7 @@ export function DashboardShell({
   onToggleSidebar,
   presentation = 'standard',
   sidebar,
+  shellMode = 'drawer',
   user,
   withGuestActions = false,
 }: DashboardShellProps) {
@@ -53,6 +56,7 @@ export function DashboardShell({
   const hideImmersiveIdentityCluster =
     presentation === 'immersive' && location.pathname === '/dashboard'
   const resolvedMenuButtonLabel = isSidebarOpen ? 'Close navigation' : menuButtonLabel
+  const showImmersiveMenuButton = shellMode === 'drawer' && !isSessionActive
 
   return (
     <Rayd8Background>
@@ -68,9 +72,9 @@ export function DashboardShell({
       >
         {presentation === 'immersive' ? (
           <>
-            {!isSessionActive ? (
+            {showImmersiveMenuButton ? (
               <div
-                className="fixed left-4 z-50 lg:hidden"
+                className="fixed left-4 z-50"
                 style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}
               >
                 <button

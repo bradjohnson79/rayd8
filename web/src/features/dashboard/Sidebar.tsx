@@ -14,6 +14,84 @@ interface SidebarProps {
 }
 
 export function Sidebar({ user, open, onClose, shellMode }: SidebarProps) {
+  if (shellMode === 'drawer' && !open) {
+    return null
+  }
+
+  if (shellMode === 'drawer') {
+    return <DrawerSidebar onClose={onClose} user={user} />
+  }
+
+  if (shellMode === 'persistent') {
+    return <PersistentSidebar onClose={onClose} user={user} />
+  }
+
+  return null
+}
+
+function DrawerSidebar({ user, onClose }: Pick<SidebarProps, 'user' | 'onClose'>) {
+  const [entered, setEntered] = useState(false)
+
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      setEntered(true)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+    }
+  }, [])
+
+  return (
+    <>
+      <button
+        aria-label="Close navigation"
+        className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+        type="button"
+      />
+
+      <aside
+        className={[
+          'fixed inset-y-0 left-0 z-40 flex w-[min(18rem,75vw)] flex-col bg-[rgba(7,12,16,0.82)] shadow-[0_18px_80px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition-transform duration-300',
+          entered ? 'translate-x-0' : '-translate-x-full',
+        ].join(' ')}
+      >
+        <button
+          aria-label="Close navigation"
+          className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-slate-100 shadow-[0_12px_32px_rgba(0,0,0,0.22)] backdrop-blur-xl transition hover:bg-white/[0.1]"
+          onClick={onClose}
+          type="button"
+        >
+          <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
+            <path
+              d="m6 6 12 12M18 6 6 18"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeWidth="1.8"
+            />
+          </svg>
+        </button>
+
+        <SidebarPanelContent mode="drawer" onClose={onClose} user={user} />
+      </aside>
+    </>
+  )
+}
+
+function PersistentSidebar({ user, onClose }: Pick<SidebarProps, 'user' | 'onClose'>) {
+  return (
+    <aside className="fixed inset-y-0 left-0 z-40 flex w-[25vw] flex-col bg-transparent">
+      <SidebarPanelContent mode="persistent" onClose={onClose} user={user} />
+    </aside>
+  )
+}
+
+function SidebarPanelContent({
+  mode,
+  onClose,
+  user,
+}: Pick<SidebarProps, 'user' | 'onClose'> & { mode: ExpressShellMode }) {
   const location = useLocation()
   const navigate = useNavigate()
   const navigateToUpgrade = useUpgradeNavigation()
@@ -143,101 +221,76 @@ export function Sidebar({ user, open, onClose, shellMode }: SidebarProps) {
     onClose()
   }
 
-  const drawerClosed = shellMode === 'drawer' && !open
+  const isPersistent = mode === 'persistent'
+  const headerClassName = isPersistent ? 'px-4 py-8' : 'px-5 py-6 pr-16'
+  const titleClassName = isPersistent
+    ? 'text-[22px] uppercase leading-[1.4rem] tracking-[0.24em] text-emerald-200/80'
+    : 'text-2xl uppercase tracking-[0.24em] text-emerald-200/80'
+  const planClassName = isPersistent
+    ? 'mt-3 text-[22px] uppercase leading-[1.4rem] tracking-[0.24em] text-slate-400'
+    : 'mt-3 text-2xl uppercase leading-[1.4rem] tracking-[0.24em] text-slate-400'
+  const navClassName = isPersistent
+    ? 'flex-1 overflow-y-auto px-3 pb-10'
+    : 'flex-1 overflow-y-auto px-3 pb-6'
+  const itemClassName = isPersistent
+    ? 'flex min-h-[4.5rem] w-full flex-col items-start justify-center gap-2 rounded-2xl px-4 py-3.5 text-left text-[11px] uppercase leading-[1.15rem] tracking-[0.24em] transition-colors'
+    : 'flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-xs uppercase tracking-[0.24em] transition-colors'
+  const inactiveDotClassName = isPersistent ? 'bg-white/20 opacity-40' : 'bg-white/20 opacity-0'
+  const footerClassName = isPersistent ? 'px-3 pb-8' : 'px-3 pb-6'
 
   return (
     <>
-      {shellMode === 'drawer' && open ? (
-        <button
-          aria-label="Close navigation"
-          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
-          onClick={onClose}
-          type="button"
-        />
-      ) : null}
+      <div className={headerClassName}>
+        <p className={titleClassName}>RAYD8®</p>
+        <p className={planClassName}>
+          {user.plan}
+        </p>
+      </div>
 
-      <aside
-        aria-hidden={drawerClosed}
-        className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[min(18rem,75vw)] flex-col bg-[rgba(7,12,16,0.82)] shadow-[0_18px_80px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition-[transform,visibility] duration-300',
-          drawerClosed ? '-translate-x-full' : 'translate-x-0',
-          drawerClosed ? 'max-lg:invisible max-lg:pointer-events-none' : '',
-          'lg:w-[25vw] lg:bg-transparent lg:shadow-none lg:backdrop-blur-0 lg:translate-x-0',
-        ].join(' ')}
-        inert={drawerClosed ? true : undefined}
-      >
-        {shellMode === 'drawer' && open ? (
-          <button
-            aria-label="Close navigation"
-            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-slate-100 shadow-[0_12px_32px_rgba(0,0,0,0.22)] backdrop-blur-xl transition hover:bg-white/[0.1] lg:hidden"
-            onClick={onClose}
-            type="button"
-          >
-            <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
-              <path
-                d="m6 6 12 12M18 6 6 18"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="1.8"
-              />
-            </svg>
-          </button>
-        ) : null}
-
-        <div className="px-5 py-6 pr-16 lg:px-4 lg:py-8">
-          <p className="text-2xl uppercase tracking-[0.24em] text-emerald-200/80 lg:text-[22px] lg:leading-[1.4rem]">
-            RAYD8®
-          </p>
-          <p className="mt-3 text-2xl uppercase leading-[1.4rem] tracking-[0.24em] text-slate-400 lg:text-[22px]">
-            {user.plan}
-          </p>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto px-3 pb-6 lg:px-3 lg:pb-10">
-          <ul className="w-full space-y-2">
-            {items.map((item) => (
-              <li key={item.to}>
-                <button
+      <nav className={navClassName}>
+        <ul className="w-full space-y-2">
+          {items.map((item) => (
+            <li key={item.to}>
+              <button
+                className={[
+                  itemClassName,
+                  item.emphasis === 'upgrade'
+                    ? 'border border-emerald-200/20 bg-[linear-gradient(135deg,rgba(16,185,129,0.22),rgba(59,130,246,0.22))] text-white shadow-[0_14px_45px_rgba(16,185,129,0.18)] hover:border-emerald-200/30 hover:bg-[linear-gradient(135deg,rgba(16,185,129,0.3),rgba(59,130,246,0.28))]'
+                    : isItemActive(item)
+                    ? 'bg-white/[0.08] text-white shadow-[0_10px_30px_rgba(0,0,0,0.14)] backdrop-blur-xl'
+                    : 'text-slate-400 hover:bg-white/[0.04] hover:text-white hover:backdrop-blur-xl',
+                ].join(' ')}
+                onClick={() => handleNavigation(item)}
+                type="button"
+              >
+                <span className="max-w-full whitespace-normal break-words text-left">
+                  {item.label}
+                </span>
+                <span
                   className={[
-                    'flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-xs uppercase tracking-[0.24em] transition-colors lg:min-h-[4.5rem] lg:flex-col lg:items-start lg:justify-center lg:gap-2 lg:px-4 lg:py-3.5 lg:leading-[1.15rem] lg:text-[11px]',
+                    'h-1.5 w-1.5 shrink-0 rounded-full transition-opacity',
                     item.emphasis === 'upgrade'
-                      ? 'border border-emerald-200/20 bg-[linear-gradient(135deg,rgba(16,185,129,0.22),rgba(59,130,246,0.22))] text-white shadow-[0_14px_45px_rgba(16,185,129,0.18)] hover:border-emerald-200/30 hover:bg-[linear-gradient(135deg,rgba(16,185,129,0.3),rgba(59,130,246,0.28))]'
+                      ? 'bg-emerald-200 opacity-100 shadow-[0_0_12px_rgba(167,243,208,0.8)]'
                       : isItemActive(item)
-                      ? 'bg-white/[0.08] text-white shadow-[0_10px_30px_rgba(0,0,0,0.14)] backdrop-blur-xl'
-                      : 'text-slate-400 hover:bg-white/[0.04] hover:text-white hover:backdrop-blur-xl',
+                        ? 'bg-emerald-300 opacity-100'
+                        : inactiveDotClassName,
                   ].join(' ')}
-                  onClick={() => handleNavigation(item)}
-                  type="button"
-                >
-                  <span className="max-w-full whitespace-normal break-words text-left">
-                    {item.label}
-                  </span>
-                  <span
-                    className={[
-                      'h-1.5 w-1.5 shrink-0 rounded-full transition-opacity',
-                      item.emphasis === 'upgrade'
-                        ? 'bg-emerald-200 opacity-100 shadow-[0_0_12px_rgba(167,243,208,0.8)]'
-                        : isItemActive(item)
-                          ? 'bg-emerald-300 opacity-100'
-                          : 'bg-white/20 opacity-0 lg:opacity-40',
-                    ].join(' ')}
-                  />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
+                />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
-        <div className="px-3 pb-6 lg:px-3 lg:pb-8">
-          <button
-            className="flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs uppercase tracking-[0.24em] text-white transition-colors hover:bg-white/[0.08]"
-            onClick={handleBackToHome}
-            type="button"
-          >
-            Back To Home
-          </button>
-        </div>
-      </aside>
+      <div className={footerClassName}>
+        <button
+          className="flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs uppercase tracking-[0.24em] text-white transition-colors hover:bg-white/[0.08]"
+          onClick={handleBackToHome}
+          type="button"
+        >
+          Back To Home
+        </button>
+      </div>
     </>
   )
 }

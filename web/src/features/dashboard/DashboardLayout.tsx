@@ -92,6 +92,7 @@ function SignedInDashboardLayout({ user }: { user: AuthUser }) {
     closeSidebar,
     isSidebarOpen,
     shellMode,
+    shouldRenderSidebar,
     toggleSidebar,
   } = useExpressNavigation()
 
@@ -120,7 +121,7 @@ function SignedInDashboardLayout({ user }: { user: AuthUser }) {
     <DashboardShell
       accent="emerald"
       description="One shared dashboard surface for session launch, guidance, and account controls."
-      desktopSidebarOffsetClass="lg:pl-[25vw]"
+      desktopSidebarOffsetClass={shellMode === 'persistent' ? 'pl-[25vw]' : ''}
       eyebrow="RAYD8® USER ACCOUNT"
       isSessionActive={isActive}
       isSidebarOpen={isSidebarOpen}
@@ -128,13 +129,16 @@ function SignedInDashboardLayout({ user }: { user: AuthUser }) {
       menuButtonLabel="Open navigation"
       onToggleSidebar={handleToggleSidebar}
       presentation="immersive"
+      shellMode={shellMode}
       sidebar={
-        <Sidebar
-          onClose={closeSidebar}
-          open={isSidebarOpen}
-          shellMode={shellMode}
-          user={user}
-        />
+        shouldRenderSidebar ? (
+          <Sidebar
+            onClose={closeSidebar}
+            open={isSidebarOpen}
+            shellMode={shellMode}
+            user={user}
+          />
+        ) : null
       }
       user={user}
     >
