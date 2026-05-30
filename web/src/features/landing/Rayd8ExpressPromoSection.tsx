@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { trackUmamiEvent, trackUmamiEventOnce } from '../../services/umami'
-import { useAuthUser } from '../dashboard/useAuthUser'
-import { ExpressDownloadSheet, ExpressInstallSuccessToast } from '../pwa/ExpressDownloadSheet'
+import { ExpressInstallHelperModal } from '../pwa/ExpressInstallHelperModal'
+import { ExpressInstallSuccessToast } from '../pwa/ExpressDownloadSheet'
 import {
+  DOWNLOAD_EXPRESS_CTA,
+  getAppleInstallGuide,
   getExpressInstallCopy,
-  requestExpressDownload,
-  shouldUseNativeInstallPrompt,
 } from '../pwa/expressInstallCopy'
+import { getInstallFlow, type InstallFlowAudience, type InstallFlowKind } from '../pwa/getInstallFlow'
 import { usePlatformDetection } from '../pwa/usePlatformDetection'
 import { usePwaInstall } from '../pwa/usePwaInstall'
 import { MarketingButton } from './components/MarketingButton'
 
-const BENEFITS = ['One-tap access', 'Stay signed in', 'Fast daily launch', 'Phone, tablet, desktop']
-const PLATFORMS = ['iPhone', 'iPad', 'Android', 'Mac', 'Desktop PC']
+const FIREFOX_DOWNLOAD_URL = 'https://www.mozilla.org/firefox/new/'
 
 interface Rayd8ExpressPromoSectionProps {
   reducedEffects?: boolean
@@ -23,16 +23,16 @@ export function Rayd8ExpressPromoSection({
   reducedEffects = false,
 }: Rayd8ExpressPromoSectionProps) {
   const navigate = useNavigate()
-  const user = useAuthUser()
   const platform = usePlatformDetection()
   const { canPrompt, isInstalled, promptInstall, standalone } = usePwaInstall()
-  const [downloadSheetOpen, setDownloadSheetOpen] = useState(false)
+  const [installDialogFlow, setInstallDialogFlow] = useState<InstallFlowKind | null>(null)
+  const [installDialogStatus, setInstallDialogStatus] = useState<
+    'dismissed' | 'unavailable' | null
+  >(null)
   const [installSuccessVisible, setInstallSuccessVisible] = useState(false)
   const sectionRef = useRef<HTMLElement | null>(null)
   const copy = getExpressInstallCopy(platform.platformKind)
-  const canUseNativePrompt = shouldUseNativeInstallPrompt(platform.platformKind, canPrompt)
-  const authenticated = user.isAuthenticated
-  const primaryLabel = copy.cta
+  const appleGuide = getAppleInstallGuide(platform.platformKind)
 
   useEffect(() => {
     if (!installSuccessVisible) {
@@ -71,51 +71,88 @@ export function Rayd8ExpressPromoSection({
     return () => observer.disconnect()
   }, [platform.platformKind])
 
-  const handlePrimaryClick = useCallback(async () => {
-    trackUmamiEvent('rayd8_express_landing_primary_clicked', {
-      authenticated,
+  const openInstallDialog = useCallback(
+    (requestedAudience: InstallFlowAudience) => {
+      trackUmamiEvent('rayd8_express_landing_download_clicked', {
+        canPrompt,
+        platform: platform.platformKind,
+        requestedAudience,
+      })
+
+      if (isInstalled) {
+        navigate('/dashboard?source=express')
+        return
+      }
+
+      setInstallDialogStatus(null)
+      setInstallDialogFlow(
+        getInstallFlow({
+          canPrompt,
+          platformKind: platform.platformKind,
+          requestedAudience,
+        }),
+      )
+    },
+    [canPrompt, isInstalled, navigate, platform.platformKind],
+  )
+
+  const closeInstallDialog = useCallback(() => {
+    setInstallDialogFlow(null)
+    setInstallDialogStatus(null)
+  }, [])
+
+  const handleInstallDialogDownload = useCallback(async () => {
+    if (!installDialogFlow) {
+      return
+    }
+
+    trackUmamiEvent('rayd8_express_install_dialog_download_clicked', {
       canPrompt,
-      label: primaryLabel,
+      flow: installDialogFlow,
       platform: platform.platformKind,
     })
 
-    if (isInstalled) {
-      navigate('/dashboard?source=express')
+    if (installDialogFlow === 'androidDesktop') {
+      const result = await promptInstall()
+
+      if (result === 'accepted') {
+        closeInstallDialog()
+        setInstallSuccessVisible(true)
+        return
+      }
+
+      setInstallDialogStatus(result === 'dismissed' ? 'dismissed' : 'unavailable')
       return
     }
 
-    const result = await requestExpressDownload({
-      canUseNativePrompt,
-      promptInstall,
-    })
+    if (installDialogFlow === 'apple') {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        try {
+          await navigator.share({
+            title: 'RAYD8 Express',
+            text: 'Download RAYD8 Express',
+            url: window.location.origin,
+          })
+          return
+        } catch (error) {
+          const shareError = error instanceof DOMException ? error.name : 'ShareUnavailable'
+          setInstallDialogStatus(shareError === 'AbortError' ? 'dismissed' : 'unavailable')
+          return
+        }
+      }
 
-    if (result === 'accepted') {
-      setInstallSuccessVisible(true)
+      setInstallDialogStatus('unavailable')
       return
     }
 
-    if (result === 'fallback') {
-      setDownloadSheetOpen(true)
-    }
+    setInstallDialogStatus('unavailable')
   }, [
-    authenticated,
     canPrompt,
-    canUseNativePrompt,
-    isInstalled,
-    navigate,
+    closeInstallDialog,
+    installDialogFlow,
     platform.platformKind,
-    primaryLabel,
     promptInstall,
   ])
-
-  const handleRegenClick = useCallback(() => {
-    trackUmamiEvent('rayd8_express_landing_regen_clicked', {
-      authenticated,
-      platform: platform.platformKind,
-    })
-
-    navigate('/subscription?plan=regen&source=rayd8-express')
-  }, [authenticated, navigate, platform.platformKind])
 
   return (
     <section
@@ -136,39 +173,34 @@ export function Rayd8ExpressPromoSection({
             Download RAYD8 Express
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-8 text-slate-200/82 sm:text-lg">
-            {copy.body}
+            {copy.body} We recommend using{' '}
+            <a
+              className="font-medium !text-sky-300 !underline !decoration-sky-300 underline-offset-4 transition hover:!text-sky-200"
+              href={FIREFOX_DOWNLOAD_URL}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Mozilla Firefox
+            </a>{' '}
+            Browser for the best RAYD8 Experience.
           </p>
 
-          <div className="mt-6 flex flex-wrap gap-2">
-            {BENEFITS.map((benefit) => (
-              <span
-                className="rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-1.5 text-xs uppercase tracking-[0.18em] text-white/72"
-                key={benefit}
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-[1.35rem] border border-white/10 bg-black/18 p-5">
+              <h3 className="text-sm font-medium tracking-wide text-white/90">Android / PC Users</h3>
+              <MarketingButton
+                className="mt-4 w-full"
+                onClick={() => openInstallDialog('androidDesktop')}
               >
-                {benefit}
-              </span>
-            ))}
-          </div>
+                {DOWNLOAD_EXPRESS_CTA}
+              </MarketingButton>
+            </div>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <MarketingButton onClick={() => void handlePrimaryClick()}>
-              {primaryLabel}
-            </MarketingButton>
-            <MarketingButton onClick={handleRegenClick} variant="ghost">
-              Experience REGEN
-            </MarketingButton>
-          </div>
-
-          <div className="mt-7 rounded-[1.4rem] border border-white/10 bg-black/18 p-4">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-100/58">
-              Available on
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2 text-sm text-slate-200/80">
-              {PLATFORMS.map((device) => (
-                <span className="rounded-full bg-white/[0.06] px-3 py-1" key={device}>
-                  {device}
-                </span>
-              ))}
+            <div className="rounded-[1.35rem] border border-white/10 bg-black/18 p-5">
+              <h3 className="text-sm font-medium tracking-wide text-white/90">iPhone / Mac Users</h3>
+              <MarketingButton className="mt-4 w-full" onClick={() => openInstallDialog('apple')}>
+                {DOWNLOAD_EXPRESS_CTA}
+              </MarketingButton>
             </div>
           </div>
         </div>
@@ -176,10 +208,13 @@ export function Rayd8ExpressPromoSection({
         <ExpressDeviceMockup reducedEffects={reducedEffects} standalone={standalone} />
       </div>
 
-      {downloadSheetOpen ? (
-        <ExpressDownloadSheet
-          copy={copy.sheet}
-          onClose={() => setDownloadSheetOpen(false)}
+      {installDialogFlow ? (
+        <ExpressInstallHelperModal
+          flow={installDialogFlow}
+          guide={installDialogFlow === 'apple' ? appleGuide : null}
+          onClose={closeInstallDialog}
+          onDownload={() => void handleInstallDialogDownload()}
+          status={installDialogStatus}
         />
       ) : null}
       <ExpressInstallSuccessToast visible={installSuccessVisible} />

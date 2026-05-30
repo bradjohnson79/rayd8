@@ -14,6 +14,7 @@ export interface ExpressDownloadSheetCopy {
   title: string
 }
 
+export const DOWNLOAD_EXPRESS_CTA = 'Download Express'
 const PRIMARY_CTA = 'Download RAYD8 Express'
 const PREMIUM_BODY =
   'Launch RAYD8 instantly from your phone, tablet, or desktop — staying signed in for fast, immersive access anytime.'
@@ -41,6 +42,25 @@ export async function requestExpressDownload({
   const result = await promptInstall()
 
   return result === 'unavailable' ? ('fallback' as const) : result
+}
+
+export type ExpressAppleInstallGuide =
+  | { kind: 'ios' }
+  | { kind: 'mac' }
+  | { kind: 'both' }
+
+export function getAppleInstallGuide(
+  platformKind: ExpressPlatformKind,
+): ExpressAppleInstallGuide {
+  if (platformKind === 'ios') {
+    return { kind: 'ios' }
+  }
+
+  if (platformKind === 'mac-safari') {
+    return { kind: 'mac' }
+  }
+
+  return { kind: 'both' }
 }
 
 export function getExpressInstallCopy(

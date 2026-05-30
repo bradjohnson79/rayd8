@@ -8,7 +8,7 @@ export function ExpressDownloadSheet({
   onClose: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/62 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] backdrop-blur-sm sm:items-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/62 px-4 py-[calc(1rem+env(safe-area-inset-top))] backdrop-blur-sm">
       <div className="relative w-full max-w-sm overflow-hidden rounded-[1.75rem] border border-white/10 bg-[radial-gradient(circle_at_18%_18%,rgba(16,185,129,0.20),transparent_34%),radial-gradient(circle_at_82%_16%,rgba(59,130,246,0.18),transparent_34%),rgba(5,8,14,0.94)] p-5 text-center text-white shadow-[0_24px_90px_rgba(0,0,0,0.38)] backdrop-blur-2xl">
         <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-emerald-100/60 to-transparent" />
         <p className="text-[10px] uppercase tracking-[0.34em] text-emerald-200/65">RAYD8 Express</p>
