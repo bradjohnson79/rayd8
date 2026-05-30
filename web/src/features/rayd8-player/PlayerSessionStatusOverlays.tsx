@@ -1,4 +1,4 @@
-import { memo, type MouseEvent as ReactMouseEvent } from 'react'
+import { memo } from 'react'
 
 interface UsageWarningState {
   description: string
@@ -7,10 +7,6 @@ interface UsageWarningState {
 
 interface PreloadOverlayProps {
   preloadPercent: number
-}
-
-interface InteractionRequiredOverlayProps {
-  onResume: () => void
 }
 
 interface PlaybackHealthFallbackOverlayProps {
@@ -38,40 +34,6 @@ export const PreloadOverlay = memo(function PreloadOverlay({
           Buffering the playback engine for a smoother start.
         </p>
         <p className="mt-3 text-2xl font-semibold text-white">{preloadPercent}%</p>
-      </div>
-    </div>
-  )
-})
-
-export const InteractionRequiredOverlay = memo(function InteractionRequiredOverlay({
-  onResume,
-}: InteractionRequiredOverlayProps) {
-  return (
-    <div
-      className="absolute inset-0 z-30 flex items-center justify-center bg-black/55 p-6 text-center"
-      onClick={onResume}
-    >
-      <div
-        className="max-w-md rounded-[2rem] border border-white/10 bg-slate-950/90 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl"
-        onClick={(event: ReactMouseEvent<HTMLDivElement>) => {
-          event.stopPropagation()
-        }}
-      >
-        <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/60">
-          Session focus needed
-        </p>
-        <h3 className="mt-3 text-2xl font-semibold text-white">Continue the active session</h3>
-        <p className="mt-3 text-sm leading-6 text-slate-300">
-          Playback paused until you confirm the session is still active. Tap or click anywhere, or
-          use the resume button below, to continue instantly.
-        </p>
-        <button
-          className="mt-6 w-full rounded-2xl bg-emerald-300/20 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-300/30"
-          onClick={onResume}
-          type="button"
-        >
-          Resume Session
-        </button>
       </div>
     </div>
   )

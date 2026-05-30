@@ -15,7 +15,6 @@ import { ConfirmModal } from '../../components/ConfirmModal'
 import { GuideModal } from './GuideModal'
 import { PlayerPerformanceNotice } from './PlayerPerformanceNotice'
 import {
-  InteractionRequiredOverlay,
   PlaybackHealthFallbackOverlay,
   PreloadOverlay,
   UsageWarningOverlay,
@@ -52,7 +51,6 @@ import {
   type MuxPlaybackPayload,
 } from '../../services/player'
 import type { ExperienceAccessSummary } from '../../services/player'
-import { getSettings } from '../../services/settings'
 import { trackUmamiEvent } from '../../services/umami'
 import { isMobileViewport, isSmallScreen, isTabletViewport } from '../../utils/device'
 import {
@@ -82,16 +80,7 @@ import {
   recordSourceLoad,
   recordVideoMount,
 } from './playerDiagnostics'
-import {
-  resolvePlaybackPolicyProfile,
-  shouldSuppressContinuityTimer,
-} from '../playback-authority/playbackPolicy'
-import {
-  getConsecutivePlaybackStartTime,
-  shouldTriggerSessionWarning,
-  TWO_HOURS_MS,
-  type SessionPlaybackStatus,
-} from './sessionWarning'
+import type { SessionPlaybackStatus } from './sessionWarning'
 import { useMobilePlaybackLifecycle } from './useMobilePlaybackLifecycle'
 import { usePlaybackHealthGuard } from './usePlaybackHealthGuard'
 import { useRayd8Fullscreen } from './useRayd8Fullscreen'
@@ -232,7 +221,6 @@ const BUFFER_HEALTH_CHECK_MS = 60_000
 /** Refresh Mux signed URLs this long before JWT expiry so playback never hits 403 mid-stream. */
 const MUX_REFRESH_LEAD_MS = 90_000
 const MUX_REFRESH_MIN_DELAY_MS = 30 * 60 * 1000
-const SESSION_WARNING_CHECK_MS = 10_000
 const FULLSCREEN_EXIT_HINT_MS = 2500
 const DOUBLE_TAP_EXIT_WINDOW_MS = 300
 const VIDEO_REF_RETRY_FRAMES = [1, 2, 4] as const
@@ -656,8 +644,6 @@ export function Rayd8PlayerEngine({
   const previousFullscreenRef = useRef(false)
   const lastFullscreenTapTimestampRef = useRef(0)
   const releaseBodyScrollLockRef = useRef<(() => void) | null>(null)
-  const sessionStartTimeRef = useRef<number | null>(null)
-  const sessionWarningTimerRef = useRef<number | null>(null)
   const bufferHealthTimerRef = useRef<number | null>(null)
   const muxRefreshTimerRef = useRef<number | null>(null)
   const manualGuideTimerRef = useRef<number | null>(null)
@@ -692,7 +678,6 @@ export function Rayd8PlayerEngine({
   const [tabletViewport, setTabletViewport] = useState(() => isTabletViewport())
   const [smallScreenViewport, setSmallScreenViewport] = useState(() => isSmallScreen())
   const [cinematicStageHeight, setCinematicStageHeight] = useState(() => getCinematicStageHeight())
-  const [allowExtendedSessions, setAllowExtendedSessions] = useState(false)
 
   const playbackAuthority = usePlaybackAuthority()
   const playbackPresentation = useSyncExternalStore(
@@ -710,11 +695,6 @@ export function Rayd8PlayerEngine({
       import.meta.env.DEV &&
       window.localStorage.getItem('rayd8-smooth-playback') === 'true',
     [],
-  )
-  const effectiveAllowExtendedSessions = playbackMode === 'member' && allowExtendedSessions
-  const continuityTimerSuppressed = shouldSuppressContinuityTimer(
-    resolvePlaybackPolicyProfile(),
-    effectiveAllowExtendedSessions,
   )
   const experience = useMemo(() => getExperienceFromSessionType(sessionType), [sessionType])
   const playbackPlan = useMemo(
@@ -793,7 +773,6 @@ export function Rayd8PlayerEngine({
   const isPseudoFullscreen = isAppShellFullscreen
   const isPreloading = playbackPresentation.legacyPlaybackState === 'preloading'
   const isRecovering = playbackPresentation.legacyPlaybackState === 'recovering'
-  const interactionRequired = playbackPresentation.interactionOverlayVisible
   const isVideoLoading = isPreloading || isRecovering
   const topChromeInset = smallScreenViewport ? 12 : 16
   const bottomChromeInset = smallScreenViewport ? 20 : 24
@@ -846,10 +825,6 @@ export function Rayd8PlayerEngine({
   useEffect(() => {
     logExpressPlaybackDebug('player_mount', { sessionType })
   }, [sessionType])
-
-  useEffect(() => {
-    playbackAuthority?.setAllowExtendedSessions(effectiveAllowExtendedSessions)
-  }, [effectiveAllowExtendedSessions, playbackAuthority])
 
   useEffect(() => {
     audioMutedRef.current = audioMuted
@@ -910,40 +885,6 @@ export function Rayd8PlayerEngine({
     )
   }, [primaryVideoReady, initRetryKey])
 
-  useEffect(() => {
-    if (playbackMode !== 'member') {
-      return
-    }
-
-    let cancelled = false
-
-    async function loadExtendedSessionSetting() {
-      const tokenResult = await getTokenSafe()
-
-      if (!tokenResult.token || cancelled) {
-        return
-      }
-
-      try {
-        const response = await getSettings(tokenResult.token)
-
-        if (!cancelled) {
-          setAllowExtendedSessions(response.settings.allowExtendedSessions)
-        }
-      } catch {
-        if (!cancelled) {
-          setAllowExtendedSessions(false)
-        }
-      }
-    }
-
-    void loadExtendedSessionSetting()
-
-    return () => {
-      cancelled = true
-    }
-  }, [getTokenSafe, playbackMode])
-
   const showFullscreenExitHint = useCallback((touchLikeFullscreen: boolean) => {
     if (typeof window === 'undefined') {
       return
@@ -969,19 +910,6 @@ export function Rayd8PlayerEngine({
       setShowExitHint(false)
       fullscreenHintTimerRef.current = null
     }, FULLSCREEN_EXIT_HINT_MS)
-  }, [])
-
-  const resetSessionContinuityTimer = useCallback(() => {
-    sessionStartTimeRef.current = Date.now()
-  }, [])
-
-  const clearSessionContinuityTimer = useCallback(() => {
-    sessionStartTimeRef.current = null
-
-    if (sessionWarningTimerRef.current !== null) {
-      window.clearTimeout(sessionWarningTimerRef.current)
-      sessionWarningTimerRef.current = null
-    }
   }, [])
 
   useEffect(() => {
@@ -1282,12 +1210,6 @@ export function Rayd8PlayerEngine({
   const reportPlaybackStartupFailure = playbackHealthGuard.reportStartupFailure
   const resetPlaybackHealth = playbackHealthGuard.reset
 
-  const triggerSessionContinuityCheck = useCallback(() => {
-    playbackAuthority?.dispatch({ type: 'continuity_threshold_reached' })
-    resetSessionContinuityTimer()
-    pingChromeVisibility()
-  }, [playbackAuthority, pingChromeVisibility, resetSessionContinuityTimer])
-
   const destroyPrimaryVideoPipeline = useCallback((diagnosticsLabel: string) => {
     if (muxRefreshTimerRef.current !== null) {
       window.clearTimeout(muxRefreshTimerRef.current)
@@ -1311,21 +1233,17 @@ export function Rayd8PlayerEngine({
     clearTimers([
       bufferHealthTimerRef.current,
       muxRefreshTimerRef.current,
-      sessionWarningTimerRef.current,
       manualGuideTimerRef.current,
     ])
     bufferHealthTimerRef.current = null
     muxRefreshTimerRef.current = null
-    sessionWarningTimerRef.current = null
     manualGuideTimerRef.current = null
     systemPausedRef.current = true
     singleAvAudioActiveRef.current = false
     setSingleAvAudioActive(false)
-    clearSessionContinuityTimer()
     destroyPrimaryVideoPipeline('primary:end-session')
     onClose()
   }, [
-    clearSessionContinuityTimer,
     destroyPrimaryVideoPipeline,
     exitFullscreen,
     onClose,
@@ -1438,89 +1356,10 @@ export function Rayd8PlayerEngine({
         systemPausedRef.current = false
         return resumeMediaWithRetry(getVideoElement())
       },
-      pauseForUserPrompt: () => {
-        systemPausedRef.current = true
-        getVideoElement()?.pause()
-      },
     })
 
     return () => auth.clearVideoDelegate()
   }, [getVideoElement, playbackAuthority, resumeMediaWithRetry, runVideoMajorRecovery])
-
-  useEffect(() => {
-    if (continuityTimerSuppressed) {
-      clearSessionContinuityTimer()
-      return
-    }
-
-    const nextSessionStartTime = getConsecutivePlaybackStartTime({
-      allowExtendedSessions: continuityTimerSuppressed,
-      now: Date.now(),
-      playbackState: playbackPresentation.legacyPlaybackState,
-      sessionStartTime: sessionStartTimeRef.current,
-    })
-
-    if (nextSessionStartTime === null) {
-      clearSessionContinuityTimer()
-      return
-    }
-
-    sessionStartTimeRef.current = nextSessionStartTime
-
-    const checkTimer = () => {
-      const now = Date.now()
-
-      if (
-        shouldTriggerSessionWarning({
-          allowExtendedSessions: continuityTimerSuppressed,
-          now,
-          sessionStartTime: sessionStartTimeRef.current,
-        })
-      ) {
-        triggerSessionContinuityCheck()
-      }
-
-      const nextDelay =
-        sessionStartTimeRef.current === null
-          ? SESSION_WARNING_CHECK_MS
-          : Math.max(
-              0,
-              Math.min(
-                SESSION_WARNING_CHECK_MS,
-                TWO_HOURS_MS - (Date.now() - sessionStartTimeRef.current),
-              ),
-            )
-
-      sessionWarningTimerRef.current = playbackScheduler.setTimeout(
-        'session-warning',
-        checkTimer,
-        nextDelay,
-      )
-    }
-
-    const initialDelay = Math.max(
-      0,
-      Math.min(SESSION_WARNING_CHECK_MS, TWO_HOURS_MS - (Date.now() - nextSessionStartTime)),
-    )
-
-    sessionWarningTimerRef.current = playbackScheduler.setTimeout(
-      'session-warning',
-      checkTimer,
-      initialDelay,
-    )
-
-    return () => {
-      playbackScheduler.clear('session-warning')
-      sessionWarningTimerRef.current = null
-    }
-  }, [
-    clearSessionContinuityTimer,
-    continuityTimerSuppressed,
-    playbackAuthority,
-    playbackPresentation.legacyPlaybackState,
-    playbackScheduler,
-    triggerSessionContinuityCheck,
-  ])
 
   useEffect(() => {
     let cancelled = false
@@ -1563,7 +1402,6 @@ export function Rayd8PlayerEngine({
     }
 
     async function syncVideoMode() {
-      resetSessionContinuityTimer()
       playbackAuthority?.dispatch({ type: 'lifecycle_preloading' })
       setPreloadPercent(0)
       setVideoError(null)
@@ -1815,7 +1653,6 @@ export function Rayd8PlayerEngine({
     playbackMode,
     playbackPlan,
     playbackScheduler,
-    resetSessionContinuityTimer,
     reportPlaybackStartupFailure,
     resetPlaybackHealth,
     sessionConfig.videoMode,
@@ -2036,12 +1873,10 @@ export function Rayd8PlayerEngine({
       clearTimers([
         bufferHealthTimerRef.current,
         muxRefreshTimerRef.current,
-        sessionWarningTimerRef.current,
         manualGuideTimerRef.current,
       ])
       bufferHealthTimerRef.current = null
       muxRefreshTimerRef.current = null
-      sessionWarningTimerRef.current = null
       manualGuideTimerRef.current = null
       if (brightnessUpdateFrameRef.current !== null) {
         window.cancelAnimationFrame(brightnessUpdateFrameRef.current)
@@ -2077,12 +1912,6 @@ export function Rayd8PlayerEngine({
       }
     }
   }, [audioError, playbackAuthority])
-
-  const handleResumePlayback = useCallback(() => {
-    resetSessionContinuityTimer()
-    systemPausedRef.current = false
-    playbackAuthority?.dispatch({ type: 'user_resume_requested' })
-  }, [playbackAuthority, resetSessionContinuityTimer])
 
   const handleRetryInitialization = useCallback(() => {
     logExpressPlaybackDebug('init_retry_tapped', {
@@ -2155,7 +1984,6 @@ export function Rayd8PlayerEngine({
     chromeVisible ||
     activePanel !== null ||
     isVideoLoading ||
-    interactionRequired ||
     exitPromptOpen
   const performancePresentationMode = playbackPresentationMode === 'performance'
 
@@ -2330,10 +2158,6 @@ export function Rayd8PlayerEngine({
         ) : null}
 
         {isPreloading ? <PreloadOverlay preloadPercent={preloadPercent} /> : null}
-
-        {interactionRequired ? (
-          <InteractionRequiredOverlay onResume={() => void handleResumePlayback()} />
-        ) : null}
 
         {playbackHealthFallbackVisible && !activeSoftDenialState ? (
           <PlaybackHealthFallbackOverlay

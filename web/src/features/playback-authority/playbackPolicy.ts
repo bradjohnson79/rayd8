@@ -48,22 +48,3 @@ export function getPlaybackPolicyTimings(profile: PlaybackPolicyProfile): Playba
   }
 }
 
-/** When true, the 2h continuity timer should not run (same semantics as prior suppressSessionContinuityInterruptions). */
-export function shouldSuppressContinuityTimer(
-  profile: PlaybackPolicyProfile,
-  allowExtendedSessionsFromSettings: boolean,
-): boolean {
-  if (allowExtendedSessionsFromSettings) {
-    return true
-  }
-
-  if (profile === 'strict') {
-    return false
-  }
-
-  if (profile === 'uninterrupted') {
-    return true
-  }
-
-  return false
-}

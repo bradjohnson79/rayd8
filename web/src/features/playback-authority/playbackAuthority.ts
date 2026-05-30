@@ -2,7 +2,6 @@ import { PlaybackScheduler } from '../rayd8-player/playbackScheduler'
 import {
   getPlaybackPolicyTimings,
   resolvePlaybackPolicyProfile,
-  shouldSuppressContinuityTimer,
   type PlaybackPolicyProfile,
 } from './playbackPolicy'
 import {
@@ -30,7 +29,6 @@ export type PlaybackKind = 'dual' | 'combined'
 export interface PlaybackVideoDelegate {
   attemptMajorRecovery: (reason: 'stalled' | 'error') => Promise<boolean>
   attemptSoftResume: () => Promise<boolean>
-  pauseForUserPrompt: () => void
 }
 
 export interface PlaybackAudioDelegate {
@@ -53,7 +51,6 @@ export class PlaybackAuthorityController {
   private snapshot: PlaybackPresentationSnapshot = createInitialPresentationSnapshot()
   private profile: PlaybackPolicyProfile
   private timings = getPlaybackPolicyTimings(resolvePlaybackPolicyProfile())
-  private allowExtendedSessions = false
   private playbackKind: PlaybackKind = 'dual'
   private videoDelegate: PlaybackVideoDelegate | null = null
   private audioDelegate: PlaybackAudioDelegate | null = null
@@ -92,10 +89,6 @@ export class PlaybackAuthorityController {
     this.snapshot = createInitialPresentationSnapshot()
   }
 
-  setAllowExtendedSessions(value: boolean) {
-    this.allowExtendedSessions = value
-  }
-
   setPlaybackKind(kind: PlaybackKind) {
     this.playbackKind = kind
   }
@@ -116,17 +109,8 @@ export class PlaybackAuthorityController {
     this.audioDelegate = null
   }
 
-  continuityTimerSuppressed(): boolean {
-    return shouldSuppressContinuityTimer(this.profile, this.allowExtendedSessions)
-  }
-
   dispatch(signal: PlaybackSignal): void {
     recordAuthorityDecision(signal.type, this.snapshot.machine)
-
-    if (signal.type === 'user_resume_requested') {
-      void this.runUserResume()
-      return
-    }
 
     if (signal.type === 'lifecycle_preloading') {
       this.resetHardInterruptionState()
@@ -179,15 +163,6 @@ export class PlaybackAuthorityController {
 
       case 'tab_visible':
         this.scheduleTabVisibleResume()
-        return
-
-      case 'continuity_threshold_reached':
-        if (this.continuityTimerSuppressed()) {
-          return
-        }
-
-        this.videoDelegate?.pauseForUserPrompt()
-        this.enterHardContinuityInterruption()
         return
 
       case 'video_stall_observed':
@@ -287,14 +262,6 @@ export class PlaybackAuthorityController {
     this.commitPresentation('WAITING_FOR_GESTURE')
   }
 
-  private enterHardContinuityInterruption() {
-    this.activeHardInterruption = true
-    this.hardInterruptionPriority = Math.max(this.hardInterruptionPriority, 90)
-    this.overlaySuppressed = false
-    recordInterruption('continuity_threshold')
-    this.commitPresentation('INTERRUPTED')
-  }
-
   private scheduleTabVisibleResume() {
     this.scheduler.clear('authority-tab-visible')
     this.scheduler.setTimeout('authority-tab-visible', () => {
@@ -334,35 +301,6 @@ export class PlaybackAuthorityController {
       if (this.profile !== 'uninterrupted') {
         this.enterGestureRequired(false)
       }
-    } finally {
-      this.resumeOperationInFlight = false
-    }
-  }
-
-  private async runUserResume() {
-    if (this.resumeOperationInFlight) {
-      return
-    }
-
-    const d = this.delegates()
-
-    if (!d) {
-      return
-    }
-
-    this.resumeOperationInFlight = true
-
-    try {
-      const videoOk = await d.video.attemptSoftResume()
-      const audioOk = await d.audio.attemptSoftResume()
-
-      if (videoOk && audioOk) {
-        this.resetHardInterruptionState()
-        this.commitPresentation('PLAYING')
-        return
-      }
-
-      this.enterGestureRequired(false)
     } finally {
       this.resumeOperationInFlight = false
     }
