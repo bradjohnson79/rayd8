@@ -36,19 +36,65 @@ function getDisplayMode() {
   return 'browser'
 }
 
+function getBrowserName(userAgent: string) {
+  if (userAgent.includes('Edg/')) {
+    return 'edge'
+  }
+
+  if (userAgent.includes('Firefox/')) {
+    return 'firefox'
+  }
+
+  if (userAgent.includes('SamsungBrowser/')) {
+    return 'samsung-chrome'
+  }
+
+  if (userAgent.includes('Chrome/') || userAgent.includes('CriOS/')) {
+    return 'chrome'
+  }
+
+  if (userAgent.includes('Safari/')) {
+    return 'safari'
+  }
+
+  return 'unknown'
+}
+
+function getDeviceName(userAgent: string) {
+  if (/iPhone|iPad|iPod/.test(userAgent)) {
+    return 'ios'
+  }
+
+  if (userAgent.includes('Android')) {
+    return 'android'
+  }
+
+  if (/Macintosh|Windows|Linux/.test(userAgent)) {
+    return 'desktop'
+  }
+
+  return 'unknown'
+}
+
 export function getExpressPlaybackContext(): ExpressPlaybackDebugMeta {
   if (typeof window === 'undefined') {
     return {
+      browser: 'server',
+      device: 'server',
       displayMode: 'server',
       isStandalone: false,
       visibilityState: 'server',
     }
   }
 
+  const userAgent = navigator.userAgent.slice(0, 160)
+
   return {
+    browser: getBrowserName(userAgent),
+    device: getDeviceName(userAgent),
     displayMode: getDisplayMode(),
     isStandalone: isStandaloneDisplayMode(),
-    userAgent: navigator.userAgent.slice(0, 160),
+    userAgent,
     visibilityState: document.visibilityState,
   }
 }

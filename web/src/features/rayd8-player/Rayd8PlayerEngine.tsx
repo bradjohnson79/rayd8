@@ -67,7 +67,7 @@ import { usePlaybackAuthority, useSession } from '../session/SessionProvider'
 import {
   resetMedia,
   setMediaSource,
-  tryPlay,
+  tryPlayVideo,
   type HlsController,
 } from './mediaController'
 import { logExpressPlaybackDebug } from './expressPlaybackDebug'
@@ -82,6 +82,7 @@ import {
 } from './playerDiagnostics'
 import type { SessionPlaybackStatus } from './sessionWarning'
 import { useMobilePlaybackLifecycle } from './useMobilePlaybackLifecycle'
+import { useAudioUnlockGesture } from './useAudioUnlockGesture'
 import { usePlaybackHealthGuard } from './usePlaybackHealthGuard'
 import { useRayd8Fullscreen } from './useRayd8Fullscreen'
 import { useWakeLock } from './useWakeLock'
@@ -620,6 +621,8 @@ export function Rayd8PlayerEngine({
     audioVolume,
     experienceAccess,
     isAudioLoading,
+    isActive,
+    resumeAudioPlayback,
     setAudioMuted,
     setAudioTrack,
     setAudioVolume,
@@ -1178,13 +1181,14 @@ export function Rayd8PlayerEngine({
   const getVideoElement = useCallback(() => primaryVideoRef.current, [])
 
   const resumeMediaWithRetry = useCallback(async (media: HTMLMediaElement | null) => {
-    const started = await tryPlay(media)
+    const started = await tryPlayVideo(media)
 
-    if (started) {
+    if (started.ok) {
       return true
     }
 
-    return await tryPlay(media)
+    const retried = await tryPlayVideo(media)
+    return retried.ok
   }, [])
 
   const playbackHealthResetKey = `${sessionType}:${sessionConfig.videoMode}:${audioTrack}:${initRetryKey}`
@@ -1275,6 +1279,12 @@ export function Rayd8PlayerEngine({
     shouldVideoBePlaying,
   })
 
+  useAudioUnlockGesture({
+    audioError,
+    enabled: isActive && audioTrack !== 'none' && !singleAvAudioActiveRef.current,
+    resumeAudioPlayback,
+  })
+
   const runVideoMajorRecovery = useCallback(
     async (reason: 'stalled' | 'error'): Promise<boolean> => {
       if (!shouldUsePlaybackStability) {
@@ -1317,9 +1327,9 @@ export function Rayd8PlayerEngine({
 
         activeController?.startLoad(storedTime)
 
-        const resumed = await tryPlay(activeVideo)
+        const resumed = await tryPlayVideo(activeVideo)
 
-        if (resumed) {
+        if (resumed.ok) {
           if (activeVideo.currentTime < Math.max(0, storedTime - 0.5)) {
             try {
               activeVideo.currentTime = storedTime
@@ -1599,14 +1609,14 @@ export function Rayd8PlayerEngine({
           videoWidth: video.videoWidth,
         })
         playbackAuthority?.dispatch({ type: 'lifecycle_ready' })
-        const started = await tryPlay(video)
+        const started = await tryPlayVideo(video)
 
         if (!cancelled) {
           systemPausedRef.current = false
           setPreloadPercent(100)
-          playbackAuthority?.dispatch({ type: 'lifecycle_play_attempt_finished', ok: started })
+          playbackAuthority?.dispatch({ type: 'lifecycle_play_attempt_finished', ok: started.ok })
 
-          if (!started) {
+          if (!started.ok) {
             reportPlaybackStartupFailure('play_failed')
           }
         }
@@ -1900,18 +1910,6 @@ export function Rayd8PlayerEngine({
       setCurrentVideoSignedUrl(null)
     }
   }, [playbackScheduler, setSingleAvAudioActive])
-
-  useEffect(() => {
-    if (audioError === 'Tap or press any key to continue the audio layer.') {
-      const frameId = window.requestAnimationFrame(() => {
-        playbackAuthority?.dispatch({ type: 'audio_autoplay_blocked' })
-      })
-
-      return () => {
-        window.cancelAnimationFrame(frameId)
-      }
-    }
-  }, [audioError, playbackAuthority])
 
   const handleRetryInitialization = useCallback(() => {
     logExpressPlaybackDebug('init_retry_tapped', {

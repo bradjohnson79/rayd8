@@ -39,9 +39,12 @@ import {
   destroyHlsController,
   resetMedia,
   setMediaSource,
-  tryPlay,
+  tryPlayAudio,
   type HlsController,
+  type TryPlayResult,
 } from '../rayd8-player/mediaController'
+import { AUDIO_UNLOCK_PROMPT } from '../rayd8-player/audioUnlock'
+import { logExpressPlaybackDebug } from '../rayd8-player/expressPlaybackDebug'
 import { PlaybackScheduler } from '../rayd8-player/playbackScheduler'
 
 const PlaybackAuthorityContext = createContext<PlaybackAuthorityController | null>(null)
@@ -106,6 +109,7 @@ const AUDIO_STABILITY_PROFILE = {
   maxBufferLength: 40,
   maxMaxBufferLength: 120,
 }
+const AUDIO_LAYER_UNAVAILABLE_MESSAGE = 'Unable to load the current audio layer.'
 
 const SessionContext = createContext<SessionContextValue | null>(null)
 
@@ -170,6 +174,26 @@ function persistAudioState(nextValue: AudioState) {
   }
 
   window.localStorage.setItem(AUDIO_STORAGE_KEY, serializedValue)
+}
+
+function getAudioPlaybackFailureMessage(result: TryPlayResult) {
+  if (result.ok) {
+    return null
+  }
+
+  switch (result.reason) {
+    case 'NotAllowedError':
+      return AUDIO_UNLOCK_PROMPT
+    case 'DocumentNotVisible':
+      return 'Audio will resume when the session tab is visible.'
+    case 'MediaElementMissing':
+    case 'MediaNotConnected':
+    case 'MediaSourceMissing':
+    case 'PlaybackSurfaceNotReady':
+      return AUDIO_LAYER_UNAVAILABLE_MESSAGE
+    case 'UnknownError':
+      return result.message ?? AUDIO_LAYER_UNAVAILABLE_MESSAGE
+  }
 }
 
 async function fadeTo(media: HTMLMediaElement | null, targetVolume: number, durationMs: number) {
@@ -755,13 +779,77 @@ function GlobalAudioRail({
     [sessionType],
   )
 
+  const handleAudioPlayFailure = useCallback(
+    (result: TryPlayResult) => {
+      if (result.ok) {
+        return
+      }
+
+      const message = getAudioPlaybackFailureMessage(result)
+      const audio = audioRef.current
+
+      if (message) {
+        onAudioErrorChange(message)
+      }
+
+      if (result.reason === 'NotAllowedError') {
+        logExpressPlaybackDebug('audio_unlock_required', {
+          currentSrc: audio?.currentSrc ?? '',
+          reason: result.reason,
+          readyState: audio?.readyState ?? 0,
+        })
+        playbackAuthority?.dispatch({ type: 'audio_autoplay_blocked' })
+        return
+      }
+
+      playbackAuthority?.dispatch({ type: 'audio_error' })
+    },
+    [onAudioErrorChange, playbackAuthority],
+  )
+
+  const resumeAudioPlayback = useCallback(async () => {
+    const audio = audioRef.current
+
+    logExpressPlaybackDebug('audio_unlock_attempt', {
+      currentSrc: audio?.currentSrc ?? '',
+      reason: 'resume_requested',
+      readyState: audio?.readyState ?? 0,
+    })
+
+    const result = await tryPlayAudio(audioRef.current)
+
+    if (result.ok) {
+      onAudioErrorChange(null)
+
+      if (audioRef.current && !audioMutedRef.current) {
+        await fadeTo(audioRef.current, audioVolumeRef.current, 280)
+      }
+
+      playbackAuthority?.dispatch({ type: 'lifecycle_play_attempt_finished', ok: true })
+      logExpressPlaybackDebug('audio_unlock_success', {
+        currentSrc: audioRef.current?.currentSrc ?? '',
+        reason: 'resume_succeeded',
+        readyState: audioRef.current?.readyState ?? 0,
+      })
+      return true
+    }
+
+    handleAudioPlayFailure(result)
+    logExpressPlaybackDebug('audio_unlock_failed', {
+      currentSrc: audioRef.current?.currentSrc ?? '',
+      reason: result.reason,
+      readyState: audioRef.current?.readyState ?? 0,
+    })
+    return false
+  }, [handleAudioPlayFailure, onAudioErrorChange, playbackAuthority])
+
   useEffect(() => {
-    onResumeHandlerChange(async () => tryPlay(audioRef.current))
+    onResumeHandlerChange(resumeAudioPlayback)
 
     return () => {
       onResumeHandlerChange(async () => true)
     }
-  }, [onResumeHandlerChange])
+  }, [onResumeHandlerChange, resumeAudioPlayback])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -846,7 +934,8 @@ function GlobalAudioRail({
           }
         }
 
-        return await tryPlay(audio)
+        const result = await tryPlayAudio(audio)
+        return result.ok
       } catch {
         return false
       }
@@ -875,7 +964,7 @@ function GlobalAudioRail({
     auth.registerAudioDelegate({
       attemptMajorRecovery: async (reason) =>
         recoverAudioPlayback(reason === 'health-check' ? 'health-check' : 'error'),
-      attemptSoftResume: async () => tryPlay(audioRef.current),
+      attemptSoftResume: resumeAudioPlayback,
     })
 
     return () => auth.clearAudioDelegate()
@@ -885,6 +974,7 @@ function GlobalAudioRail({
     isActive,
     playbackAuthority,
     recoverAudioPlayback,
+    resumeAudioPlayback,
     singleAvAudioActive,
   ])
 
@@ -1060,21 +1150,21 @@ function GlobalAudioRail({
           audioRef.current.volume = 0
         }
 
-        const started = await tryPlay(audioRef.current)
+        const started = await tryPlayAudio(audioRef.current)
 
-        if (started && audioRef.current && !audioMutedRef.current) {
+        if (started.ok && audioRef.current && !audioMutedRef.current) {
           await fadeTo(audioRef.current, audioVolumeRef.current, 280)
         }
 
-        if (!started && !cancelled) {
-          onAudioErrorChange('Tap or press any key to continue the audio layer.')
-          playbackAuthority?.dispatch({ type: 'audio_autoplay_blocked' })
+        if (!started.ok && !cancelled) {
+          handleAudioPlayFailure(started)
         }
       } catch (error) {
         if (!cancelled) {
           onAudioErrorChange(
-            error instanceof Error ? error.message : 'Unable to load the current audio layer.',
+            error instanceof Error ? error.message : AUDIO_LAYER_UNAVAILABLE_MESSAGE,
           )
+          playbackAuthority?.dispatch({ type: 'audio_error' })
         }
       } finally {
         if (!cancelled && audioRequestRef.current === requestId) {
@@ -1094,6 +1184,7 @@ function GlobalAudioRail({
     audioTrack,
     currentExperience,
     getTokenSafe,
+    handleAudioPlayFailure,
     isActive,
     onAudioErrorChange,
     onAudioLoadingChange,

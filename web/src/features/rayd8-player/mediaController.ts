@@ -1,7 +1,10 @@
 import type { MutableRefObject } from 'react'
 import { loadHls, type HlsController } from '../../lib/loadHls'
 import { logExpressPlaybackDebug } from './expressPlaybackDebug'
-import { waitForVisiblePlaybackSurface } from './playbackSurfaceReady'
+import {
+  waitForAudioPlaybackReady,
+  waitForVisiblePlaybackSurface,
+} from './playbackSurfaceReady'
 
 export type { HlsController }
 
@@ -19,6 +22,19 @@ export interface MediaDiagnostics {
   recordController?: (action: 'create' | 'destroy') => void
   recordSourceLoad?: (sourceUrl: string) => void
 }
+
+export type PlayFailureReason =
+  | 'MediaElementMissing'
+  | 'DocumentNotVisible'
+  | 'MediaNotConnected'
+  | 'MediaSourceMissing'
+  | 'PlaybackSurfaceNotReady'
+  | 'NotAllowedError'
+  | 'UnknownError'
+
+export type TryPlayResult =
+  | { ok: true }
+  | { message?: string; ok: false; reason: PlayFailureReason }
 
 export async function setMediaSource(input: {
   controllerProfileRef?: MutableRefObject<string | null>
@@ -115,7 +131,19 @@ export async function setMediaSource(input: {
   return true
 }
 
-export async function tryPlay(media: HTMLMediaElement | null) {
+function getPlayFailureReason(error: unknown): PlayFailureReason {
+  if (error instanceof DOMException && error.name === 'NotAllowedError') {
+    return 'NotAllowedError'
+  }
+
+  if (error instanceof Error && error.name === 'NotAllowedError') {
+    return 'NotAllowedError'
+  }
+
+  return 'UnknownError'
+}
+
+export async function tryPlayVideo(media: HTMLMediaElement | null): Promise<TryPlayResult> {
   if (!media) {
     logExpressPlaybackDebug('play_failed', {
       message: 'No media element available.',
@@ -123,7 +151,7 @@ export async function tryPlay(media: HTMLMediaElement | null) {
       readyState: 0,
       videoWidth: 0,
     })
-    return false
+    return { ok: false, reason: 'MediaElementMissing' }
   }
 
   const surfaceReady = await waitForVisiblePlaybackSurface(media)
@@ -136,7 +164,7 @@ export async function tryPlay(media: HTMLMediaElement | null) {
       readyState: media.readyState,
       videoWidth: media instanceof HTMLVideoElement ? media.videoWidth : 0,
     })
-    return false
+    return { ok: false, reason: 'PlaybackSurfaceNotReady' }
   }
 
   logExpressPlaybackDebug('play_called', {
@@ -152,16 +180,69 @@ export async function tryPlay(media: HTMLMediaElement | null) {
       readyState: media.readyState,
       videoWidth: media instanceof HTMLVideoElement ? media.videoWidth : 0,
     })
-    return true
+    return { ok: true }
   } catch (error) {
+    const reason = getPlayFailureReason(error)
     logExpressPlaybackDebug('play_failed', {
       currentTime: media.currentTime,
       message: error instanceof Error ? error.message : String(error),
-      name: error instanceof Error ? error.name : 'unknown',
+      name: reason,
       readyState: media.readyState,
       videoWidth: media instanceof HTMLVideoElement ? media.videoWidth : 0,
     })
-    return false
+    return {
+      message: error instanceof Error ? error.message : String(error),
+      ok: false,
+      reason,
+    }
+  }
+}
+
+export async function tryPlayAudio(media: HTMLMediaElement | null): Promise<TryPlayResult> {
+  if (!media) {
+    logExpressPlaybackDebug('audio_play_failed', {
+      currentSrc: '',
+      message: 'No audio element available.',
+      reason: 'MediaElementMissing',
+      readyState: 0,
+    })
+    return { ok: false, reason: 'MediaElementMissing' }
+  }
+
+  const ready = await waitForAudioPlaybackReady(media)
+
+  if (!ready.ok) {
+    return ready
+  }
+
+  logExpressPlaybackDebug('audio_play_called', {
+    currentSrc: media.currentSrc,
+    reason: 'play_called',
+    readyState: media.readyState,
+  })
+
+  try {
+    await media.play()
+    logExpressPlaybackDebug('audio_play_success', {
+      currentSrc: media.currentSrc,
+      reason: 'play_succeeded',
+      readyState: media.readyState,
+    })
+    return { ok: true }
+  } catch (error) {
+    const reason = getPlayFailureReason(error)
+
+    logExpressPlaybackDebug('audio_play_failed', {
+      currentSrc: media.currentSrc,
+      message: error instanceof Error ? error.message : String(error),
+      reason,
+      readyState: media.readyState,
+    })
+    return {
+      message: error instanceof Error ? error.message : String(error),
+      ok: false,
+      reason,
+    }
   }
 }
 

@@ -22,7 +22,7 @@ async function waitForAnimationFrames(frameCount: number) {
   }
 }
 
-function waitForVisibleDocument() {
+export function waitForVisibleDocument() {
   if (typeof document === 'undefined' || document.visibilityState === 'visible') {
     return Promise.resolve(true)
   }
@@ -51,6 +51,10 @@ function waitForVisibleDocument() {
     document.addEventListener('visibilitychange', handleVisibilityChange)
   })
 }
+
+export type AudioPlaybackReadyResult =
+  | { ok: true }
+  | { ok: false; reason: 'DocumentNotVisible' | 'MediaNotConnected' | 'MediaSourceMissing' }
 
 function getSurfaceSnapshot(video: HTMLMediaElement | null) {
   if (!video) {
@@ -111,4 +115,48 @@ export async function waitForVisiblePlaybackSurface(video: HTMLMediaElement | nu
     ...getExpressPlaybackContext(),
   })
   return true
+}
+
+export async function waitForAudioPlaybackReady(
+  audio: HTMLMediaElement | null,
+): Promise<AudioPlaybackReadyResult> {
+  const visible = await waitForVisibleDocument()
+
+  if (!visible) {
+    logExpressPlaybackDebug('audio_play_failed', {
+      currentSrc: audio?.currentSrc ?? '',
+      reason: 'DocumentNotVisible',
+      readyState: audio?.readyState ?? 0,
+      ...getExpressPlaybackContext(),
+    })
+    return { ok: false, reason: 'DocumentNotVisible' }
+  }
+
+  if (!audio?.isConnected) {
+    logExpressPlaybackDebug('audio_play_failed', {
+      currentSrc: audio?.currentSrc ?? '',
+      reason: 'MediaNotConnected',
+      readyState: audio?.readyState ?? 0,
+      ...getExpressPlaybackContext(),
+    })
+    return { ok: false, reason: 'MediaNotConnected' }
+  }
+
+  const hasSource = Boolean(
+    audio.currentSrc ||
+      audio.getAttribute('src') ||
+      audio.readyState > HTMLMediaElement.HAVE_NOTHING,
+  )
+
+  if (!hasSource) {
+    logExpressPlaybackDebug('audio_play_failed', {
+      currentSrc: audio.currentSrc,
+      reason: 'MediaSourceMissing',
+      readyState: audio.readyState,
+      ...getExpressPlaybackContext(),
+    })
+    return { ok: false, reason: 'MediaSourceMissing' }
+  }
+
+  return { ok: true }
 }

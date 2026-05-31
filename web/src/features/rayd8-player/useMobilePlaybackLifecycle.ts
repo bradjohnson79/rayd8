@@ -1,6 +1,6 @@
 import { useCallback, useEffect, type MutableRefObject } from 'react'
 import type { PlaybackAuthorityController } from '../playback-authority/playbackAuthority'
-import { tryPlay } from './mediaController'
+import { tryPlayVideo } from './mediaController'
 import { addTrackedDomEventListener } from './playerDiagnostics'
 
 interface UseMobilePlaybackLifecycleInput {
@@ -35,9 +35,9 @@ export function useMobilePlaybackLifecycle({
       return
     }
 
-    const resumed = await tryPlay(video)
+    const resumed = await tryPlayVideo(video)
 
-    if (!resumed && videoLooksStalled(video)) {
+    if (!resumed.ok && videoLooksStalled(video)) {
       playbackAuthority?.dispatch({ type: 'video_persistent_freeze', reason: 'stalled' })
     }
   }, [getVideoElement, playbackAuthority, shouldVideoBePlaying])
