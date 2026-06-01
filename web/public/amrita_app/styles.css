@@ -606,7 +606,7 @@ h2 {
 }
 
 .personal-resonance-runtime.visible {
-  opacity: 0.82;
+  opacity: 0.5;
   transform: translate3d(-50%, -50%, 0) scale(1);
 }
 
@@ -996,6 +996,7 @@ h2 {
 }
 
 .performance-hud {
+  display: none;
   position: absolute;
   right: max(18px, env(safe-area-inset-right));
   bottom: max(18px, env(safe-area-inset-bottom));
