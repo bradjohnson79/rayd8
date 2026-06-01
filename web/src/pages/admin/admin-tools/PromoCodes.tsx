@@ -38,6 +38,17 @@ function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString() : 'No expiration'
 }
 
+function formatPlanLabel(plan: AdminPromoCodePlan) {
+  switch (plan) {
+    case 'amrita':
+      return 'AMRITA'
+    case 'all':
+      return 'All plans'
+    default:
+      return 'REGEN'
+  }
+}
+
 function formatDiscount(promoCode: AdminPromoCodeRecord) {
   if (promoCode.discount_type === 'percent') {
     return `${promoCode.percent_off ?? 0}% off`
@@ -401,8 +412,8 @@ export function AdminPromoCodesPage() {
         <div className="lg:col-span-4">
           <h2 className="text-xl font-semibold text-white">Create Stripe Promo Code</h2>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            REGEN is selected by default. Fixed amount discounts are entered as dollars and sent to Stripe as cents.
-            Amrita-scoped promos will be supported once Amrita has a Stripe price.
+            Choose REGEN, AMRITA, or All plans. Fixed amount discounts are entered as dollars and sent to Stripe as cents.
+            Plan-scoped coupons are restricted to the matching Stripe product at checkout.
           </p>
         </div>
         <FieldWithHelp
@@ -524,7 +535,7 @@ export function AdminPromoCodesPage() {
           />
         </FieldWithHelp>
         <FieldWithHelp
-          help="Promo code creation is currently limited to REGEN because Amrita does not have a Stripe price wired yet."
+          help="Choose which membership checkout this promo code applies to. All plans allows the code on both REGEN and AMRITA checkout."
           label="Product / Plan"
         >
           <select
@@ -533,6 +544,8 @@ export function AdminPromoCodesPage() {
             value={formState.appliesToPlan}
           >
             <option value="regen">REGEN</option>
+            <option value="amrita">AMRITA</option>
+            <option value="all">All plans</option>
           </select>
         </FieldWithHelp>
         <FieldWithHelp
@@ -608,6 +621,7 @@ export function AdminPromoCodesPage() {
             <thead className="bg-white/[0.05] text-xs uppercase tracking-[0.24em] text-slate-500">
               <tr>
                 <th className="px-5 py-4">Code</th>
+                <th className="px-5 py-4">Plan</th>
                 <th className="px-5 py-4">Discount</th>
                 <th className="px-5 py-4">Duration</th>
                 <th className="px-5 py-4">Status</th>
@@ -618,7 +632,7 @@ export function AdminPromoCodesPage() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
-                <tr><td className="px-5 py-6 text-slate-400" colSpan={7}>Loading promo codes...</td></tr>
+                <tr><td className="px-5 py-6 text-slate-400" colSpan={8}>Loading promo codes...</td></tr>
               ) : promoCodes.length ? (
                 promoCodes.map((promoCode) => {
                   const isArchived = Boolean(promoCode.archived_at)
@@ -636,6 +650,7 @@ export function AdminPromoCodesPage() {
                           <span className="mt-1 block text-xs text-slate-500">{promoCode.name}</span>
                         </button>
                       </td>
+                      <td className="px-5 py-4">{formatPlanLabel(promoCode.applies_to_plan)}</td>
                       <td className="px-5 py-4">{formatDiscount(promoCode)}</td>
                       <td className="px-5 py-4 capitalize">
                         {promoCode.duration}
@@ -692,7 +707,7 @@ export function AdminPromoCodesPage() {
                   )
                 })
               ) : (
-                <tr><td className="px-5 py-6 text-slate-400" colSpan={7}>No promo codes found.</td></tr>
+                <tr><td className="px-5 py-6 text-slate-400" colSpan={8}>No promo codes found.</td></tr>
               )}
             </tbody>
           </table>
@@ -706,6 +721,7 @@ export function AdminPromoCodesPage() {
               <p className="text-xs uppercase tracking-[0.28em] text-violet-200/65">Selected code</p>
               <h2 className="mt-2 text-2xl font-semibold text-white">{activePromoCode.code}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-400">{activePromoCode.description ?? 'No description provided.'}</p>
+              <p className="mt-2 text-sm text-slate-300">Plan: {formatPlanLabel(activePromoCode.applies_to_plan)}</p>
             </div>
             <div className="text-sm text-slate-300">
               <p>Coupon: {activePromoCode.stripe_coupon_id ?? 'Missing'}</p>

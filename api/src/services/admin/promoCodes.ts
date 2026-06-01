@@ -291,17 +291,17 @@ function couponMatchesPromoCode(
   )
 }
 
-async function getRegenProductId() {
-  if (!stripeClient || !env.STRIPE_REGEN_PRICE_ID) {
+async function getProductIdFromPriceId(priceId: string | undefined, planLabel: string) {
+  if (!stripeClient || !priceId) {
     return null
   }
 
-  const price = await stripeClient.prices.retrieve(env.STRIPE_REGEN_PRICE_ID).catch((error) => {
+  const price = await stripeClient.prices.retrieve(priceId).catch((error) => {
     const message = error instanceof Error ? error.message : ''
 
     if (stripeEnvironment() === 'test' && message.includes('similar object exists in live mode')) {
       console.warn(
-        'Skipping Stripe product restriction for test-mode promo code because STRIPE_REGEN_PRICE_ID belongs to live mode.',
+        `Skipping Stripe product restriction for test-mode promo code because ${planLabel} price belongs to live mode.`,
       )
       return null
     }
@@ -314,6 +314,34 @@ async function getRegenProductId() {
   }
 
   return typeof price.product === 'string' ? price.product : price.product.id
+}
+
+async function getProductIdsForPlan(plan: PromoCodePlan) {
+  if (plan === 'all') {
+    const productIds = (
+      await Promise.all([
+        getProductIdFromPriceId(env.STRIPE_REGEN_PRICE_ID, 'REGEN'),
+        getProductIdFromPriceId(env.STRIPE_AMRITA_PRICE_ID, 'Amrita'),
+      ])
+    ).filter((productId): productId is string => Boolean(productId))
+
+    return productIds.length ? productIds : null
+  }
+
+  if (plan === 'amrita') {
+    const productId = await getProductIdFromPriceId(env.STRIPE_AMRITA_PRICE_ID, 'Amrita')
+
+    if (!productId) {
+      throw new Error(
+        'Amrita Stripe price is not configured. Set STRIPE_AMRITA_PRICE_ID before creating Amrita promo codes.',
+      )
+    }
+
+    return [productId]
+  }
+
+  const productId = await getProductIdFromPriceId(env.STRIPE_REGEN_PRICE_ID, 'REGEN')
+  return productId ? [productId] : null
 }
 
 function isStripeMissingError(error: unknown) {
@@ -475,7 +503,7 @@ export async function createPromoCode(input: CreatePromoCodeInput, adminUserId?:
     throw new Error(`An active Stripe promotion code with code ${payload.code} already exists.`)
   }
 
-  const productId = payload.appliesToPlan === 'regen' ? await getRegenProductId() : null
+  const productIds = await getProductIdsForPlan(payload.appliesToPlan)
   const metadata = {
     rayd8_applies_to_plan: payload.appliesToPlan,
     rayd8_code: payload.code,
@@ -485,7 +513,7 @@ export async function createPromoCode(input: CreatePromoCodeInput, adminUserId?:
 
   try {
     coupon = await stripeClient.coupons.create({
-      applies_to: productId ? { products: [productId] } : undefined,
+      applies_to: productIds ? { products: productIds } : undefined,
       amount_off: payload.discountType === 'amount' ? payload.amountOff ?? undefined : undefined,
       currency: payload.discountType === 'amount' ? payload.currency : undefined,
       duration: payload.duration,
@@ -956,7 +984,7 @@ export async function recreateMissingPromoCode(id: string) {
     return serializePromoCode(record)
   }
 
-  const productId = existing.appliesToPlan === 'regen' ? await getRegenProductId() : null
+  const productIds = await getProductIdsForPlan(existing.appliesToPlan)
   const metadata = {
     rayd8_applies_to_plan: existing.appliesToPlan,
     rayd8_code: existing.code,
@@ -967,7 +995,7 @@ export async function recreateMissingPromoCode(id: string) {
 
   try {
     coupon = await stripeClient.coupons.create({
-      applies_to: productId ? { products: [productId] } : undefined,
+      applies_to: productIds ? { products: productIds } : undefined,
       amount_off: existing.discountType === 'amount' ? existing.amountOff ?? undefined : undefined,
       currency: existing.discountType === 'amount' ? existing.currency : undefined,
       duration: existing.duration,

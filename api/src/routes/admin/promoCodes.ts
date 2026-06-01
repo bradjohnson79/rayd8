@@ -40,7 +40,7 @@ const promoCodeListQuerySchema = z.object({
 
 const createPromoCodeSchema = z.object({
   amountOff: z.number().int().positive().optional().nullable(),
-  appliesToPlan: z.literal('regen').optional(),
+  appliesToPlan: z.enum(['regen', 'amrita', 'all']).optional(),
   code: z.string().min(3).max(40),
   description: z.string().max(1000).optional().nullable(),
   discountType: z.enum(['percent', 'amount']),
@@ -100,7 +100,8 @@ function respondWithPromoCodeError(reply: FastifyReply, error: unknown) {
     message.includes('Promo code must') ||
     message.includes('Promo code name') ||
     message.includes('Repeating promo codes') ||
-    message.includes('Duration in months')
+    message.includes('Duration in months') ||
+    message.includes('Amrita Stripe price is not configured')
   ) {
     return reply.code(400).send({
       code: 'PROMO_CODE_INVALID',
