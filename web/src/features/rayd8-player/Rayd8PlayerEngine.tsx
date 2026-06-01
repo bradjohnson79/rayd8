@@ -36,6 +36,7 @@ import {
   type FreeTrialVideoMode,
   getExperienceFromSessionType,
   getSessionVideoModes,
+  isSharedAudioTrack,
   type LastSessionConfig,
 } from '../../config/rayd8Expansion'
 import { resolvePlaybackAsset } from '../../lib/resolvePlaybackAsset'
@@ -151,10 +152,7 @@ function readLastSessionConfig(): LastSessionConfig {
         parsed.amplification === '20x'
           ? parsed.amplification
           : 'off',
-      audioTrack:
-        parsed.audioTrack === 'expansion' || parsed.audioTrack === 'premium'
-          ? parsed.audioTrack
-          : 'none',
+      audioTrack: isSharedAudioTrack(parsed.audioTrack) ? parsed.audioTrack : 'none',
       videoMode:
         parsed.videoMode === 'superSlow' ||
         parsed.videoMode === 'slow' ||

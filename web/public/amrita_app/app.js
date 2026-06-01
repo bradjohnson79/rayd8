@@ -1,3 +1,18 @@
+import { AMRITA_AUDIO_TRACKS, DEFAULT_AMRITA_AUDIO_TRACK, getAmritaAudioTrack, normalizeAmritaAudioTrackId } from './audio-manifest.js';
+import { createAmritaAudioLayer } from './audio-layer.js';
+import {
+  bindPersonalResonanceControls,
+  loadPersonalResonance,
+  mountPersonalResonanceOverlay,
+  renderPersonalResonanceRuntimePanel,
+  savePersonalResonance,
+  setPersonalResonancePaused,
+  syncPersonalResonanceControls,
+  syncPersonalResonanceRuntimePanel,
+  unmountPersonalResonanceOverlay,
+} from './personal-resonance.js';
+import { createRuntimeControls } from './runtime-controls.js';
+
 const GLYPH_FILES = [
   "5 VAYU BODY.png",
   "ACUPUNCTURE BODIES.png",
@@ -2007,6 +2022,7 @@ const CONFIG = Object.freeze({
   timing: {
     fastestTurnMs: 850,
     slowestTurnMs: 24000,
+    bidirectionalTurnMultiplier: 2,
     defaultDurationMs: 15 * 60 * 1000,
     hudRefreshMs: 500,
   },
@@ -2028,12 +2044,78 @@ const CONFIG = Object.freeze({
     foreground: { scale: 1.12, opacity: 0.82, velocity: 1.08, bloom: 5, softness: 1 },
   },
   paletteHarmonics: {
-    fullSpectrum: { label: 'Full Spectrum', motion: 1, turbulence: 0.18, warmth: 0.5, phase: 0 },
-    blueRestore: { label: 'Blue Restore', motion: 0.72, turbulence: 0.08, warmth: 0.12, phase: 1.2 },
-    goldenRegeneration: { label: 'Golden Regeneration', motion: 0.9, turbulence: 0.12, warmth: 0.82, phase: 2.4 },
-    infraredWarmth: { label: 'Infrared Warmth', motion: 0.78, turbulence: 0.1, warmth: 0.95, phase: 3.1 },
-    violetRestoration: { label: 'Violet Restoration', motion: 0.66, turbulence: 0.06, warmth: 0.28, phase: 4.2 },
-    emeraldBalance: { label: 'Emerald Balance', motion: 0.82, turbulence: 0.1, warmth: 0.42, phase: 5.1 },
+    fullSpectrum: {
+      label: 'Full Spectrum',
+      description: 'Default harmonic field',
+      motion: 1,
+      turbulence: 0.18,
+      warmth: 0.5,
+      phase: 0,
+      accentColor: [0.84, 0.90, 1.0],
+      accentStrength: 0,
+      pulseStrength: 0,
+      swirlStrength: 0,
+    },
+    blueRestore: {
+      label: 'Blue Pulse',
+      description: 'Radiant blue pulsing rejuvenation',
+      motion: 0.72,
+      turbulence: 0.08,
+      warmth: 0.12,
+      phase: 1.2,
+      accentColor: [0.0, 0.82, 1.0],
+      accentStrength: 0.42,
+      pulseStrength: 0.34,
+      swirlStrength: 0.04,
+    },
+    goldenRegeneration: {
+      label: 'Golden Regeneration',
+      description: 'Golden-orange neon surge for regenerative warmth',
+      motion: 0.9,
+      turbulence: 0.12,
+      warmth: 0.82,
+      phase: 2.4,
+      accentColor: [1.0, 0.78, 0.14],
+      accentStrength: 0.44,
+      pulseStrength: 0.3,
+      swirlStrength: 0.08,
+    },
+    infraredWarmth: {
+      label: 'Infrared Warmth',
+      description: 'Circulating red infrared warmth for restorative flow',
+      motion: 0.78,
+      turbulence: 0.1,
+      warmth: 0.95,
+      phase: 3.1,
+      accentColor: [1.0, 0.12, 0.06],
+      accentStrength: 0.42,
+      pulseStrength: 0.18,
+      swirlStrength: 0.32,
+    },
+    violetRestoration: {
+      label: 'Violet Restoration',
+      description: 'Soft violet pulse for restorative harmonic balance',
+      motion: 0.66,
+      turbulence: 0.06,
+      warmth: 0.28,
+      phase: 4.2,
+      accentColor: [0.76, 0.24, 1.0],
+      accentStrength: 0.38,
+      pulseStrength: 0.3,
+      swirlStrength: 0.06,
+    },
+    emeraldBalance: {
+      label: 'Neon Healing',
+      description: 'Bright soft neon radiance for amplified color healing',
+      motion: 0.82,
+      turbulence: 0.1,
+      warmth: 0.42,
+      phase: 5.1,
+      accentColor: [0.0, 1.0, 0.74],
+      accentStrength: 0.5,
+      pulseStrength: 0.24,
+      swirlStrength: 0.14,
+    },
   },
   durations: {
     fifteen: { label: '15 min', durationMs: 15 * 60 * 1000 },
@@ -2339,11 +2421,20 @@ const state = {
   concentration: 'balanced',
   automaticConcentration: false,
   speed: 4,
+  targetSpeed: 4,
+  speedTransitionStartedAt: 0,
+  speedTransitionFrom: 4,
   automaticSpeed: false,
   palette: 'fullSpectrum',
   duration: 'fifteen',
   driftProfile: 'harmonicDrift',
   filters: new Set(),
+  amplification: 'off',
+  audioTrack: DEFAULT_AMRITA_AUDIO_TRACK,
+  audioVolume: 0.8,
+  audioMuted: false,
+  audioNotice: null,
+  audioUnlockRequired: false,
   search: '',
   runtime: 'idle',
   sessionStartedAt: 0,
@@ -2363,8 +2454,10 @@ const dom = {
   runtime: document.getElementById('runtime'),
   backgroundCanvas: document.getElementById('background-canvas'),
   glyphCanvas: document.getElementById('glyph-canvas'),
+  personalResonanceRuntimeRoot: document.getElementById('personal-resonance-runtime-root'),
   wellnessOverlay: document.getElementById('wellness-overlay'),
-  runtimeStatus: document.getElementById('runtime-status'),
+  runtimeChromeRoot: document.getElementById('runtime-chrome-root'),
+  runtimeAudioRoot: document.getElementById('runtime-audio-root'),
   performanceHud: document.getElementById('performance-hud'),
   glyphResults: document.getElementById('glyph-results'),
   groupResults: document.getElementById('group-results'),
@@ -2380,8 +2473,11 @@ const dom = {
   driftOptions: document.getElementById('drift-options'),
   filterOptions: document.getElementById('filter-options'),
   startSequence: document.getElementById('start-sequence'),
-  pauseResume: document.getElementById('pause-resume'),
-  stopSequence: document.getElementById('stop-sequence'),
+  personalResonanceInput: document.getElementById('personal-resonance-input'),
+  personalResonanceToggle: document.getElementById('personal-resonance-toggle'),
+  personalResonanceRemove: document.getElementById('personal-resonance-remove'),
+  personalResonanceStatus: document.getElementById('personal-resonance-status'),
+  personalResonancePreview: document.getElementById('personal-resonance-preview'),
   sessionSummary: document.getElementById('session-summary'),
 };
 
@@ -2396,6 +2492,61 @@ let backgroundGl = null;
 let backgroundProgram = null;
 let backgroundBuffer = null;
 let lastHudAt = 0;
+let personalResonance = loadPersonalResonance();
+let runtimeControls = null;
+let runtimeResonancePanelElements = null;
+let runtimeAudioLayer = null;
+let runtimeAudioUnlockCleanup = null;
+
+function bindRuntimeAudioUnlock() {
+  runtimeAudioUnlockCleanup?.();
+  runtimeAudioUnlockCleanup = null;
+
+  if (!dom.runtime) return;
+
+  const retryAudio = () => {
+    if (state.runtime !== 'running' || state.audioTrack === 'none' || !state.audioUnlockRequired) return;
+    void resumeRuntimeAudio({ announceErrors: false });
+  };
+
+  dom.runtime.addEventListener('pointerdown', retryAudio);
+  dom.runtime.addEventListener('touchstart', retryAudio);
+  dom.runtime.addEventListener('keydown', retryAudio);
+  runtimeAudioUnlockCleanup = () => {
+    dom.runtime.removeEventListener('pointerdown', retryAudio);
+    dom.runtime.removeEventListener('touchstart', retryAudio);
+    dom.runtime.removeEventListener('keydown', retryAudio);
+  };
+}
+
+function applyPersonalResonanceChange(nextValue, noticeMessage = null) {
+  personalResonance = nextValue;
+  syncPersonalResonanceControls(dom, personalResonance);
+  if (runtimeResonancePanelElements) {
+    syncPersonalResonanceRuntimePanel(runtimeResonancePanelElements, personalResonance);
+  }
+  if (state.runtime !== 'idle') {
+    unmountPersonalResonanceOverlay();
+    mountPersonalResonanceOverlay({
+      container: dom.personalResonanceRuntimeRoot,
+      paused: state.runtime === 'paused',
+      resonance: personalResonance,
+    });
+  }
+  if (noticeMessage && dom.personalResonanceStatus) {
+    dom.personalResonanceStatus.textContent = noticeMessage;
+  }
+}
+
+function getPersonalResonanceHandlers() {
+  return {
+    getValue: () => personalResonance,
+    onChange: applyPersonalResonanceChange,
+    onNotice: (message) => {
+      if (dom.personalResonanceStatus) dom.personalResonanceStatus.textContent = message;
+    },
+  };
+}
 
 function normalizeSearchValue(value) {
   return String(value)
@@ -2442,11 +2593,20 @@ function restoreState() {
       state.concentration = saved.concentration || state.concentration;
       state.automaticConcentration = Boolean(saved.automaticConcentration);
       state.speed = Number(saved.speed || state.speed);
+      state.targetSpeed = state.speed;
+      state.speedTransitionFrom = state.speed;
       state.automaticSpeed = Boolean(saved.automaticSpeed);
       state.palette = saved.palette || state.palette;
       state.duration = saved.duration || state.duration;
       state.driftProfile = saved.driftProfile || state.driftProfile;
       state.filters = new Set(saved.filters || []);
+      state.amplification = saved.amplification || state.amplification;
+      state.audioTrack = getAmritaAudioTrack(saved.audioTrack)?.id || state.audioTrack;
+      state.audioTrack = normalizeAmritaAudioTrackId(state.audioTrack);
+      state.audioMuted = Boolean(saved.audioMuted);
+      state.audioVolume = typeof saved.audioVolume === 'number' && Number.isFinite(saved.audioVolume)
+        ? Math.max(0, Math.min(1, saved.audioVolume))
+        : state.audioVolume;
     }
   } catch {
     localStorage.removeItem('amrita_session_config');
@@ -2460,12 +2620,16 @@ function persistState() {
     selectedGroup: state.selectedGroup,
     concentration: state.concentration,
     automaticConcentration: state.automaticConcentration,
-    speed: state.speed,
+    speed: state.targetSpeed,
     automaticSpeed: state.automaticSpeed,
     palette: state.palette,
     duration: state.duration,
     driftProfile: state.driftProfile,
     filters: [...state.filters],
+    amplification: state.amplification,
+    audioTrack: state.audioTrack,
+    audioMuted: state.audioMuted,
+    audioVolume: state.audioVolume,
   }));
 }
 
@@ -2486,11 +2650,12 @@ function renderControls() {
   renderDurationOptions();
   renderDriftOptions();
   renderFilterOptions();
-  dom.speedRange.value = String(state.speed);
-  dom.speedValue.textContent = state.automaticSpeed ? 'Auto' : String(state.speed);
+  dom.speedRange.value = String(Math.round(state.targetSpeed));
+  dom.speedValue.textContent = state.automaticSpeed ? 'Auto' : String(Math.round(state.targetSpeed));
   dom.speedAuto.classList.toggle('active', state.automaticSpeed);
   dom.automaticSelection.classList.toggle('active', state.selectionMode === 'automatic');
   dom.selectedCount.textContent = `${state.selectedGlyphs.size} selected`;
+  syncPersonalResonanceControls(dom, personalResonance);
   updateSummary();
 }
 
@@ -2525,7 +2690,7 @@ function renderGroupResults() {
   dom.groupResults.replaceChildren(...GROUPS.map((group) => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `chip${state.selectedGroup === group.id ? ' active' : ''}`;
+    button.className = `chip group-chip${state.selectedGroup === group.id ? ' active' : ''}`;
     button.textContent = group.label;
     button.addEventListener('click', () => {
       state.selectionMode = 'group';
@@ -2558,7 +2723,7 @@ function renderPaletteOptions() {
   const options = Object.entries(CONFIG.paletteHarmonics).map(([key, config]) => createOptionButton({
     active: state.palette === key,
     label: config.label,
-    description: key === 'fullSpectrum' ? 'Default harmonic field' : 'Palette motion tuning',
+    description: config.description,
     onClick: () => {
       state.palette = key;
       persistState();
@@ -2616,7 +2781,7 @@ function renderFilterOptions() {
 function updateSummary() {
   const selection = getSelectionLabel();
   const concentration = CONFIG.concentration[state.concentration].label;
-  const speed = state.automaticSpeed ? 'Automatic speed' : `Speed ${state.speed}`;
+  const speed = state.automaticSpeed ? 'Automatic speed' : `Speed ${Math.round(state.targetSpeed)}`;
   const palette = CONFIG.paletteHarmonics[state.palette].label;
   dom.sessionSummary.textContent = `${selection} • ${concentration} concentration • ${speed} • ${palette}`;
 }
@@ -2646,15 +2811,53 @@ function setupBackgroundRenderer() {
     uniform float u_turbulence;
     uniform float u_warmth;
     uniform float u_phase;
+    uniform vec3 u_accent_color;
+    uniform float u_accent_strength;
+    uniform float u_pulse_strength;
+    uniform float u_swirl_strength;
 
-    vec3 spectrum(float x) {
-      float r = 0.55 + 0.45 * sin(6.28318 * (x + 0.00));
-      float g = 0.55 + 0.45 * sin(6.28318 * (x + 0.34));
-      float b = 0.55 + 0.45 * sin(6.28318 * (x + 0.67));
-      vec3 full = vec3(r, g, b);
-      vec3 warm = mix(full, vec3(1.0, 0.56, 0.24), u_warmth * 0.22);
-      vec3 cool = mix(warm, vec3(0.42, 0.82, 1.0), (1.0 - u_warmth) * 0.16);
-      return cool;
+    mat2 rotate2d(float angle) {
+      float s = sin(angle);
+      float c = cos(angle);
+      return mat2(c, -s, s, c);
+    }
+
+    float softBlob(vec2 p, vec2 center, float radius, float softness) {
+      float d = length((p - center) / radius);
+      return exp(-pow(d, softness));
+    }
+
+    vec2 driftCenter(float t, float phase, float xScale, float yScale) {
+      return vec2(
+        sin(t * 0.17 + phase) * xScale + sin(t * 0.071 + phase * 1.7) * 0.12,
+        cos(t * 0.13 + phase * 0.83) * yScale + sin(t * 0.052 + phase * 2.1) * 0.10
+      );
+    }
+
+    vec3 rainbowRamp(float x) {
+      x = fract(x);
+      float segment = x * 7.0;
+      vec3 red = vec3(1.00, 0.10, 0.12);
+      vec3 orange = vec3(1.00, 0.42, 0.08);
+      vec3 yellow = vec3(1.00, 0.86, 0.18);
+      vec3 turquoise = vec3(0.00, 0.86, 0.78);
+      vec3 blue = vec3(0.08, 0.34, 1.00);
+      vec3 purple = vec3(0.46, 0.20, 1.00);
+      vec3 violet = vec3(0.86, 0.28, 1.00);
+
+      if (segment < 1.0) return mix(red, orange, smoothstep(0.0, 1.0, segment));
+      if (segment < 2.0) return mix(orange, yellow, smoothstep(1.0, 2.0, segment));
+      if (segment < 3.0) return mix(yellow, turquoise, smoothstep(2.0, 3.0, segment));
+      if (segment < 4.0) return mix(turquoise, blue, smoothstep(3.0, 4.0, segment));
+      if (segment < 5.0) return mix(blue, purple, smoothstep(4.0, 5.0, segment));
+      if (segment < 6.0) return mix(purple, violet, smoothstep(5.0, 6.0, segment));
+      return mix(violet, red, smoothstep(6.0, 7.0, segment));
+    }
+
+    void addBlob(inout vec3 color, inout float weight, vec2 p, vec2 center, float radius, vec3 blobColor, float strength) {
+      float blob = softBlob(p, center, radius, 2.15) * strength;
+      color += blobColor * blob;
+      weight += blob;
     }
 
     void main() {
@@ -2663,20 +2866,56 @@ function setupBackgroundRenderer() {
       p.x *= u_resolution.x / u_resolution.y;
       float t = u_time * u_motion;
 
-      float h1 = sin((p.x * 2.1 + p.y * 0.7) + t * 0.34 + u_phase);
-      float h2 = sin((p.y * 2.4 - p.x * 0.8) - t * 0.27 + u_phase * 0.7);
-      float h3 = sin((p.x + p.y) * 3.0 + t * 0.18 + h1 * 0.28);
-      float h4 = sin(length(p) * 5.2 - t * 0.22 + h2 * 0.18);
-      float harmonic = h1 * 0.34 + h2 * 0.28 + h3 * 0.22 + h4 * 0.16;
-      harmonic += sin((p.x * 8.0 + p.y * 5.0) + t * 0.08) * u_turbulence * 0.14;
+      float swirl = sin(p.y * 2.4 + t * 0.16 + u_phase) * 0.16 +
+        cos(p.x * 2.0 - t * 0.12 + u_phase * 0.7) * 0.11;
+      swirl += sin(length(p) * 5.4 - t * 0.54 + u_phase) * u_swirl_strength;
+      vec2 flow = rotate2d(swirl * 0.34) * p;
+      flow += vec2(
+        sin((p.y + t * 0.05) * 4.2 + u_phase),
+        cos((p.x - t * 0.045) * 3.8 + u_phase * 0.8)
+      ) * (0.018 + u_turbulence * 0.035);
 
-      float field = 0.5 + harmonic * 0.25;
-      vec3 color = spectrum(field);
-      float centerGlow = 1.0 - smoothstep(0.08, 1.08, length(p));
-      float breathing = 0.88 + 0.12 * sin(t * 0.42 + u_phase);
-      color *= 0.52 + centerGlow * 0.62 * breathing;
-      color = mix(color, vec3(0.02, 0.025, 0.07), smoothstep(0.65, 1.25, length(p)) * 0.34);
-      gl_FragColor = vec4(color, 1.0);
+      vec3 color = vec3(0.006, 0.009, 0.026);
+      float weight = 0.22;
+
+      addBlob(color, weight, flow, driftCenter(t, 0.2 + u_phase, 0.72, 0.48), 0.50, vec3(1.00, 0.12, 0.13), 1.00);
+      addBlob(color, weight, flow, driftCenter(t, 1.0 + u_phase, 0.64, 0.42), 0.52, vec3(1.00, 0.42, 0.10), 0.95);
+      addBlob(color, weight, flow, driftCenter(t, 1.8 + u_phase, 0.56, 0.50), 0.54, vec3(1.00, 0.84, 0.20), 0.90);
+      addBlob(color, weight, flow, driftCenter(t, 2.7 + u_phase, 0.68, 0.44), 0.58, vec3(0.00, 0.84, 0.78), 0.94);
+      addBlob(color, weight, flow, driftCenter(t, 3.5 + u_phase, 0.60, 0.50), 0.56, vec3(0.08, 0.36, 1.00), 0.96);
+      addBlob(color, weight, flow, driftCenter(t, 4.4 + u_phase, 0.70, 0.46), 0.55, vec3(0.49, 0.20, 1.00), 0.94);
+      addBlob(color, weight, flow, driftCenter(t, 5.2 + u_phase, 0.62, 0.54), 0.50, vec3(0.84, 0.27, 1.00), 0.88);
+
+      vec3 lava = color / weight;
+      float centerGlow = 1.0 - smoothstep(0.08, 1.12, length(p));
+      float ribbonField = uv.x * 0.78 + uv.y * 0.06 + sin(flow.y * 3.0 + t * 0.10 + u_phase) * 0.055;
+      vec3 ribbon = rainbowRamp(ribbonField + 0.02 + u_phase * 0.035);
+      float ribbonPresence = 0.54 + centerGlow * 0.08;
+      lava = mix(lava, ribbon, ribbonPresence);
+
+      float gold = softBlob(flow, driftCenter(t, 2.25 + u_phase, 0.48, 0.34), 0.36, 2.4);
+      float silver = softBlob(flow, driftCenter(t, 4.9 + u_phase, 0.52, 0.38), 0.34, 2.5);
+      float warmBloom = softBlob(flow, driftCenter(t, 1.35 + u_phase, 0.58, 0.38), 0.46, 2.25);
+      float shimmer = 0.5 + 0.5 * sin((flow.x - flow.y) * 9.0 + t * 0.42 + u_phase);
+      lava = mix(lava, vec3(1.00, 0.32, 0.10), warmBloom * 0.16);
+      lava = mix(lava, vec3(1.00, 0.86, 0.34), gold * 0.24 * shimmer);
+      lava = mix(lava, vec3(0.84, 0.90, 0.98), silver * 0.18 * (1.0 - shimmer * 0.45));
+
+      float accentPulse = 0.72 + 0.28 * sin(t * (0.84 + u_pulse_strength) + u_phase);
+      float accentBlob = softBlob(flow, driftCenter(t, 3.35 + u_phase, 0.58, 0.42), 0.52, 2.1);
+      float accentGlow = clamp((centerGlow * 0.34 + accentBlob * 0.46 + 0.12) * u_accent_strength, 0.0, 0.68);
+      vec3 accentRadiance = u_accent_color * (0.74 + accentPulse * (0.44 + u_pulse_strength));
+      lava = mix(lava, max(lava, accentRadiance), accentGlow);
+
+      float edgeVignette = smoothstep(0.58, 1.22, length(p));
+      float breathing = 0.88 + 0.12 * sin(t * 0.30 + u_phase);
+      vec3 tone = mix(vec3(0.62, 0.74, 1.0), vec3(1.0, 0.72, 0.46), u_warmth * 0.35);
+      lava *= tone;
+      lava *= 0.56 + centerGlow * 0.46 * breathing;
+      lava = mix(lava, vec3(0.012, 0.016, 0.052), edgeVignette * 0.46);
+      lava = pow(clamp(lava, 0.0, 1.0), vec3(0.92));
+
+      gl_FragColor = vec4(lava, 1.0);
     }
   `;
   const program = createProgram(gl, vertexSource, fragmentSource);
@@ -2743,20 +2982,364 @@ function renderBackground(dt) {
   gl.uniform1f(gl.getUniformLocation(backgroundProgram, 'u_turbulence'), palette.turbulence);
   gl.uniform1f(gl.getUniformLocation(backgroundProgram, 'u_warmth'), palette.warmth);
   gl.uniform1f(gl.getUniformLocation(backgroundProgram, 'u_phase'), palette.phase);
+  gl.uniform3fv(gl.getUniformLocation(backgroundProgram, 'u_accent_color'), palette.accentColor);
+  gl.uniform1f(gl.getUniformLocation(backgroundProgram, 'u_accent_strength'), palette.accentStrength);
+  gl.uniform1f(gl.getUniformLocation(backgroundProgram, 'u_pulse_strength'), palette.pulseStrength);
+  gl.uniform1f(gl.getUniformLocation(backgroundProgram, 'u_swirl_strength'), palette.swirlStrength);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
 function renderBackgroundFallback(dt) {
   const ctx = dom.backgroundCanvas.getContext('2d');
+  if (!ctx) return;
   const palette = CONFIG.paletteHarmonics[state.palette];
   state.backgroundTime += dt * 0.001 * palette.motion;
-  const gradient = ctx.createRadialGradient(dom.backgroundCanvas.width * 0.5, dom.backgroundCanvas.height * 0.45, 0, dom.backgroundCanvas.width * 0.5, dom.backgroundCanvas.height * 0.5, Math.max(dom.backgroundCanvas.width, dom.backgroundCanvas.height) * 0.65);
-  gradient.addColorStop(0, `hsl(${(state.backgroundTime * 22 + palette.phase * 40) % 360}, 92%, 68%)`);
-  gradient.addColorStop(0.38, `hsl(${(120 + state.backgroundTime * 15) % 360}, 88%, 56%)`);
-  gradient.addColorStop(0.72, `hsl(${(245 + state.backgroundTime * 12) % 360}, 92%, 38%)`);
-  gradient.addColorStop(1, '#02030a');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, dom.backgroundCanvas.width, dom.backgroundCanvas.height);
+  const width = dom.backgroundCanvas.width;
+  const height = dom.backgroundCanvas.height;
+  const size = Math.max(width, height);
+  const t = state.backgroundTime;
+  const colors = [
+    'rgba(255, 36, 46, 0.62)',
+    'rgba(255, 122, 32, 0.58)',
+    'rgba(255, 218, 72, 0.52)',
+    'rgba(20, 222, 205, 0.56)',
+    'rgba(36, 92, 255, 0.58)',
+    'rgba(132, 68, 255, 0.58)',
+    'rgba(220, 82, 255, 0.50)',
+  ];
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#020515';
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalCompositeOperation = 'screen';
+
+  colors.forEach((color, index) => {
+    const phase = palette.phase + index * 0.82;
+    const x =
+      width * (0.5 + Math.sin(t * (0.11 + index * 0.011) + phase) * 0.34) +
+      Math.sin(t * 0.047 + phase * 1.8) * width * 0.08;
+    const y =
+      height * (0.5 + Math.cos(t * (0.085 + index * 0.009) + phase * 0.74) * 0.28) +
+      Math.sin(t * 0.039 + phase * 2.2) * height * 0.07;
+    const radius = size * (0.35 + (index % 3) * 0.035);
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(0.56, color.replace(/0\.\d+\)/, '0.18)'));
+    gradient.addColorStop(1, 'rgba(2, 5, 21, 0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+  });
+
+  const goldX = width * (0.5 + Math.sin(t * 0.071 + palette.phase + 2.1) * 0.22);
+  const goldY = height * (0.48 + Math.cos(t * 0.059 + palette.phase) * 0.18);
+  const gold = ctx.createRadialGradient(goldX, goldY, 0, goldX, goldY, size * 0.28);
+  gold.addColorStop(0, 'rgba(255, 226, 132, 0.26)');
+  gold.addColorStop(1, 'rgba(255, 226, 132, 0)');
+  ctx.fillStyle = gold;
+  ctx.fillRect(0, 0, width, height);
+
+  const silverX = width * (0.52 + Math.cos(t * 0.065 + palette.phase + 4.6) * 0.24);
+  const silverY = height * (0.5 + Math.sin(t * 0.053 + palette.phase * 1.4) * 0.2);
+  const silver = ctx.createRadialGradient(silverX, silverY, 0, silverX, silverY, size * 0.24);
+  silver.addColorStop(0, 'rgba(222, 232, 245, 0.20)');
+  silver.addColorStop(1, 'rgba(222, 232, 245, 0)');
+  ctx.fillStyle = silver;
+  ctx.fillRect(0, 0, width, height);
+
+  if (palette.accentStrength > 0) {
+    const pulse = 0.72 + 0.28 * Math.sin(t * (0.84 + palette.pulseStrength) + palette.phase);
+    const accentX = width * (0.5 + Math.sin(t * 0.083 + palette.phase + 3.35) * 0.26);
+    const accentY = height * (0.48 + Math.cos(t * 0.069 + palette.phase * 0.8) * 0.22);
+    const accent = ctx.createRadialGradient(accentX, accentY, 0, accentX, accentY, size * 0.42);
+    const [red, green, blue] = palette.accentColor.map((channel) => Math.round(channel * 255));
+    const alpha = Math.min(0.42, palette.accentStrength * (0.2 + pulse * 0.28));
+    accent.addColorStop(0, `rgba(${red}, ${green}, ${blue}, ${alpha})`);
+    accent.addColorStop(0.58, `rgba(${red}, ${green}, ${blue}, ${alpha * 0.35})`);
+    accent.addColorStop(1, `rgba(${red}, ${green}, ${blue}, 0)`);
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  ctx.globalCompositeOperation = 'source-over';
+  const vignette = ctx.createRadialGradient(width * 0.5, height * 0.48, 0, width * 0.5, height * 0.5, size * 0.7);
+  vignette.addColorStop(0, 'rgba(2, 5, 21, 0)');
+  vignette.addColorStop(0.72, 'rgba(2, 5, 21, 0.18)');
+  vignette.addColorStop(1, 'rgba(2, 5, 21, 0.58)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
+
+function mountRuntimeExperience() {
+  runtimeControls = createRuntimeControls({
+    actions: {
+      durationNeedsConfirmation,
+      exitSession: stopSequence,
+      resumeAudio: resumeRuntimeAudio,
+      setAmplification,
+      setAudioTrack,
+      setAudioVolume,
+      setDuration,
+      setTargetSpeed,
+      toggleAudioMute,
+      toggleFilter: toggleRuntimeFilter,
+      toggleFullscreen,
+      togglePause,
+    },
+    audioTracks: AMRITA_AUDIO_TRACKS,
+    container: dom.runtimeChromeRoot,
+    durations: CONFIG.durations,
+    filters: CONFIG.wellnessFilters,
+    getState: getRuntimeControlsState,
+    personalResonance: {
+      renderPanel: (panel) => {
+        renderPersonalResonanceRuntimePanel(panel, personalResonance, getPersonalResonanceHandlers());
+        runtimeResonancePanelElements = {
+          preview: panel.querySelector('.runtime-resonance-preview'),
+          previewWrap: panel.querySelector('.runtime-resonance-preview-wrap'),
+          removeButton: panel.querySelector('[data-runtime-resonance-remove]'),
+          status: panel.querySelector('.runtime-resonance-status'),
+          toggle: panel.querySelector('[data-runtime-resonance-toggle]'),
+        };
+      },
+    },
+  });
+  runtimeControls.mount();
+  runtimeAudioLayer = createAmritaAudioLayer(dom.runtimeAudioRoot);
+  applyRuntimeAudioOutput();
+  bindRuntimeAudioUnlock();
+  void syncRuntimeAudioTrack({ announceErrors: state.audioTrack !== 'none' });
+  applyAmplification();
+  mountPersonalResonanceOverlay({
+    container: dom.personalResonanceRuntimeRoot,
+    paused: false,
+    resonance: personalResonance,
+  });
+}
+
+function unmountRuntimeExperience() {
+  runtimeControls?.unmount();
+  runtimeControls = null;
+  runtimeResonancePanelElements = null;
+  runtimeAudioLayer?.destroy();
+  runtimeAudioLayer = null;
+  runtimeAudioUnlockCleanup?.();
+  runtimeAudioUnlockCleanup = null;
+  unmountPersonalResonanceOverlay();
+  dom.runtime.removeAttribute('data-amplification');
+}
+
+function getRuntimeControlsState() {
+  return {
+    amplification: state.amplification,
+    audioMuted: state.audioMuted,
+    audioTrack: state.audioTrack,
+    audioVolume: state.audioVolume,
+    duration: state.duration,
+    filters: state.filters,
+    isFullscreen: document.fullscreenElement === dom.runtime,
+    runtime: state.runtime,
+    speed: state.speed,
+    targetSpeed: state.targetSpeed,
+    audioUnlockRequired: state.audioUnlockRequired,
+  };
+}
+
+function setRuntimeStatus(text) {
+  runtimeControls?.setStatus(text);
+}
+
+function setAudioNotice(message) {
+  state.audioNotice = message;
+  if (message) {
+    setRuntimeStatus(message);
+  }
+}
+
+function getSessionElapsedMs(now = performance.now()) {
+  return Math.max(0, now - state.sessionStartedAt - state.pausedAccumulatedMs);
+}
+
+function durationNeedsConfirmation(durationKey) {
+  const durationMs = CONFIG.durations[durationKey]?.durationMs;
+  return state.runtime !== 'idle' && durationMs !== null && durationMs < getSessionElapsedMs();
+}
+
+function setDuration(durationKey) {
+  if (!CONFIG.durations[durationKey]) return;
+  state.duration = durationKey;
+  persistState();
+  renderControls();
+  runtimeControls?.update();
+}
+
+function toggleRuntimeFilter(filterKey) {
+  if (!CONFIG.wellnessFilters[filterKey]) return;
+  if (state.filters.has(filterKey)) state.filters.delete(filterKey);
+  else state.filters.add(filterKey);
+  applyWellnessFilters();
+  persistState();
+  renderControls();
+  runtimeControls?.update();
+}
+
+function setAmplification(level) {
+  if (!['off', '5x', '10x', '20x'].includes(level)) return;
+  state.amplification = level;
+  applyAmplification();
+  persistState();
+  runtimeControls?.update();
+}
+
+function applyAmplification() {
+  if (state.amplification === 'off') {
+    dom.runtime.removeAttribute('data-amplification');
+    return;
+  }
+  dom.runtime.dataset.amplification = state.amplification;
+}
+
+function applyRuntimeAudioOutput() {
+  if (!runtimeAudioLayer) return;
+
+  runtimeAudioLayer.setVolume(state.audioVolume);
+  runtimeAudioLayer.setMuted(state.audioMuted);
+}
+
+function setAudioTrack(trackId) {
+  const track = getAmritaAudioTrack(trackId);
+  if (!track.available) return;
+  state.audioTrack = track.id;
+  setAudioNotice(null);
+  state.audioUnlockRequired = false;
+  if (track.id === 'none') {
+    state.audioMuted = false;
+  }
+  persistState();
+  runtimeControls?.update();
+  void syncRuntimeAudioTrack();
+}
+
+function setAudioVolume(volume) {
+  state.audioVolume = Math.max(0, Math.min(1, Number(volume) || 0));
+  if (state.audioVolume > 0) {
+    state.audioMuted = false;
+  }
+  persistState();
+  applyRuntimeAudioOutput();
+}
+
+function toggleAudioMute() {
+  if (state.audioTrack === 'none') return;
+
+  state.audioMuted = !state.audioMuted;
+  if (!state.audioMuted && state.audioVolume === 0) {
+    state.audioVolume = 0.8;
+  }
+  persistState();
+  applyRuntimeAudioOutput();
+  runtimeControls?.update();
+}
+
+async function syncRuntimeAudioTrack({ announceErrors = true } = {}) {
+  if (!runtimeAudioLayer || state.runtime === 'idle') return;
+
+  try {
+    setAudioNotice(null);
+    state.audioUnlockRequired = false;
+    applyRuntimeAudioOutput();
+    const started = await runtimeAudioLayer.setTrack(state.audioTrack);
+    applyRuntimeAudioOutput();
+
+    if (state.runtime === 'paused') {
+      runtimeAudioLayer.pause();
+      return;
+    }
+
+    if (!started && state.audioTrack !== 'none' && announceErrors) {
+      state.audioUnlockRequired = true;
+      setAudioNotice('Tap Start Audio to enable the selected track.');
+      runtimeControls?.update();
+      return;
+    }
+
+    if (!started && state.audioTrack !== 'none') {
+      state.audioUnlockRequired = true;
+      runtimeControls?.update();
+      return;
+    }
+
+    state.audioUnlockRequired = false;
+    setAudioNotice(null);
+    runtimeControls?.update();
+  } catch (error) {
+    state.audioUnlockRequired = false;
+    if (announceErrors) {
+      setAudioNotice(error instanceof Error ? error.message : 'Unable to load audio track.');
+      runtimeControls?.update();
+    }
+  }
+}
+
+async function resumeRuntimeAudio({ announceErrors = true } = {}) {
+  if (!runtimeAudioLayer || state.runtime !== 'running' || state.audioTrack === 'none') return false;
+
+  try {
+    const started = await runtimeAudioLayer.resume();
+    state.audioUnlockRequired = !started;
+    if (!started && announceErrors) {
+      setAudioNotice('Tap Start Audio to enable the selected track.');
+    }
+    if (started) {
+      setAudioNotice(null);
+    }
+    runtimeControls?.update();
+    return started;
+  } catch (error) {
+    state.audioUnlockRequired = false;
+    if (announceErrors) {
+      setAudioNotice(error instanceof Error ? error.message : 'Unable to resume audio.');
+    }
+    runtimeControls?.update();
+    return false;
+  }
+}
+
+function setTargetSpeed(speed) {
+  const nextSpeed = Math.min(10, Math.max(1, Number(speed) || 4));
+  state.targetSpeed = nextSpeed;
+  state.speedTransitionFrom = state.speed;
+  state.speedTransitionStartedAt = performance.now();
+  state.automaticSpeed = false;
+  persistState();
+  renderControls();
+  runtimeControls?.update();
+}
+
+function updateSpeedInterpolation(now) {
+  if (Math.abs(state.speed - state.targetSpeed) < 0.01) {
+    state.speed = state.targetSpeed;
+    return;
+  }
+
+  const progress = Math.min(1, (now - state.speedTransitionStartedAt) / 420);
+  const eased = 1 - Math.pow(1 - progress, 3);
+  state.speed = state.speedTransitionFrom + (state.targetSpeed - state.speedTransitionFrom) * eased;
+}
+
+async function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else if (dom.runtime.requestFullscreen) {
+      await dom.runtime.requestFullscreen();
+    }
+  } catch {
+    dom.runtime.classList.toggle('fullscreen-fallback');
+  } finally {
+    runtimeControls?.update();
+  }
 }
 
 function startSequence() {
@@ -2773,6 +3356,7 @@ function startSequence() {
     resizeCanvases();
     setupBackgroundRenderer();
     applyWellnessFilters();
+    mountRuntimeExperience();
     state.frameId = requestAnimationFrame(renderFrame);
   });
 }
@@ -2781,24 +3365,33 @@ function stopSequence() {
   cancelAnimationFrame(state.frameId);
   state.runtime = 'idle';
   state.currentTurn = null;
+  unmountRuntimeExperience();
   dom.runtime.hidden = true;
   dom.controlPanel.hidden = false;
-  dom.pauseResume.textContent = 'Pause';
 }
 
 function togglePause() {
   if (state.runtime === 'running') {
     state.runtime = 'paused';
     state.pauseStartedAt = performance.now();
-    dom.pauseResume.textContent = 'Resume';
-    dom.runtimeStatus.textContent = 'Paused';
+    setPersonalResonancePaused(true);
+    runtimeAudioLayer?.pause();
+    setRuntimeStatus('Paused');
+    runtimeControls?.update();
     return;
   }
   if (state.runtime === 'paused') {
-    state.pausedAccumulatedMs += performance.now() - state.pauseStartedAt;
+    const pausedForMs = performance.now() - state.pauseStartedAt;
+    state.pausedAccumulatedMs += pausedForMs;
+    if (state.currentTurn) {
+      state.currentTurn.startsAt += pausedForMs;
+      state.currentTurn.endsAt += pausedForMs;
+    }
     state.runtime = 'running';
     state.lastFrameAt = performance.now();
-    dom.pauseResume.textContent = 'Pause';
+    setPersonalResonancePaused(false);
+    void runtimeAudioLayer?.resume();
+    runtimeControls?.update();
   }
 }
 
@@ -2827,8 +3420,9 @@ function renderFrame(now) {
   const dt = Math.min(80, now - state.lastFrameAt || 16);
   state.lastFrameAt = now;
   resizeCanvases();
-  renderBackground(dt);
   if (state.runtime === 'running') {
+    updateSpeedInterpolation(now);
+    renderBackground(dt);
     advanceSession(now);
     renderGlyphs(now);
   }
@@ -2838,7 +3432,7 @@ function renderFrame(now) {
 
 function advanceSession(now) {
   const duration = CONFIG.durations[state.duration].durationMs;
-  const elapsed = now - state.sessionStartedAt - state.pausedAccumulatedMs;
+  const elapsed = getSessionElapsedMs(now);
   if (duration !== null && elapsed >= duration) {
     stopSequence();
     return;
@@ -2849,13 +3443,14 @@ function advanceSession(now) {
   }
   const remaining = duration === null ? 'Continuous' : formatClock(Math.max(0, duration - elapsed));
   const turnLabel = state.currentTurn.label;
-  dom.runtimeStatus.textContent = `${turnLabel} • ${remaining}`;
+  setRuntimeStatus(state.audioNotice || `${turnLabel} • ${remaining}`);
 }
 
 function createTurn(now) {
   const concentration = resolveConcentration();
   const speed = resolveSpeed();
-  const durationMs = speedToDuration(speed);
+  const oneWayDurationMs = speedToDuration(speed);
+  const durationMs = oneWayDurationMs * CONFIG.timing.bidirectionalTurnMultiplier;
   const plan = resolveTurnGlyphs();
   const width = dom.glyphCanvas.width;
   const height = dom.glyphCanvas.height;
@@ -2945,6 +3540,7 @@ function renderGlyphs(now) {
   const turn = state.currentTurn;
   if (!turn) return;
   const progress = Math.min(1, (now - turn.startsAt) / turn.durationMs);
+  const travelProgress = getBidirectionalTravelProgress(progress);
   const drift = CONFIG.driftProfiles[state.driftProfile];
   const top = height * CONFIG.boundaries.topOffset;
   const bottom = height * CONFIG.boundaries.bottomOffset;
@@ -2957,12 +3553,20 @@ function renderGlyphs(now) {
       const image = glyphImages.get(instance.file);
       if (!image) return;
       const depth = CONFIG.depthBands[instance.band];
-      const wave = Math.sin(progress * Math.PI * 2 * drift.frequency + instance.phase);
+      const wave = Math.sin(travelProgress * Math.PI * 2 * drift.frequency + instance.phase);
       const x = width * (instance.xBase + wave * drift.amplitude * depth.softness);
-      const y = top - instance.yStagger + travel * progress * instance.velocity;
+      const y = top - instance.yStagger + travel * travelProgress * instance.velocity;
       if (y < -instance.size * 2 || y > height + instance.size * 2) return;
       drawWhiteOutlineGlyph(ctx, image, x, y, instance.size, instance.opacity, depth.bloom, index);
     });
+}
+
+function getBidirectionalTravelProgress(progress) {
+  if (progress <= 0.5) {
+    return progress * 2;
+  }
+
+  return 1 - (progress - 0.5) * 2;
 }
 
 function maxStagger(instances) {
@@ -3207,6 +3811,8 @@ function bindEvents() {
   });
   dom.speedRange.addEventListener('input', (event) => {
     state.speed = Number(event.target.value);
+    state.targetSpeed = state.speed;
+    state.speedTransitionFrom = state.speed;
     state.automaticSpeed = false;
     persistState();
     renderControls();
@@ -3217,9 +3823,9 @@ function bindEvents() {
     renderControls();
   });
   dom.startSequence.addEventListener('click', startSequence);
-  dom.stopSequence.addEventListener('click', stopSequence);
-  dom.pauseResume.addEventListener('click', togglePause);
+  bindPersonalResonanceControls(dom, getPersonalResonanceHandlers());
   window.addEventListener('resize', resizeCanvases);
+  document.addEventListener('fullscreenchange', () => runtimeControls?.update());
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && state.runtime === 'running') togglePause();
   });

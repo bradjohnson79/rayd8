@@ -148,6 +148,8 @@ export const router = createBrowserRouter([
                   { path: 'upgrade', element: lazyElement(<RegenUpgradePage />) },
                 ],
               },
+              { path: 'amrita-dashboard', element: lazyElement(<DashboardPage view="amrita" />) },
+              { path: 'amrita', element: <Navigate replace to="/dashboard/amrita" /> },
               { path: 'player', element: <Navigate replace to="/dashboard" /> },
               { path: 'contact', element: lazyElement(<ContactPage />) },
               { path: 'instructions', element: <Navigate replace to="/dashboard/instructions" /> },

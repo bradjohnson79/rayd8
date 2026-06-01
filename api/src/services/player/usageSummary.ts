@@ -44,7 +44,7 @@ export async function getUsageSnapshotForUser(input: {
   role: 'admin' | 'member'
   userId: string
 }) {
-  if (input.plan === 'free' || input.plan === 'regen') {
+  if (input.plan === 'free' || input.plan === 'regen' || input.plan === 'amrita') {
     const usage = await getUsagePeriodSummary({
       plan: input.plan,
       userId: input.userId,

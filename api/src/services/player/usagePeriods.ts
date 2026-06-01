@@ -18,10 +18,13 @@ export const PLAN_LIMITS = {
   regen: {
     total: 250 * HOUR_IN_SECONDS,
   },
+  amrita: {
+    total: 500 * HOUR_IN_SECONDS,
+  },
 } as const
 
 export type UsagePeriodType = 'billing_cycle' | 'lifetime'
-export type UsageBucketPlan = 'free' | 'regen'
+export type UsageBucketPlan = 'free' | 'regen' | 'amrita'
 
 export interface UsagePeriodSummary {
   expansionUsedSeconds: number
@@ -34,7 +37,7 @@ export interface UsagePeriodSummary {
 }
 
 function toUsageBucketPlan(plan: AppPlan): UsageBucketPlan | null {
-  if (plan === 'free' || plan === 'regen') {
+  if (plan === 'free' || plan === 'regen' || plan === 'amrita') {
     return plan
   }
 
@@ -86,7 +89,7 @@ async function resolveUsagePeriod(input: { plan: UsageBucketPlan; userId: string
       status: subscriptions.status,
     })
     .from(subscriptions)
-    .where(eq(subscriptions.userId, input.userId))
+    .where(and(eq(subscriptions.userId, input.userId), eq(subscriptions.plan, input.plan)))
     .orderBy(desc(subscriptions.currentPeriodEnd), desc(subscriptions.createdAt))
     .limit(1)
 

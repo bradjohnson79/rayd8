@@ -98,6 +98,11 @@ const emptyEvents: AdminAnalyticsEvents = {
     night_mode_enabled: { count: 0, visitors: 0 },
   },
   funnel: {
+    amrita_checkout_completed: { count: 0, visitors: 0 },
+    amrita_checkout_started: { count: 0, visitors: 0 },
+    amrita_dashboard_opened: { count: 0, visitors: 0 },
+    amrita_main_menu_opened: { count: 0, visitors: 0 },
+    amrita_upgrade_clicked: { count: 0, visitors: 0 },
     start_session: { count: 0, visitors: 0 },
     subscription_started: { count: 0, visitors: 0 },
     upgrade_click: { count: 0, visitors: 0 },
@@ -445,6 +450,11 @@ export function AdminAnalyticsPage() {
       { label: 'Start session', metric: events.funnel.start_session },
       { label: 'Upgrade click', metric: events.funnel.upgrade_click },
       { label: 'Subscription started', metric: events.funnel.subscription_started },
+      { label: 'AMRITA checkout started', metric: events.funnel.amrita_checkout_started },
+      { label: 'AMRITA checkout completed', metric: events.funnel.amrita_checkout_completed },
+      { label: 'AMRITA upgrade clicked', metric: events.funnel.amrita_upgrade_clicked },
+      { label: 'AMRITA dashboard opened', metric: events.funnel.amrita_dashboard_opened },
+      { label: 'AMRITA main menu opened', metric: events.funnel.amrita_main_menu_opened },
     ],
     [events.funnel],
   )

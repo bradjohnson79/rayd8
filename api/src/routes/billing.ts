@@ -14,7 +14,7 @@ import {
 import { syncUserFromClerk } from '../services/users.js'
 
 const checkoutBodySchema = z.object({
-  plan: z.literal('regen'),
+  plan: z.enum(['regen', 'amrita']),
 })
 
 const verifySessionBodySchema = z.object({
@@ -80,7 +80,7 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
       }
     }
 
-    if (message.includes('No active REGEN subscription')) {
+    if (message.includes('No active subscription')) {
       return {
         code: 'SUBSCRIPTION_NOT_FOUND',
         error: message,
@@ -218,10 +218,12 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
   app.get('/v1/billing/config', async () => {
     const stripeGatewayConfigured = Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET)
     const regenConfigured = Boolean(stripeGatewayConfigured && env.STRIPE_REGEN_PRICE_ID)
+    const amritaConfigured = Boolean(stripeGatewayConfigured && env.STRIPE_AMRITA_PRICE_ID)
 
     return {
       stripeConfigured: stripeGatewayConfigured,
       regenConfigured,
+      amritaConfigured,
     }
   })
 }

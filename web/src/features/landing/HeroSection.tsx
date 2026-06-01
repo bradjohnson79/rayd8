@@ -79,6 +79,11 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
               label="Experience REGEN"
               to="/subscription?plan=regen"
             />
+            <ConversionButton
+              guestMode="signIn"
+              label="Start Amrita Membership"
+              to="/subscription?plan=amrita"
+            />
           </div>
 
           <div className="mt-8 flex flex-wrap gap-2.5 text-xs text-white/75 sm:mt-10 sm:gap-3 sm:text-sm">

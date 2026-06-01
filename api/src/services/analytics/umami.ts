@@ -2,7 +2,16 @@ import { env } from '../../env.js'
 
 const CACHE_TTL_MS = 60_000
 const DEFAULT_RANGE_MS = 7 * 24 * 60 * 60 * 1000
-const KNOWN_FUNNEL_EVENTS = ['start_session', 'upgrade_click', 'subscription_started'] as const
+const KNOWN_FUNNEL_EVENTS = [
+  'start_session',
+  'upgrade_click',
+  'subscription_started',
+  'amrita_checkout_started',
+  'amrita_checkout_completed',
+  'amrita_upgrade_clicked',
+  'amrita_dashboard_opened',
+  'amrita_main_menu_opened',
+] as const
 const KNOWN_FEATURE_EVENTS = [
   'night_mode_enabled',
   'anti_blue_light_enabled',
@@ -468,6 +477,11 @@ export async function getEvents(rangeInput?: AnalyticsRangeInput): Promise<Admin
       start_session: eventMetricMap.start_session,
       upgrade_click: eventMetricMap.upgrade_click,
       subscription_started: eventMetricMap.subscription_started,
+      amrita_checkout_started: eventMetricMap.amrita_checkout_started,
+      amrita_checkout_completed: eventMetricMap.amrita_checkout_completed,
+      amrita_upgrade_clicked: eventMetricMap.amrita_upgrade_clicked,
+      amrita_dashboard_opened: eventMetricMap.amrita_dashboard_opened,
+      amrita_main_menu_opened: eventMetricMap.amrita_main_menu_opened,
     },
     featureUsage: {
       night_mode_enabled: eventMetricMap.night_mode_enabled,

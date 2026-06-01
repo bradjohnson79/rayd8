@@ -269,6 +269,11 @@ export interface AdminAnalyticsEvents {
     night_mode_enabled: AdminAnalyticsEventMetric
   }
   funnel: {
+    amrita_checkout_completed: AdminAnalyticsEventMetric
+    amrita_checkout_started: AdminAnalyticsEventMetric
+    amrita_dashboard_opened: AdminAnalyticsEventMetric
+    amrita_main_menu_opened: AdminAnalyticsEventMetric
+    amrita_upgrade_clicked: AdminAnalyticsEventMetric
     start_session: AdminAnalyticsEventMetric
     subscription_started: AdminAnalyticsEventMetric
     upgrade_click: AdminAnalyticsEventMetric

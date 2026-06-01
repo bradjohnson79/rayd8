@@ -38,6 +38,7 @@ export function getSidebarItems(user: AuthUser): SidebarItem[] {
 
   return [
     { emphasis: 'upgrade', kind: 'route', label: 'Upgrade to REGEN', to: '/subscription?plan=regen' },
+    { emphasis: 'upgrade', kind: 'route', label: 'Upgrade to AMRITA', to: '/subscription?plan=amrita' },
     ...baseItems.slice(0, 3),
     { kind: 'route', label: 'HAMSA', to: '/dashboard/hamsa' },
     ...baseItems.slice(3),

@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode
 } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { Experience } from '../../app/types'
 import { ConfirmModal } from '../../components/ConfirmModal'
 import { GuideModal } from '../rayd8-player/GuideModal'
@@ -46,6 +46,12 @@ import {
   hamsaFeatureCallouts,
   hamsaPreviewCopy,
 } from '../hamsa/hamsaContent'
+import { AmritaLaunchBanner } from '../amrita'
+import {
+  AMRITA_CARD_IMAGE,
+  amritaDescription,
+  amritaMembershipBenefits,
+} from '../amrita/amritaContent'
 import { HamsaFullscreenSession } from '../hamsa/HamsaFullscreenSession'
 import { useSession } from '../session/SessionProvider'
 import { Rayd8ExpressInstallCard } from './Rayd8ExpressInstallCard'
@@ -87,6 +93,10 @@ function formatTrialHours(hoursRemaining?: number) {
   }
 
   return `${hoursRemaining.toFixed(1)} hours remaining`
+}
+
+function formatWholeHours(seconds: number | null) {
+  return Math.floor(Math.max(0, seconds ?? 0) / 3600).toLocaleString()
 }
 
 function getTrialBannerTone(level: TrialNotificationLevel | undefined) {
@@ -174,6 +184,7 @@ function MemberDashboardLaunchpad({
   user: ReturnType<typeof useAuthReadiness>['authUser']
 }) {
   const trialStatus = useTrialStatus()
+  const navigate = useNavigate()
   const { experienceAccess, isActive: sessionIsActive, startSession, updateExperienceAccess } = useSession()
   const expressNavigation = useOptionalExpressNavigation()
   const [checkingExperience, setCheckingExperience] = useState<Experience | null>(null)
@@ -186,8 +197,10 @@ function MemberDashboardLaunchpad({
   const [usageSnapshot, setUsageSnapshot] = useState<UsageResponse | null>(null)
   const [trialBlockReason, setTrialBlockReason] = useState<TrialBlockReason | null>(null)
   const guideConfirmedRef = useRef(false)
+  const amritaDashboardTrackedRef = useRef(false)
   const usageHydratedFromMeRef = useRef(false)
   const adminAccessActive = adminAccessMode && user?.role === 'admin'
+  const isAmritaMember = !adminAccessActive && !isPreviewMode && user?.plan === 'amrita'
 
   useEffect(() => {
     if (authStatus !== 'signed-in' || adminAccessActive) {
@@ -329,6 +342,18 @@ function MemberDashboardLaunchpad({
     setCheckingExperience(null)
     setExperiencePrompts({})
   }, [effectivePlan])
+
+  useEffect(() => {
+    if (!isAmritaMember || amritaDashboardTrackedRef.current) {
+      return
+    }
+
+    amritaDashboardTrackedRef.current = true
+    trackUmamiEvent('amrita_dashboard_opened', {
+      location: 'member_dashboard',
+      plan: user?.plan,
+    })
+  }, [isAmritaMember, user?.plan])
 
   const expansionAccess = experienceAccess.expansion ?? usageSnapshot?.access.expansion ?? null
   const premiumAccess = experienceAccess.premium ?? usageSnapshot?.access.premium ?? null
@@ -793,6 +818,26 @@ function MemberDashboardLaunchpad({
     runAfterExpressSidebarClose(() => setHamsaSessionOpen(true))
   }, [effectivePlan, hamsaEntitled, runAfterExpressSidebarClose])
 
+  const handleAmritaMainMenuOpen = useCallback(() => {
+    if (!isAmritaMember) {
+      return
+    }
+
+    trackUmamiEvent('amrita_main_menu_opened', {
+      location: 'dashboard_card',
+      plan: user?.plan,
+    })
+    runAfterExpressSidebarClose(() => navigate('/dashboard/amrita'))
+  }, [isAmritaMember, navigate, runAfterExpressSidebarClose, user?.plan])
+
+  const handleAmritaUpgrade = useCallback(() => {
+    trackUmamiEvent('amrita_upgrade_clicked', {
+      location: user?.plan === 'regen' ? 'regen_dashboard_upgrade_card' : 'dashboard_amrita_section',
+      plan: user?.plan ?? effectivePlan,
+    })
+    void navigateToUpgrade({ targetPath: '/subscription?plan=amrita' })
+  }, [effectivePlan, navigateToUpgrade, user?.plan])
+
   return (
     <div className={immersiveDashboardOutletScrollClassName} id="member-dashboard-scroll">
       <MemberAccountCluster effectivePlan={effectivePlan} user={user} />
@@ -801,6 +846,11 @@ function MemberDashboardLaunchpad({
         <div className="relative z-20 mx-auto max-w-7xl px-4 pt-[calc(6rem+env(safe-area-inset-top))] sm:px-6 sm:pt-[calc(7rem+env(safe-area-inset-top))] lg:px-8">
           <div className="grid gap-5 sm:gap-6">
             <Rayd8ExpressInstallCard />
+            {user?.plan === 'free' || user?.plan === 'regen' ? (
+              <AmritaLaunchBanner location="member_dashboard" />
+            ) : null}
+            {isAmritaMember ? <AmritaMemberBadge /> : null}
+            {user?.plan === 'regen' ? <AmritaUpgradeCard onUpgrade={handleAmritaUpgrade} /> : null}
             {trialStatus?.plan === 'free_trial' ? (
               <div
                 className={[
@@ -906,7 +956,11 @@ function MemberDashboardLaunchpad({
           onStart={handleHamsaStart}
         />
       ) : null}
-      {adminExperience ? null : <AmritaComingSoonSection />}
+      {adminExperience ? null : isAmritaMember ? (
+        <AmritaDashboardSection onOpen={handleAmritaMainMenuOpen} />
+      ) : (
+        <AmritaComingSoonSection onUpgrade={handleAmritaUpgrade} />
+      )}
       <ConfirmModal
         description={trialBlockReason ? getTrialBlockContent(trialBlockReason).description : ''}
         onPrimary={() => void navigateToUpgrade()}
@@ -959,18 +1013,109 @@ function HamsaDashboardSection({
   )
 }
 
-function AmritaComingSoonSection() {
+function AmritaMemberBadge() {
+  return (
+    <div className="rounded-[1.6rem] border border-cyan-100/25 bg-cyan-100/[0.08] px-5 py-4 text-white shadow-[0_18px_60px_rgba(8,145,178,0.16)] backdrop-blur-2xl sm:px-6">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-cyan-100/75">
+        AMRITA MEMBER
+      </p>
+      <p className="mt-2 text-sm leading-6 text-slate-200">
+        Your flagship membership includes the complete RAYD8 ecosystem.
+      </p>
+    </div>
+  )
+}
+
+function AmritaUpgradeCard({ onUpgrade }: { onUpgrade: () => void }) {
+  return (
+    <section className="rounded-[1.6rem] border border-cyan-100/20 bg-[linear-gradient(135deg,rgba(8,145,178,0.18),rgba(88,28,135,0.16),rgba(5,7,12,0.72))] px-5 py-5 text-white shadow-[0_18px_64px_rgba(8,145,178,0.14)] backdrop-blur-2xl sm:px-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.32em] text-cyan-100/70">Upgrade To AMRITA</p>
+          <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-200">
+            Unlock unlimited HAMSA and unlimited AMRITA access with our most advanced membership.
+          </p>
+        </div>
+        <button
+          className="inline-flex items-center justify-center rounded-full bg-cyan-200 px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-950 shadow-[0_18px_48px_rgba(103,232,249,0.22)] transition hover:bg-cyan-100"
+          onClick={onUpgrade}
+          type="button"
+        >
+          Upgrade To AMRITA
+        </button>
+      </div>
+    </section>
+  )
+}
+
+function AmritaDashboardSection({ onOpen }: { onOpen: () => void }) {
+  return (
+    <SectionLayout background={<SectionBackground tone="amrita" />} id="amrita">
+      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8 lg:px-12">
+        <div className="mb-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.34em] text-cyan-100/70">AMRITA dashboard</p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white sm:text-5xl xl:text-[3.5rem]">
+              RAYD8 Amrita
+            </h1>
+          </div>
+          <SectionCtaButton label="Access Amrita Main Menu" onClick={onOpen} tone="active" />
+        </div>
+
+        <div className="grid w-full items-center gap-10 lg:grid-cols-[minmax(0,720px)_minmax(0,520px)] lg:gap-16">
+          <ExperienceShowcase
+            imageAlt="RAYD8 Amrita main menu preview"
+            imageSrc={AMRITA_CARD_IMAGE}
+            subtitle="Complete ecosystem access"
+            title="RAYD8 AMRITA"
+            tone="amrita"
+          />
+          <div className="flex max-w-[520px] flex-col gap-8">
+            <div className="flex flex-wrap gap-2">
+              {['500 Monthly Hours', 'Unlimited HAMSA', 'Unlimited AMRITA'].map((tag) => (
+                <FeatureTag key={tag}>{tag}</FeatureTag>
+              ))}
+            </div>
+            <div className="border-t border-white/10 pt-6">
+              <p className="text-base leading-8 text-white/82">{amritaDescription}</p>
+            </div>
+            <div className="border-t border-white/10 pt-6">
+              <p className="text-xs uppercase tracking-[0.28em] text-cyan-100/70">
+                Included Membership Benefits
+              </p>
+              <ul className="mt-4 grid gap-3 text-sm leading-6 text-slate-200">
+                {amritaMembershipBenefits.map((benefit) => (
+                  <li className="flex items-center gap-3" key={benefit}>
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-cyan-200/15 text-cyan-100">
+                      ✓
+                    </span>
+                    <span>{benefit}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </SectionLayout>
+  )
+}
+
+function AmritaComingSoonSection({ onUpgrade }: { onUpgrade: () => void }) {
   return (
     <ExperienceSection
-      bodyPrimary="AMRITA is the next RAYD8 environment in development, designed as a procedural full-spectrum harmonic field with white-outline glyph sequencing, configurable focus of charge, and restorative session controls."
-      ctaLabel="Coming Soon"
-      ctaTone="disabled"
+      bodyPrimary="RAYD8 Amrita is the flagship membership for the complete RAYD8 ecosystem: 500 monthly hours across Expansion, Premium, and REGEN, plus unlimited HAMSA and unlimited AMRITA access."
+      bodySecondary="Upgrade to unlock the AMRITA main menu and the highest available membership tier."
+      ctaLabel="Start Amrita Membership"
+      ctaTone="active"
       id="amrita"
-      onClick={() => undefined}
+      imageAlt="RAYD8 Amrita main menu preview"
+      imageSrc={AMRITA_CARD_IMAGE}
+      onClick={onUpgrade}
       showcaseSubtitle="RAYD8 AMRITA"
-      showcaseTitle="AMRITA Coming Soon"
-      tags={['Procedural Field', 'Glyph Sequencing', 'In Development']}
-      title="AMRITA"
+      showcaseTitle="Complete Ecosystem Access"
+      tags={['500 Monthly Hours', 'Unlimited HAMSA', 'Unlimited AMRITA']}
+      title="RAYD8 Amrita"
       tone="amrita"
     />
   )
@@ -983,7 +1128,11 @@ function MemberAccountCluster({
   effectivePlan: PlaybackPlan
   user: ReturnType<typeof useAuthReadiness>['authUser']
 }) {
-  const planLabel = effectivePlan === 'free' ? 'FREE TRIAL' : effectivePlan.toUpperCase()
+  const planLabel = user?.plan === 'amrita'
+    ? 'AMRITA'
+    : effectivePlan === 'free'
+      ? 'FREE TRIAL'
+      : effectivePlan.toUpperCase()
 
   return (
     <div className="absolute right-[calc(1rem+env(safe-area-inset-right))] top-[calc(1rem+env(safe-area-inset-top))] z-30 flex items-center gap-3 pointer-events-auto sm:right-[calc(1.5rem+env(safe-area-inset-right))] sm:top-[calc(1.5rem+env(safe-area-inset-top))]">
@@ -1541,6 +1690,32 @@ function DashboardUsageSummary({
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
             <div
               className="h-full rounded-full bg-[linear-gradient(90deg,rgba(52,211,153,0.85),rgba(16,185,129,1))]"
+              style={{ width: `${Math.min(100, access.regen.usagePercent ?? 0)}%` }}
+            />
+          </div>
+        </div>
+      ) : plan === 'amrita' ? (
+        <div className="mt-4 rounded-[1.4rem] border border-cyan-200/15 bg-cyan-200/[0.05] px-4 py-5 shadow-[0_18px_55px_rgba(8,145,178,0.12)] sm:px-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-cyan-100/70">
+                AMRITA Monthly Pool
+              </p>
+              <p className="mt-3 text-2xl font-semibold text-white sm:text-3xl">
+                {formatWholeHours(access.regen.usedSeconds)} / {formatWholeHours(access.regen.limitSeconds)} Hours
+              </p>
+              <p className="mt-2 text-xs text-cyan-100/60">2x REGEN monthly allowance</p>
+            </div>
+            <p className="text-sm text-white/62">
+              {access.regen.isBlocked
+                ? 'Monthly limit reached'
+                : `${formatRuntimeClock(access.regen.remainingSeconds)} remaining this cycle`}
+            </p>
+          </div>
+          <p className="mt-4 text-xs text-cyan-100/70">{formatUsagePercent(access.regen.usagePercent)}</p>
+          <div className="mt-4 h-4 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,rgba(103,232,249,0.9),rgba(196,181,253,0.92),rgba(34,211,238,1))]"
               style={{ width: `${Math.min(100, access.regen.usagePercent ?? 0)}%` }}
             />
           </div>

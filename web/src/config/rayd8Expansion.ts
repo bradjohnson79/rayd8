@@ -70,6 +70,10 @@ export const SHARED_AUDIO_TRACKS = {
     label: 'Premium Track',
     assetId: '01AdpMIKawyRvpldKwLd2wVH7BS01ToIOQ00meJDLijJhw',
   },
+  monasticSoulAwakening: {
+    label: 'Monastic Soul Awakening',
+    assetId: 'BJxMoeikD00SCznuoOvXx246Tf00YIJ1T24LLwPLdUPwM',
+  },
 } as const
 
 export const SESSION_VIDEO_MODE_MAPS: Record<
@@ -121,3 +125,7 @@ export type FreeTrialVideoMode = SessionVideoMode
 export type FreeTrialAudioTrack = SharedAudioTrack
 export const DEFAULT_FREE_TRIAL_VIDEO_MODE = DEFAULT_SESSION_VIDEO_MODE
 export const DEFAULT_FREE_TRIAL_AUDIO_TRACK = DEFAULT_SHARED_AUDIO_TRACK
+
+export function isSharedAudioTrack(value: unknown): value is SharedAudioTrack {
+  return typeof value === 'string' && value in SHARED_AUDIO_TRACKS
+}

@@ -6,11 +6,11 @@ export type PlaybackPlan = 'free' | 'regen'
 export type PlaybackPlanInput = PlanTier | 'free-trial' | null | undefined
 
 export function normalizePlaybackPlan(plan: PlaybackPlanInput): PlaybackPlan {
-  if (plan === 'regen') {
+  if (plan === 'regen' || plan === 'amrita') {
     return 'regen'
   }
 
-  if (plan === 'premium' || plan === 'amrita') {
+  if (plan === 'premium') {
     console.warn(`[RAYD8] Unsupported playback plan "${plan}" normalized to "free".`)
   }
 

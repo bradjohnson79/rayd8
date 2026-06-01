@@ -175,6 +175,16 @@ export function summarizeExperienceAccess(input: {
     })
   }
 
+  if (input.plan === 'amrita') {
+    return summarizeLimitedAccess({
+      blockReason: 'regen_total_limit_reached',
+      experience: input.experience,
+      limitSeconds: PLAN_LIMITS.amrita.total,
+      usage: input.usage ?? null,
+      usedSeconds: input.usage?.totalUsedSeconds ?? 0,
+    })
+  }
+
   if (input.experience === 'expansion') {
     return summarizeUnlimitedAccess({
       experience: input.experience,
@@ -184,7 +194,7 @@ export function summarizeExperienceAccess(input: {
     })
   }
 
-  if (input.experience === 'regen' && input.plan !== 'amrita') {
+  if (input.experience === 'regen') {
     return {
       allowed: false,
       blockReason: 'plan_upgrade_required',

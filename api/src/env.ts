@@ -21,6 +21,7 @@ const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_PREMIUM_PRICE_ID: z.string().optional(),
   STRIPE_REGEN_PRICE_ID: z.string().optional(),
+  STRIPE_AMRITA_PRICE_ID: z.string().optional(),
   MUX_TOKEN_ID: z.string().optional(),
   MUX_TOKEN_SECRET: z.string().optional(),
   MUX_SIGNING_KEY_ID: z.string().optional(),

@@ -77,16 +77,19 @@ function getSubscriptionStatusCopy(
     }
   }
 
-  if (!subscription || userPlan !== 'regen') {
+  const isSubscribedPlan = userPlan === 'regen' || userPlan === 'amrita'
+  const planLabel = formatPlanLabel(userPlan)
+
+  if (!subscription || !isSubscribedPlan) {
     return {
-      detail: 'You are currently using the Free plan. Upgrade to REGEN to unlock billing controls.',
+      detail: 'You are currently using the Free plan. Upgrade to REGEN or AMRITA to unlock billing controls.',
       label: 'Not subscribed',
     }
   }
 
   if (subscription.cancelAtPeriodEnd) {
     return {
-      detail: `Your REGEN access remains active until ${formatBillingDate(subscription.currentPeriodEnd)}.`,
+      detail: `Your ${planLabel} access remains active until ${formatBillingDate(subscription.currentPeriodEnd)}.`,
       label: 'Cancels at period end',
     }
   }
@@ -99,7 +102,7 @@ function getSubscriptionStatusCopy(
   }
 
   return {
-    detail: `Your REGEN subscription is active through ${formatBillingDate(subscription.currentPeriodEnd)}.`,
+    detail: `Your ${planLabel} subscription is active through ${formatBillingDate(subscription.currentPeriodEnd)}.`,
     label: 'Active',
   }
 }
@@ -123,7 +126,8 @@ export function SettingsPage() {
   const [cancelValidationMessage, setCancelValidationMessage] = useState<string | null>(null)
   const clerkCardRef = useRef<HTMLDivElement | null>(null)
 
-  const isRegenMember = user.plan === 'regen'
+  const isSubscribedMember = user.plan === 'regen' || user.plan === 'amrita'
+  const currentPlanLabel = formatPlanLabel(user.plan)
   const subscriptionStatus = useMemo(
     () => getSubscriptionStatusCopy(user.plan, subscription, isLoadingSubscription),
     [isLoadingSubscription, subscription, user.plan],
@@ -303,7 +307,7 @@ export function SettingsPage() {
           : null,
       )
       setStatusMessage(
-        `Cancellation scheduled. Your REGEN access continues until ${formatBillingDate(response.currentPeriodEnd)}.`,
+        `Cancellation scheduled. Your ${currentPlanLabel} access continues until ${formatBillingDate(response.currentPeriodEnd)}.`,
       )
       closeCancellationFlow(true)
     } catch (error) {
@@ -442,19 +446,19 @@ export function SettingsPage() {
           <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/60">Subscription management</p>
           <h2 className="mt-3 text-2xl font-semibold text-white">Billing and cancellation</h2>
           <p className="mt-4 text-sm leading-7 text-slate-300">
-            {isRegenMember
+            {isSubscribedMember
               ? 'Manage your Stripe billing or schedule cancellation. Access continues until the end of the current billing period after cancellation is confirmed.'
-              : 'Upgrade to REGEN to unlock secure billing management and pooled monthly access across all three RAYD8® experiences.'}
+              : 'Upgrade to REGEN or AMRITA to unlock secure billing management and pooled monthly access across the RAYD8® ecosystem.'}
           </p>
 
           <div className="mt-6 rounded-[1.6rem] border border-white/10 bg-white/[0.05] p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-xl font-semibold text-white">
-                  {isRegenMember ? 'RAYD8® REGEN' : 'Upgrade to REGEN'}
+                  {isSubscribedMember ? `RAYD8® ${currentPlanLabel}` : 'Upgrade to REGEN'}
                 </h3>
                 <p className="mt-3 text-sm leading-6 text-slate-300">
-                  {isRegenMember
+                  {isSubscribedMember
                     ? subscription?.cancelAtPeriodEnd
                       ? `Cancellation is already scheduled. Access remains active until ${formatBillingDate(subscription.currentPeriodEnd)}.`
                       : 'Manage your Stripe billing details or cancel the subscription with required feedback.'
@@ -462,11 +466,11 @@ export function SettingsPage() {
                 </p>
               </div>
               <span className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.24em] text-slate-300">
-                {isRegenMember ? 'Current' : 'Available'}
+                {isSubscribedMember ? 'Current' : 'Available'}
               </span>
             </div>
 
-            {isRegenMember ? (
+            {isSubscribedMember ? (
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
                   className="rounded-2xl bg-emerald-300/20 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-300/30 disabled:cursor-not-allowed disabled:opacity-50"
@@ -508,6 +512,7 @@ export function SettingsPage() {
       <CancellationModal
         currentPeriodEnd={subscription?.currentPeriodEnd ?? null}
         customReason={customReason}
+        planLabel={currentPlanLabel}
         onBack={() => setCancelStep('reasons')}
         onClose={closeCancellationFlow}
         onConfirm={() => void handleConfirmCancellation()}
@@ -534,6 +539,7 @@ function CancellationModal({
   onCustomReasonChange,
   onReasonToggle,
   open,
+  planLabel,
   selectedReasons,
   step,
   submitting,
@@ -548,6 +554,7 @@ function CancellationModal({
   onCustomReasonChange: (value: string) => void
   onReasonToggle: (reason: CancellationReason) => void
   open: boolean
+  planLabel: string
   selectedReasons: CancellationReason[]
   step: CancellationStep
   submitting: boolean
@@ -638,7 +645,7 @@ function CancellationModal({
           <>
             <h2 className="mt-3 text-2xl font-semibold text-white">Confirm cancellation</h2>
             <p className="mt-4 text-sm leading-7 text-slate-300">
-              Your REGEN access stays active until the current billing period ends on{' '}
+              Your {planLabel} access stays active until the current billing period ends on{' '}
               <span className="font-medium text-white">{formatBillingDate(currentPeriodEnd)}</span>.
             </p>
 

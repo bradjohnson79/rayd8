@@ -2,6 +2,7 @@ import { useLandingPerformanceProfile } from './useLandingPerformanceProfile'
 import { useLandingBackdropMedium } from './landingBackdropHooks'
 import { ConversionButton } from './components/ConversionButton'
 import { Section } from './components/Section'
+import { amritaTierFeatures, regenTierFeatures } from '../amrita/amritaContent'
 
 interface TeaserSectionProps {
   reducedEffects?: boolean
@@ -21,6 +22,12 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
       : profile === 'balanced'
         ? 'shadow-[0_17px_58px_rgba(16,185,129,0.1)] hover:shadow-[0_21px_68px_rgba(16,185,129,0.16)]'
         : 'shadow-[0_20px_70px_rgba(16,185,129,0.12)] hover:shadow-[0_24px_80px_rgba(16,185,129,0.2)]'
+  const amritaShellShadow =
+    profile === 'minimal'
+      ? 'shadow-[0_14px_44px_rgba(8,145,178,0.1)] hover:shadow-[0_18px_52px_rgba(8,145,178,0.14)]'
+      : profile === 'balanced'
+        ? 'shadow-[0_17px_58px_rgba(8,145,178,0.12)] hover:shadow-[0_21px_68px_rgba(8,145,178,0.18)]'
+        : 'shadow-[0_20px_70px_rgba(8,145,178,0.16)] hover:shadow-[0_24px_80px_rgba(8,145,178,0.24)]'
 
   return (
     <Section
@@ -53,7 +60,7 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
           Access RAYD8® on any device—mobile, desktop, or Smart TV.
         </p>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-7">
           <article className="flex flex-col rounded-2xl border border-white/12 bg-white/[0.03] p-7 transition-colors duration-300 hover:border-white/20 sm:rounded-3xl sm:p-8">
             <h3 className="text-lg font-semibold tracking-tight text-white sm:text-xl">Free Trial</h3>
             <ul className="mt-6 flex flex-1 flex-col gap-3.5">
@@ -96,24 +103,12 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
           >
             <h3 className="text-lg font-semibold tracking-tight text-white sm:text-xl">REGEN</h3>
             <ul className="mt-6 flex flex-1 flex-col gap-3.5">
-              <li className={featureLi}>
-                <span className={featureBullet} aria-hidden />
-                <span>
-                  <span className="font-semibold text-slate-50">250 hours of watch time per month</span>
-                </span>
-              </li>
-              <li className={featureLi}>
-                <span className={featureBullet} aria-hidden />
-                <span>Full HD experience</span>
-              </li>
-              <li className={featureLi}>
-                <span className={featureBullet} aria-hidden />
-                <span>All RAYD8® modes unlocked</span>
-              </li>
-              <li className={featureLi}>
-                <span className={featureBullet} aria-hidden />
-                <span>Works on any device</span>
-              </li>
+              {regenTierFeatures.map((feature) => (
+                <li className={featureLi} key={feature}>
+                  <span className={featureBullet} aria-hidden />
+                  <span>{feature === '250 Hours' ? <span className="font-semibold text-slate-50">{feature}</span> : feature}</span>
+                </li>
+              ))}
             </ul>
             <div className="mt-8 sm:mt-10">
               <p className="mb-3 text-sm font-bold text-white sm:text-base">Only $19.99 USD Per Month</p>
@@ -122,6 +117,36 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
                 guestMode="signIn"
                 label="Experience Full REGEN"
                 to="/subscription?plan=regen"
+                variant="solid"
+              />
+            </div>
+          </article>
+
+          <article
+            className={`relative flex flex-col rounded-2xl border border-cyan-100/30 bg-[linear-gradient(165deg,rgba(8,145,178,0.2),rgba(88,28,135,0.16),rgba(8,14,22,0.96))] p-8 transition-[border-color,box-shadow] duration-300 hover:border-cyan-100/45 sm:rounded-3xl sm:p-9 md:ring-1 md:ring-cyan-100/15 ${amritaShellShadow} ${backdropMedium}`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-lg font-semibold tracking-tight text-white sm:text-xl">RAYD8 Amrita</h3>
+              <span className="rounded-full border border-cyan-100/35 bg-cyan-100/14 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-cyan-50">
+                Highest Tier
+              </span>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-cyan-100/85">Everything in REGEN, plus flagship access.</p>
+            <ul className="mt-6 flex flex-1 flex-col gap-3.5">
+              {amritaTierFeatures.map((feature) => (
+                <li className={featureLi} key={feature}>
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300/60" aria-hidden />
+                  <span>{feature === '500 Hours' ? <span className="font-semibold text-slate-50">{feature}</span> : feature}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-8 sm:mt-10">
+              <p className="mb-3 text-sm font-bold text-white sm:text-base">$29.99 CAD/month</p>
+              <ConversionButton
+                className="w-full min-h-[3rem] px-7 py-4 text-base sm:w-auto"
+                guestMode="signIn"
+                label="Start Amrita Membership"
+                to="/subscription?plan=amrita"
                 variant="solid"
               />
             </div>

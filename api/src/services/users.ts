@@ -18,6 +18,7 @@ import {
 } from '../db/schema.js'
 import { clerkClient } from '../lib/clerk.js'
 import { dispatchNotification } from './notifications/dispatchNotification.js'
+import { syncManagedPlanForUser } from './subscriptions.js'
 import { toAppPlan } from './player/accessPolicy.js'
 import { ensureTrialWindowForUser } from './player/trialStatus.js'
 
@@ -260,6 +261,8 @@ export async function syncUserFromClerk(userId: string) {
       throw error
     }
   }
+
+  await syncManagedPlanForUser(userId)
 
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
 

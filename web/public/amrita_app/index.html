@@ -6,12 +6,14 @@
     <meta name="theme-color" content="#02030a" />
     <title>AMRITA | RAYD8</title>
     <link rel="stylesheet" href="./styles.css" />
+    <script src="./hls.min.js"></script>
   </head>
   <body>
     <main id="amrita-root" class="amrita-shell">
       <section id="control-panel" class="control-panel" aria-labelledby="amrita-title">
         <div class="panel-background" aria-hidden="true"></div>
         <div class="panel-content">
+          <a class="dashboard-link" href="/amrita-dashboard">← Back To Dashboard</a>
           <header class="hero-copy">
             <p class="eyebrow">RAYD8 AMRITA</p>
             <h1 id="amrita-title">Living Full-Spectrum Harmonic Field</h1>
@@ -21,35 +23,60 @@
           </header>
 
           <section class="config-grid" aria-label="AMRITA session configuration">
+            <article class="config-card resonance-card">
+              <div class="card-heading-row">
+                <div>
+                  <p class="card-kicker">Personal Resonance</p>
+                  <h2>Optional focal image</h2>
+                </div>
+                <button class="help-button tooltip-trigger" type="button" aria-label="Personal Resonance help" data-tooltip="Upload one personal image as a centered focal layer during AMRITA. It is compressed and saved locally on this device so it remains available each time you return.">?</button>
+              </div>
+              <p id="personal-resonance-status" class="help-copy">No photo saved yet. Upload one to keep it on this device for future sessions.</p>
+              <img id="personal-resonance-preview" class="resonance-preview" alt="" decoding="async" hidden />
+              <div class="resonance-actions">
+                <label class="pill-button file-pill" for="personal-resonance-input">
+                  Upload Photo
+                  <input id="personal-resonance-input" accept="image/jpeg,image/png,image/webp" type="file" />
+                </label>
+                <label class="toggle-row">
+                  <input id="personal-resonance-toggle" type="checkbox" />
+                  <span>Enable in runtime</span>
+                </label>
+                <button id="personal-resonance-remove" class="pill-button subtle" type="button">Remove</button>
+              </div>
+            </article>
+
             <article class="config-card glyph-card">
               <div class="card-heading-row">
                 <div>
                   <p class="card-kicker">1. Glyph Selection</p>
-                  <h2>Search glyphs, choose systems, or use Automatic</h2>
+                  <h2>Choose a system or search individual glyphs</h2>
                 </div>
                 <div class="card-actions">
                   <button id="automatic-selection" class="pill-button" type="button">Automatic</button>
-                  <button class="help-button tooltip-trigger" type="button" aria-label="Glyph Selection help" data-tooltip="Search individual glyphs, choose group systems, or use Automatic. Each selection becomes a downward end-turn sequence.">?</button>
+                  <button class="help-button tooltip-trigger" type="button" aria-label="Glyph Selection help" data-tooltip="Start with a Group System for a simple guided session, search individual glyphs for a focused session, or use Automatic.">?</button>
                 </div>
               </div>
               <label class="search-box" for="glyph-search">
-                <span>Search keywords</span>
-                <input id="glyph-search" autocomplete="off" placeholder="heart, spine, immune system, chakra..." type="search" />
+                <span>Search individual glyphs</span>
+                <input id="glyph-search" autocomplete="off" placeholder="Optional: heart, spine, immune system, chakra..." type="search" />
               </label>
               <div class="selector-layout">
-                <div>
+                <div class="selector-pane group-pane">
+                  <div class="section-label-row">
+                    <span>Group Systems</span>
+                    <small>Recommended starting point</small>
+                  </div>
+                  <p class="selector-hint">Choose one simple body system for a guided AMRITA sequence.</p>
+                  <div id="group-results" class="chip-list group-list" role="listbox" aria-label="Glyph group systems"></div>
+                </div>
+                <div class="selector-pane individual-pane">
                   <div class="section-label-row">
                     <span>Individual Glyphs</span>
                     <small id="selected-count">0 selected</small>
                   </div>
+                  <p class="selector-hint">Use these when you want to focus on specific areas.</p>
                   <div id="glyph-results" class="chip-list scroll-area" role="listbox" aria-label="Searchable glyphs"></div>
-                </div>
-                <div>
-                  <div class="section-label-row">
-                    <span>Group Systems</span>
-                    <small>Unified end turns</small>
-                  </div>
-                  <div id="group-results" class="chip-list scroll-area" role="listbox" aria-label="Glyph group systems"></div>
                 </div>
               </div>
             </article>
@@ -138,18 +165,11 @@
       <section id="runtime" class="runtime" aria-label="AMRITA runtime" hidden>
         <canvas id="background-canvas" class="render-canvas" aria-hidden="true"></canvas>
         <canvas id="glyph-canvas" class="render-canvas" aria-hidden="true"></canvas>
+        <div id="personal-resonance-runtime-root"></div>
         <div id="wellness-overlay" class="wellness-overlay" aria-hidden="true"></div>
         <div class="runtime-vignette" aria-hidden="true"></div>
-        <div class="runtime-topbar">
-          <div>
-            <p class="eyebrow">AMRITA Runtime</p>
-            <p id="runtime-status" class="runtime-status">Preparing sequence</p>
-          </div>
-          <div class="runtime-actions">
-            <button id="pause-resume" class="runtime-button" type="button">Pause</button>
-            <button id="stop-sequence" class="runtime-button secondary" type="button">Stop</button>
-          </div>
-        </div>
+        <div id="runtime-chrome-root"></div>
+        <div id="runtime-audio-root" class="runtime-audio-root" aria-hidden="true"></div>
         <div id="performance-hud" class="performance-hud" aria-live="polite"></div>
       </section>
     </main>

@@ -8,11 +8,13 @@ export type CancellationReason =
   | 'found_alternative'
   | 'other'
 
+export type BillingPlan = 'regen' | 'amrita'
+
 export interface BillingSubscriptionStatus {
   cancelAtPeriodEnd: boolean
   currentPeriodEnd: string | null
   currentPeriodStart: string | null
-  plan: 'regen'
+  plan: BillingPlan
   status: string
   stripeSubscriptionId: string
 }
@@ -21,6 +23,7 @@ export async function getBillingConfig() {
   return apiRequest<{
     stripeConfigured: boolean
     regenConfigured: boolean
+    amritaConfigured: boolean
   }>('/v1/billing/config')
 }
 
@@ -42,7 +45,7 @@ export async function createBillingPortal(token: string) {
 }
 
 export async function createBillingCheckout(
-  plan: 'regen',
+  plan: BillingPlan,
   token: string,
 ) {
   return apiRequest<{ checkoutUrl: string }>(
@@ -58,7 +61,7 @@ export async function createBillingCheckout(
 export async function verifyBillingSession(sessionId: string, token: string) {
   return apiRequest<{
     alreadyProcessed: boolean
-    plan: 'regen'
+    plan: BillingPlan
     rewardfulConversionEligible: boolean
     status: 'active'
     stripeCustomerEmail: string | null

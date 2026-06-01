@@ -162,7 +162,7 @@ function AdminDashboardHome({
             <p className="mt-2 text-base font-semibold text-white">Stable admin previews</p>
             <p className="mt-2 text-sm text-slate-300">
               Open isolated preview dashboards for Free Trial or REGEN directly from the admin
-              sidebar. AMRITA remains disabled until that surface is ready.
+              sidebar. AMRITA is available as a preview route for control-panel review.
             </p>
             <div className="mt-4 flex flex-col gap-2 text-sm">
               <Link
@@ -177,9 +177,12 @@ function AdminDashboardHome({
               >
                 REGEN Preview
               </Link>
-              <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 font-medium text-white/40 opacity-60">
-                AMRITA Coming Soon
-              </div>
+              <Link
+                className="rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3 font-medium text-white transition hover:bg-white/10"
+                to="/admin/amrita"
+              >
+                AMRITA Preview
+              </Link>
             </div>
           </div>
         }

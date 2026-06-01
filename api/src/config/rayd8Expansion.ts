@@ -42,6 +42,7 @@ export const REGEN_VIDEO_ASSET_IDS = [
 export const SHARED_AUDIO_ASSET_IDS = [
   '1uhVrH02IjQZ02cd9oS2rh76Jsup0102Bdhbbjkpla86HGU',
   '01AdpMIKawyRvpldKwLd2wVH7BS01ToIOQ00meJDLijJhw',
+  'BJxMoeikD00SCznuoOvXx246Tf00YIJ1T24LLwPLdUPwM',
 ] as const
 
 const expansionAssetIds = new Set<string>(EXPANSION_VIDEO_ASSET_IDS)

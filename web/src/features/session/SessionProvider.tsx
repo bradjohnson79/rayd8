@@ -16,6 +16,7 @@ import {
   DEFAULT_SHARED_AUDIO_TRACK,
   FREE_TRIAL_AUDIO_TRACKS,
   getExperienceFromSessionType,
+  isSharedAudioTrack,
   type SharedAudioTrack,
 } from '../../config/rayd8Expansion'
 import { getAdminMuxPlaybackToken } from '../../services/admin'
@@ -144,10 +145,9 @@ function readAudioState(): AudioState {
 
     return {
       audioMuted: parsed.audioMuted === true,
-      audioTrack:
-        parsed.audioTrack === 'expansion' || parsed.audioTrack === 'premium'
-          ? parsed.audioTrack
-          : DEFAULT_SHARED_AUDIO_TRACK,
+      audioTrack: isSharedAudioTrack(parsed.audioTrack)
+        ? parsed.audioTrack
+        : DEFAULT_SHARED_AUDIO_TRACK,
       audioVolume:
         typeof parsed.audioVolume === 'number' && Number.isFinite(parsed.audioVolume)
           ? Math.max(0, Math.min(1, parsed.audioVolume))

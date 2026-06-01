@@ -70,8 +70,14 @@ export function SuccessPage() {
         await user?.reload()
         trackUmamiEvent('subscription_started', {
           location: 'success_page',
-          plan: 'regen',
+          plan: verification.plan,
         })
+        if (verification.plan === 'amrita') {
+          trackUmamiEvent('amrita_checkout_completed', {
+            location: 'success_page',
+            plan: verification.plan,
+          })
+        }
 
         if (verification.rewardfulConversionEligible && verification.stripeCustomerEmail) {
           trackRewardfulConversion({
@@ -83,7 +89,10 @@ export function SuccessPage() {
         if (!cancelled) {
           setVerificationState('done')
           setStatusMessage('Subscription verified. Redirecting to your dashboard...')
-          window.setTimeout(() => navigate('/dashboard', { replace: true }), 300)
+          window.setTimeout(
+            () => navigate(verification.plan === 'amrita' ? '/amrita-dashboard' : '/dashboard', { replace: true }),
+            300,
+          )
         }
       } catch (error) {
         if (!cancelled) {
