@@ -13,7 +13,7 @@ const baseItems: SidebarItem[] = [
   { kind: 'section', label: 'RAYD8® Expansion', sectionId: 'expansion', to: toDashboardSectionHref('expansion') },
   { kind: 'section', label: 'RAYD8® Premium', sectionId: 'premium', to: toDashboardSectionHref('premium') },
   { kind: 'section', label: 'RAYD8® REGEN', sectionId: 'regen', to: toDashboardSectionHref('regen') },
-  { kind: 'route', label: 'AMRITA', to: '/dashboard/amrita' },
+  { kind: 'route', label: 'AMRITA', to: '/amrita-dashboard' },
   { kind: 'route', label: 'Affiliate', to: '/dashboard/affiliate' },
   { kind: 'route', label: 'Settings', to: '/dashboard/settings' },
   { kind: 'route', label: 'Instructions', to: '/dashboard/instructions' },

@@ -827,7 +827,7 @@ function MemberDashboardLaunchpad({
       location: 'dashboard_card',
       plan: user?.plan,
     })
-    runAfterExpressSidebarClose(() => navigate('/dashboard/amrita'))
+    runAfterExpressSidebarClose(() => navigate('/amrita-dashboard'))
   }, [isAmritaMember, navigate, runAfterExpressSidebarClose, user?.plan])
 
   const handleAmritaUpgrade = useCallback(() => {

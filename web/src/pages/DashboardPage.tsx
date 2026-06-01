@@ -1,16 +1,10 @@
 import { useEffect } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { dashboardSectionIds } from '../features/dashboard/dashboardSections'
-import { useAuthUser } from '../features/dashboard/useAuthUser'
 import { Rayd8Dashboard } from '../features/rayd8-dashboard/Rayd8Dashboard'
 
-interface DashboardPageProps {
-  view?: 'amrita' | 'standard'
-}
-
-export function DashboardPage({ view = 'standard' }: DashboardPageProps) {
+export function DashboardPage() {
   const location = useLocation()
-  const user = useAuthUser()
 
   useEffect(() => {
     const hashId = location.hash.replace('#', '')
@@ -28,14 +22,6 @@ export function DashboardPage({ view = 'standard' }: DashboardPageProps) {
       window.cancelAnimationFrame(frameId)
     }
   }, [location.hash])
-
-  if (view === 'amrita' && user.plan !== 'amrita') {
-    return <Navigate replace to="/subscription?plan=amrita" />
-  }
-
-  if (view === 'standard' && user.plan === 'amrita') {
-    return <Navigate replace to="/amrita-dashboard" />
-  }
 
   return <Rayd8Dashboard />
 }

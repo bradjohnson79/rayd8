@@ -1,11 +1,6 @@
 {
   "redirects": [
     {
-      "source": "/amrita_app/(.*)",
-      "destination": "/dashboard",
-      "permanent": false
-    },
-    {
       "source": "/(.*)",
       "has": [
         {
