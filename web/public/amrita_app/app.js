@@ -2393,23 +2393,15 @@ const GROUPS = [
   },
   {
     "id": "fullBody",
-    "label": "Full Body",
-    "glyphs": [
-      "FULL FEMALE BODY.png",
-      "FULL MALE BODY.png",
-      "MUSCULAR SYSTEM.png",
-      "SKELETAL BODY.png",
-      "CIRCULATORY SYSTEM.png",
-      "NERVOUS SYSTEM.png"
-    ],
+    "label": "Full System",
+    "glyphs": GLYPH_FILES,
+    "chargeScoped": true,
     "keywords": [
-      "full body",
-      "whole body",
-      "body systems",
-      "muscular",
-      "skeletal",
-      "circulatory",
-      "nervous"
+      "full system",
+      "whole system",
+      "all glyphs",
+      "complete catalog",
+      "focus of charge"
     ]
   }
 ];
@@ -3454,7 +3446,7 @@ function createTurn(now) {
   const plan = resolveTurnGlyphs();
   const width = dom.glyphCanvas.width;
   const height = dom.glyphCanvas.height;
-  const count = Math.min(CONFIG.renderProfile.maxGlyphs, concentration.count * Math.max(1, Math.ceil(plan.files.length / 2)));
+  const count = resolveGlyphInstanceCount(plan, concentration);
   const instances = Array.from({ length: count }, (_, index) => createGlyphInstance({ index, count, files: plan.files, width, height, concentration }));
   return {
     label: plan.label,
@@ -3487,7 +3479,11 @@ function speedToDuration(speed) {
 function resolveTurnGlyphs() {
   if (state.selectionMode === 'group' && state.selectedGroup) {
     const group = GROUPS.find((item) => item.id === state.selectedGroup) || GROUPS[0];
-    return { label: group.label, files: group.glyphs.filter((file) => glyphByFile.has(file)) };
+    return {
+      chargeScoped: Boolean(group.chargeScoped),
+      label: group.label,
+      files: group.glyphs.filter((file) => glyphByFile.has(file)),
+    };
   }
   if (state.selectionMode === 'individual' && state.selectedGlyphs.size > 0) {
     const selected = [...state.selectedGlyphs];
@@ -3501,7 +3497,18 @@ function resolveTurnGlyphs() {
       .filter((glyph) => glyph.tags.some((tag) => group.keywords.some((keyword) => normalizeSearchValue(keyword).includes(normalizeSearchValue(tag)) || normalizeSearchValue(tag).includes(normalizeSearchValue(keyword)))))
       .map((glyph) => glyph.file)
       .slice(0, 1);
-  return { label: `Automatic • ${group.label}`, files: automaticFiles.length ? automaticFiles : group.glyphs.filter((file) => glyphByFile.has(file)) };
+  return {
+    chargeScoped: Boolean(group.chargeScoped),
+    label: `Automatic • ${group.label}`,
+    files: automaticFiles.length ? automaticFiles : group.glyphs.filter((file) => glyphByFile.has(file)),
+  };
+}
+
+function resolveGlyphInstanceCount(plan, concentration) {
+  const count = plan.chargeScoped
+    ? concentration.count
+    : concentration.count * Math.max(1, Math.ceil(plan.files.length / 2));
+  return Math.min(CONFIG.renderProfile.maxGlyphs, count);
 }
 
 function createGlyphInstance({ index, count, files, width, height, concentration }) {
