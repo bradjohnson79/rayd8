@@ -3,6 +3,7 @@ import { useLandingBackdropMedium } from './landingBackdropHooks'
 import { ConversionButton } from './components/ConversionButton'
 import { Section } from './components/Section'
 import { AMRITA_PRICE_LINE, amritaTierFeatures, regenTierFeatures } from '../amrita/amritaContent'
+import { useSubscriptionPlanAction, type SubscriptionPlan } from '../subscription/useSubscriptionPlanAction'
 
 interface TeaserSectionProps {
   reducedEffects?: boolean
@@ -15,6 +16,17 @@ const featureBullet = 'mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/45'
 export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
   const backdropMedium = useLandingBackdropMedium()
   const { profile } = useLandingPerformanceProfile()
+  const { activePlan, isSubmitting, startPlanAction, statusMessage } = useSubscriptionPlanAction({
+    location: 'landing_teaser',
+  })
+
+  function getCtaLabel(plan: SubscriptionPlan, label: string) {
+    if (!isSubmitting || activePlan !== plan) {
+      return label
+    }
+
+    return plan === 'free' ? 'Opening dashboard...' : 'Opening checkout...'
+  }
 
   const regenShellShadow =
     profile === 'minimal'
@@ -90,9 +102,10 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
             <div className="mt-8 sm:mt-10">
               <ConversionButton
                 className="w-full min-h-[3rem] px-7 py-4 text-base sm:w-auto"
+                disabled={isSubmitting}
                 guestMode="signUp"
-                label="Start Free Trial"
-                to="/subscription?plan=free"
+                label={getCtaLabel('free', 'Start Free Trial')}
+                onClick={() => void startPlanAction('free')}
                 variant="ghost"
               />
             </div>
@@ -114,9 +127,10 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
               <p className="mb-3 text-sm font-bold text-white sm:text-base">Only $19.99 USD Per Month</p>
               <ConversionButton
                 className="w-full min-h-[3rem] px-7 py-4 text-base sm:w-auto"
+                disabled={isSubmitting}
                 guestMode="signIn"
-                label="Experience Full REGEN"
-                to="/subscription?plan=regen"
+                label={getCtaLabel('regen', 'Experience Full REGEN')}
+                onClick={() => void startPlanAction('regen')}
                 variant="solid"
               />
             </div>
@@ -144,14 +158,20 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
               <p className="mb-3 text-sm font-bold text-white sm:text-base">{AMRITA_PRICE_LINE}</p>
               <ConversionButton
                 className="w-full min-h-[3rem] px-7 py-4 text-base sm:w-auto"
+                disabled={isSubmitting}
                 guestMode="signIn"
-                label="Start Amrita Membership"
-                to="/subscription?plan=amrita"
+                label={getCtaLabel('amrita', 'Start Amrita Membership')}
+                onClick={() => void startPlanAction('amrita')}
                 variant="solid"
               />
             </div>
           </article>
         </div>
+        {statusMessage ? (
+          <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm leading-6 text-slate-200">
+            {statusMessage}
+          </p>
+        ) : null}
       </div>
     </Section>
   )

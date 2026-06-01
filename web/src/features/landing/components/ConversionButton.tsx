@@ -5,16 +5,20 @@ import { MarketingButton } from './MarketingButton'
 
 interface ConversionButtonProps {
   className?: string
+  disabled?: boolean
   guestMode: 'signIn' | 'signUp'
   label: string
+  onClick?: () => void
   to?: string
   variant?: 'ghost' | 'solid'
 }
 
 export function ConversionButton({
   className,
+  disabled = false,
   guestMode,
   label,
+  onClick,
   to,
   variant = 'solid',
 }: ConversionButtonProps) {
@@ -25,7 +29,13 @@ export function ConversionButton({
   return (
     <MarketingButton
       className={className}
+      disabled={disabled}
       onClick={() => {
+        if (onClick) {
+          onClick()
+          return
+        }
+
         if (to) {
           navigate(to)
           return

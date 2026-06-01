@@ -1,24 +1,14 @@
-import { useClerk } from '@clerk/react'
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Rayd8Background } from '../components/Rayd8Background'
-import {
-  AUTH_LOADING_MESSAGE,
-  CHECKOUT_FAILURE_MESSAGE,
-  SESSION_EXPIRED_MESSAGE,
-  useAuthReadiness,
-} from '../features/auth/useAuthReadiness'
 import { AmritaLaunchBanner } from '../features/amrita'
 import { AMRITA_PRICE_LINE, amritaTierFeatures, regenTierFeatures } from '../features/amrita/amritaContent'
 import { MarketingButton } from '../features/landing/components/MarketingButton'
-import { createBillingCheckout } from '../services/billing'
-import { flushStoredReferralCode } from '../services/referrals'
-import { trackUmamiEvent } from '../services/umami'
-
-const PLAN_STORAGE_KEY = 'rayd8_plan'
-const RESUME_STORAGE_KEY = 'rayd8_subscription_resume'
-
-type SubscriptionPlan = 'free' | 'regen' | 'amrita'
+import {
+  normalizeSubscriptionPlan,
+  useSubscriptionPlanAction,
+  type SubscriptionPlan,
+} from '../features/subscription/useSubscriptionPlanAction'
 
 const planCards: Array<{
   badge?: string
@@ -80,102 +70,21 @@ function PlanBulletList({ items }: { items: string[] }) {
   )
 }
 
-function normalizePlan(value: string | null): SubscriptionPlan {
-  return value === 'regen' || value === 'amrita' ? value : 'free'
-}
-
 export function SubscriptionPage() {
-  const { openSignIn, openSignUp } = useClerk()
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { getTokenSafe, status } = useAuthReadiness()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [statusMessage, setStatusMessage] = useState('')
-  const selectedPlan = normalizePlan(searchParams.get('plan'))
+  const {
+    activePlan,
+    isSubmitting,
+    startPlanAction,
+    statusMessage,
+  } = useSubscriptionPlanAction({ location: 'subscription_page' })
+  const selectedPlan = normalizeSubscriptionPlan(searchParams.get('plan'))
   const canceled = searchParams.get('canceled') === 'true'
 
   const selectedCard = useMemo(
     () => planCards.find((card) => card.plan === selectedPlan) ?? planCards[0],
     [selectedPlan],
   )
-
-  useEffect(() => {
-    if (status !== 'signed-in') {
-      return
-    }
-
-    const shouldResume = window.localStorage.getItem(RESUME_STORAGE_KEY)
-    const storedPlan = normalizePlan(window.localStorage.getItem(PLAN_STORAGE_KEY))
-
-    if (shouldResume !== 'pending') {
-      return
-    }
-
-    window.localStorage.removeItem(RESUME_STORAGE_KEY)
-    window.localStorage.removeItem(PLAN_STORAGE_KEY)
-    void handlePlanAction(storedPlan)
-  }, [status])
-
-  async function handlePlanAction(plan: SubscriptionPlan) {
-    setStatusMessage('')
-
-    if (status === 'loading') {
-      setStatusMessage(AUTH_LOADING_MESSAGE)
-      return
-    }
-
-    if (status !== 'signed-in') {
-      window.localStorage.setItem(PLAN_STORAGE_KEY, plan)
-      window.localStorage.setItem(RESUME_STORAGE_KEY, 'pending')
-
-      if (plan === 'free') {
-        void openSignUp()
-        return
-      }
-
-      void openSignIn()
-      return
-    }
-
-    if (plan === 'free') {
-      navigate('/dashboard')
-      return
-    }
-
-    setIsSubmitting(true)
-
-    try {
-      const tokenResult = await getTokenSafe()
-
-      if (!tokenResult.token) {
-        setStatusMessage(
-          tokenResult.error === 'loading' ? AUTH_LOADING_MESSAGE : SESSION_EXPIRED_MESSAGE,
-        )
-        return
-      }
-
-      await flushStoredReferralCode(tokenResult.token).catch(() => null)
-
-      trackUmamiEvent('upgrade_click', {
-        location: 'subscription_page',
-        plan,
-      })
-      if (plan === 'amrita') {
-        trackUmamiEvent('amrita_checkout_started', {
-          location: 'subscription_page',
-          plan,
-        })
-      }
-      const response = await createBillingCheckout(plan, tokenResult.token)
-      window.location.assign(response.checkoutUrl)
-    } catch (error) {
-      setStatusMessage(
-        error instanceof Error ? error.message : CHECKOUT_FAILURE_MESSAGE,
-      )
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
 
   function selectPlan(plan: SubscriptionPlan) {
     const nextSearchParams = new URLSearchParams(searchParams)
@@ -318,11 +227,11 @@ export function SubscriptionPage() {
                         disabled={isSubmitting}
                         onClick={() => {
                           selectPlan(card.plan)
-                          void handlePlanAction(card.plan)
+                          void startPlanAction(card.plan)
                         }}
                         variant={card.plan === 'free' ? 'ghost' : 'solid'}
                       >
-                        {isSubmitting && selectedPlan === card.plan ? 'Working...' : card.ctaLabel}
+                        {isSubmitting && activePlan === card.plan ? 'Working...' : card.ctaLabel}
                       </MarketingButton>
                     </div>
                   </article>
@@ -342,7 +251,7 @@ export function SubscriptionPage() {
               <MarketingButton
                 className="min-w-[15rem]"
                 disabled={primaryButtonDisabled}
-                onClick={() => void handlePlanAction(selectedPlan)}
+                onClick={() => void startPlanAction(selectedPlan)}
               >
                 {isSubmitting
                   ? 'Working...'
