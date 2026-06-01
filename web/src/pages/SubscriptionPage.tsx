@@ -9,7 +9,7 @@ import {
   useAuthReadiness,
 } from '../features/auth/useAuthReadiness'
 import { AmritaLaunchBanner } from '../features/amrita'
-import { amritaTierFeatures, regenTierFeatures } from '../features/amrita/amritaContent'
+import { AMRITA_PRICE_LINE, amritaTierFeatures, regenTierFeatures } from '../features/amrita/amritaContent'
 import { MarketingButton } from '../features/landing/components/MarketingButton'
 import { createBillingCheckout } from '../services/billing'
 import { flushStoredReferralCode } from '../services/referrals'
@@ -58,7 +58,7 @@ const planCards: Array<{
     badge: 'Highest Tier',
     bullets: [...amritaTierFeatures],
     ctaLabel: 'Start Amrita Membership',
-    priceLine: '$29.99 CAD/month',
+    priceLine: AMRITA_PRICE_LINE,
     supportingLine: 'Everything in REGEN, plus unlimited HAMSA and AMRITA.',
     subtext: 'Flagship access to the complete RAYD8 ecosystem',
   },

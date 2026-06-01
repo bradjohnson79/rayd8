@@ -1,5 +1,6 @@
 export const AMRITA_CARD_IMAGE = '/amrita_app/images/RAYD8_Amrita.png'
 export const AMRITA_LAUNCH_BANNER_END = '2026-06-30T23:59:59-07:00'
+export const AMRITA_PRICE_LINE = 'Only $29.99 USD Per Month'
 
 export const amritaMembershipBenefits = [
   '500 Monthly Hours',

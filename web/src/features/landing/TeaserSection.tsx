@@ -2,7 +2,7 @@ import { useLandingPerformanceProfile } from './useLandingPerformanceProfile'
 import { useLandingBackdropMedium } from './landingBackdropHooks'
 import { ConversionButton } from './components/ConversionButton'
 import { Section } from './components/Section'
-import { amritaTierFeatures, regenTierFeatures } from '../amrita/amritaContent'
+import { AMRITA_PRICE_LINE, amritaTierFeatures, regenTierFeatures } from '../amrita/amritaContent'
 
 interface TeaserSectionProps {
   reducedEffects?: boolean
@@ -141,7 +141,7 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
               ))}
             </ul>
             <div className="mt-8 sm:mt-10">
-              <p className="mb-3 text-sm font-bold text-white sm:text-base">$29.99 CAD/month</p>
+              <p className="mb-3 text-sm font-bold text-white sm:text-base">{AMRITA_PRICE_LINE}</p>
               <ConversionButton
                 className="w-full min-h-[3rem] px-7 py-4 text-base sm:w-auto"
                 guestMode="signIn"
