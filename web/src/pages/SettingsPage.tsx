@@ -387,7 +387,7 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <section className="space-y-6">
         <div
           className="rounded-[2rem] border border-white/12 bg-white/[0.045] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.2)] backdrop-blur-2xl"
           ref={clerkCardRef}
@@ -423,16 +423,18 @@ export function SettingsPage() {
 
           <div className="mt-6">
             {clerkEnabled && user.isAuthenticated ? (
-              <div className="overflow-hidden rounded-[1.6rem] border border-white/10 bg-white">
-                <UserProfile
-                  appearance={{
-                    elements: {
-                      card: 'shadow-none',
-                      pageScrollBox: 'bg-white',
-                      rootBox: 'w-full',
-                    },
-                  }}
-                />
+              <div className="max-h-[min(78vh,56rem)] overflow-auto rounded-[1.6rem] border border-white/10 bg-white">
+                <div className="min-w-[42rem]">
+                  <UserProfile
+                    appearance={{
+                      elements: {
+                        card: 'w-full max-w-none shadow-none',
+                        pageScrollBox: 'max-h-[min(72vh,50rem)] overflow-auto bg-white',
+                        rootBox: 'w-full',
+                      },
+                    }}
+                  />
+                </div>
               </div>
             ) : (
               <div className="rounded-[1.6rem] border border-amber-300/20 bg-amber-300/10 p-6 text-sm leading-7 text-amber-100">
