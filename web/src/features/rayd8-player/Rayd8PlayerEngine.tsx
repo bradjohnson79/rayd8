@@ -15,6 +15,7 @@ import { ConfirmModal } from '../../components/ConfirmModal'
 import { GuideModal } from './GuideModal'
 import { PlayerPerformanceNotice } from './PlayerPerformanceNotice'
 import {
+  InteractionRequiredOverlay,
   PlaybackHealthFallbackOverlay,
   PreloadOverlay,
   UsageWarningOverlay,
@@ -774,6 +775,7 @@ export function Rayd8PlayerEngine({
   const isPseudoFullscreen = isAppShellFullscreen
   const isPreloading = playbackPresentation.legacyPlaybackState === 'preloading'
   const isRecovering = playbackPresentation.legacyPlaybackState === 'recovering'
+  const interactionRequired = playbackPresentation.interactionOverlayVisible
   const isVideoLoading = isPreloading || isRecovering
   const topChromeInset = smallScreenViewport ? 12 : 16
   const bottomChromeInset = smallScreenViewport ? 20 : 24
@@ -1461,9 +1463,9 @@ export function Rayd8PlayerEngine({
         setCurrentVideoSignedUrl(playback.signed_url)
 
         configureVideoElement(video)
-        video.muted = singleAvAudioActive ? audioMutedRef.current : true
-        video.defaultMuted = singleAvAudioActive ? audioMutedRef.current : true
-        video.volume = singleAvAudioActive && !audioMutedRef.current ? audioVolumeRef.current : 0
+        video.muted = true
+        video.defaultMuted = true
+        video.volume = 0
         freezeCounterRef.current = 0
         lastObservedVideoTimeRef.current = null
         systemPausedRef.current = true
@@ -1613,6 +1615,12 @@ export function Rayd8PlayerEngine({
           systemPausedRef.current = false
           setPreloadPercent(100)
           playbackAuthority?.dispatch({ type: 'lifecycle_play_attempt_finished', ok: started.ok })
+
+          if (started.ok && singleAvAudioActive) {
+            video.muted = audioMutedRef.current
+            video.defaultMuted = audioMutedRef.current
+            video.volume = audioMutedRef.current ? 0 : audioVolumeRef.current
+          }
 
           if (!started.ok) {
             reportPlaybackStartupFailure('play_failed')
@@ -1932,6 +1940,56 @@ export function Rayd8PlayerEngine({
     })
   }, [experience, isAdminPreview, onClose, sessionConfig.videoMode, sessionType, startSession])
 
+  const handleResumePlayback = useCallback(() => {
+    const video = primaryVideoRef.current
+
+    logExpressPlaybackDebug('interaction_resume_tapped', {
+      currentTime: video?.currentTime ?? null,
+      readyState: video?.readyState ?? null,
+      videoWidth: video?.videoWidth ?? null,
+    })
+
+    systemPausedRef.current = false
+
+    void (async () => {
+      if (video) {
+        video.muted = true
+        video.defaultMuted = true
+        video.volume = 0
+      }
+
+      try {
+        await video?.play()
+        playbackAuthority?.dispatch({ type: 'lifecycle_play_attempt_finished', ok: true })
+        logExpressPlaybackDebug('interaction_resume_success', {
+          currentTime: video?.currentTime ?? null,
+          readyState: video?.readyState ?? null,
+          videoWidth: video?.videoWidth ?? null,
+        })
+
+        if (audioTrack !== 'none' && !singleAvAudioActiveRef.current) {
+          void resumeAudioPlayback()
+        }
+
+        return
+      } catch (error) {
+        logExpressPlaybackDebug('interaction_resume_direct_play_failed', {
+          message: error instanceof Error ? error.message : String(error),
+          name: error instanceof Error ? error.name : 'UnknownError',
+          readyState: video?.readyState ?? null,
+          videoWidth: video?.videoWidth ?? null,
+        })
+      }
+
+      const resumed = await resumeMediaWithRetry(video)
+      playbackAuthority?.dispatch({ type: 'lifecycle_play_attempt_finished', ok: resumed })
+
+      if (resumed && audioTrack !== 'none' && !singleAvAudioActiveRef.current) {
+        void resumeAudioPlayback()
+      }
+    })()
+  }, [audioTrack, playbackAuthority, resumeAudioPlayback, resumeMediaWithRetry])
+
   const setVideoMode = useCallback((videoMode: FreeTrialVideoMode) => {
     setSessionConfig((currentValue) => ({ ...currentValue, videoMode }))
     setActivePanel(null)
@@ -1980,6 +2038,7 @@ export function Rayd8PlayerEngine({
     chromeVisible ||
     activePanel !== null ||
     isVideoLoading ||
+    interactionRequired ||
     exitPromptOpen
   const performancePresentationMode = playbackPresentationMode === 'performance'
 
@@ -2154,6 +2213,13 @@ export function Rayd8PlayerEngine({
         ) : null}
 
         {isPreloading ? <PreloadOverlay preloadPercent={preloadPercent} /> : null}
+
+        {interactionRequired && !activeSoftDenialState ? (
+          <InteractionRequiredOverlay
+            onExit={onClose}
+            onResume={handleResumePlayback}
+          />
+        ) : null}
 
         {playbackHealthFallbackVisible && !activeSoftDenialState ? (
           <PlaybackHealthFallbackOverlay
