@@ -846,7 +846,7 @@ function MemberDashboardLaunchpad({
         <div className="relative z-20 mx-auto max-w-7xl px-4 pt-[calc(6rem+env(safe-area-inset-top))] sm:px-6 sm:pt-[calc(7rem+env(safe-area-inset-top))] lg:px-8">
           <div className="grid gap-5 sm:gap-6">
             <Rayd8ExpressInstallCard />
-            {user?.plan === 'free' || user?.plan === 'regen' ? (
+            {user?.plan === 'free' ? (
               <AmritaLaunchBanner location="member_dashboard" />
             ) : null}
             {isAmritaMember ? <AmritaMemberBadge /> : null}
@@ -958,7 +958,7 @@ function MemberDashboardLaunchpad({
       ) : null}
       {adminExperience ? null : isAmritaMember ? (
         <AmritaDashboardSection onOpen={handleAmritaMainMenuOpen} />
-      ) : (
+      ) : user?.plan === 'regen' ? null : (
         <AmritaComingSoonSection onUpgrade={handleAmritaUpgrade} />
       )}
       <ConfirmModal

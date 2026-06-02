@@ -56,6 +56,17 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
       }
     }
 
+    if (
+      message.includes('already has an active') ||
+      message.includes('already includes')
+    ) {
+      return {
+        code: 'SUBSCRIPTION_ALREADY_ACTIVE',
+        error: message,
+        statusCode: 409,
+      }
+    }
+
     if (message.includes('does not belong to the authenticated user')) {
       return {
         code: 'CHECKOUT_SESSION_MISMATCH',
@@ -119,14 +130,20 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
       })
     }
 
-    const affiliateMetadata = await getCheckoutAffiliateMetadata(user.id)
-    const session = await createCheckoutSession({
-      userId: user.id,
-      email: user.email,
-      plan,
-      referralCode: affiliateMetadata?.referralCode ?? null,
-      referrerUserId: affiliateMetadata?.referrerUserId ?? null,
-    })
+    let session
+
+    try {
+      const affiliateMetadata = await getCheckoutAffiliateMetadata(user.id)
+      session = await createCheckoutSession({
+        userId: user.id,
+        email: user.email,
+        plan,
+        referralCode: affiliateMetadata?.referralCode ?? null,
+        referrerUserId: affiliateMetadata?.referrerUserId ?? null,
+      })
+    } catch (error) {
+      return respondWithBillingError(reply, error)
+    }
 
     if (!session?.url) {
       return reply.code(503).send({
