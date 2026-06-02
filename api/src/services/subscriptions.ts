@@ -31,6 +31,7 @@ const MANAGED_PLAN_RANK: Record<ManagedPlan, number> = {
   regen: 2,
   amrita: 3,
 }
+const MANAGED_PLAN_UPGRADE_CHECKOUT_KIND = 'managed_plan_upgrade'
 export type CancellationReason =
   | 'too_expensive'
   | 'not_using_enough'
@@ -75,6 +76,54 @@ function isManageableSubscriptionStatus(status: string) {
 
 function getPlanLabel(plan: ManagedPlan) {
   return plan === 'amrita' ? 'AMRITA' : 'REGEN'
+}
+
+export function getManagedPlanUpgradeAmountCents(input: {
+  currentAmountCents: number | null
+  targetAmountCents: number | null
+}) {
+  if (typeof input.currentAmountCents !== 'number' || typeof input.targetAmountCents !== 'number') {
+    throw new Error('Stripe prices must use fixed monthly USD amounts before upgrades can be calculated.')
+  }
+
+  const amountCents = input.targetAmountCents - input.currentAmountCents
+
+  if (amountCents <= 0) {
+    throw new Error('The requested plan is not a paid upgrade from the current subscription.')
+  }
+
+  return amountCents
+}
+
+async function getPlanPrice(plan: ManagedPlan) {
+  const priceId = getPriceIdForPlan(plan)
+
+  if (!stripeClient || !priceId) {
+    throw new Error('Stripe is not configured. Add the Stripe secret key and price IDs.')
+  }
+
+  const price = await stripeClient.prices.retrieve(priceId)
+
+  if (price.currency !== 'usd' || price.recurring?.interval !== 'month') {
+    throw new Error('Managed subscription upgrades require monthly USD Stripe prices.')
+  }
+
+  return price
+}
+
+async function getManagedPlanUpgradeAmountForStripe(input: {
+  currentPlan: ManagedPlan
+  targetPlan: ManagedPlan
+}) {
+  const [currentPrice, targetPrice] = await Promise.all([
+    getPlanPrice(input.currentPlan),
+    getPlanPrice(input.targetPlan),
+  ])
+
+  return getManagedPlanUpgradeAmountCents({
+    currentAmountCents: currentPrice.unit_amount,
+    targetAmountCents: targetPrice.unit_amount,
+  })
 }
 
 export async function createAffiliateCommissionForSubscriptionCreate(input: {
@@ -226,6 +275,54 @@ export async function createCheckoutSession(input: {
       throw new Error(
         `This account already includes ${getPlanLabel(existingPlan)} access. A lower-tier subscription cannot be purchased while it is active.`,
       )
+    }
+
+    if (existingRank < requestedRank) {
+      const upgradeAmountCents = await getManagedPlanUpgradeAmountForStripe({
+        currentPlan: existingPlan,
+        targetPlan: input.plan,
+      })
+      const session = await stripeClient.checkout.sessions.create({
+        mode: 'payment',
+        allow_promotion_codes: false,
+        success_url: `${env.APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${env.APP_URL}/subscription?plan=${input.plan}&canceled=true`,
+        customer: existingSubscription.stripeCustomerId,
+        client_reference_id: input.userId,
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `RAYD8 ${getPlanLabel(input.plan)} upgrade`,
+                description: `${getPlanLabel(existingPlan)} to ${getPlanLabel(input.plan)} monthly subscription upgrade`,
+              },
+              unit_amount: upgradeAmountCents,
+            },
+          },
+        ],
+        metadata: {
+          kind: MANAGED_PLAN_UPGRADE_CHECKOUT_KIND,
+          fromPlan: existingPlan,
+          plan: input.plan,
+          planType: input.planType ?? existingSubscription.planType ?? 'single',
+          stripeSubscriptionId: existingSubscription.stripeSubscriptionId,
+          userId: input.userId,
+          upgradeAmountCents: String(upgradeAmountCents),
+        },
+        payment_intent_data: {
+          metadata: {
+            kind: MANAGED_PLAN_UPGRADE_CHECKOUT_KIND,
+            fromPlan: existingPlan,
+            plan: input.plan,
+            stripeSubscriptionId: existingSubscription.stripeSubscriptionId,
+            userId: input.userId,
+          },
+        },
+      })
+
+      return session
     }
   }
 
@@ -702,6 +799,34 @@ function getCheckoutSessionContext(session: Stripe.Checkout.Session) {
   }
 }
 
+function getCheckoutSessionUpgradeContext(session: Stripe.Checkout.Session) {
+  const metadata = session.metadata ?? {}
+  const userId = session.client_reference_id ?? metadata.userId
+  const plan = parseManagedPlan(metadata.plan)
+  const fromPlan = parseManagedPlan(metadata.fromPlan)
+  const planType = normalizePlanType(metadata.planType)
+
+  if (
+    metadata.kind !== MANAGED_PLAN_UPGRADE_CHECKOUT_KIND ||
+    !userId ||
+    !plan ||
+    !fromPlan ||
+    !metadata.stripeSubscriptionId ||
+    !session.customer
+  ) {
+    return null
+  }
+
+  return {
+    customerId: toStripeResourceId(session.customer),
+    fromPlan,
+    plan,
+    planType,
+    stripeSubscriptionId: metadata.stripeSubscriptionId,
+    userId,
+  }
+}
+
 function getCheckoutSessionCustomerEmail(session: Stripe.Checkout.Session) {
   const customerRecord =
     typeof session.customer === 'string' ? null : asRecord(session.customer)
@@ -855,6 +980,80 @@ async function activateCheckoutSession(session: Stripe.Checkout.Session) {
   return {
     plan: sessionContext.plan,
     userId: sessionContext.userId,
+  }
+}
+
+async function activateManagedPlanUpgradeCheckoutSession(session: Stripe.Checkout.Session) {
+  const upgradeContext = getCheckoutSessionUpgradeContext(session)
+
+  if (!upgradeContext) {
+    return null
+  }
+
+  assertPaidCheckoutSession(session)
+
+  if (!stripeClient) {
+    throw new Error('Stripe is not configured. Add the Stripe secret key and price IDs.')
+  }
+
+  const targetPriceId = getPriceIdForPlan(upgradeContext.plan)
+
+  if (!targetPriceId) {
+    throw new Error('Stripe is not configured. Add the Stripe secret key and price IDs.')
+  }
+
+  const currentSubscription = await stripeClient.subscriptions.retrieve(
+    upgradeContext.stripeSubscriptionId,
+    {
+      expand: ['items.data.price'],
+    },
+  )
+  const subscriptionItem =
+    currentSubscription.items.data.find((item) => item.price.id === getPriceIdForPlan(upgradeContext.fromPlan)) ??
+    currentSubscription.items.data[0]
+
+  if (!subscriptionItem) {
+    throw new Error('No active subscription item was found for this upgrade.')
+  }
+
+  const updatedSubscription = await stripeClient.subscriptions.update(
+    currentSubscription.id,
+    {
+      cancel_at_period_end: false,
+      items: [
+        {
+          id: subscriptionItem.id,
+          price: targetPriceId,
+        },
+      ],
+      metadata: {
+        ...(currentSubscription.metadata ?? {}),
+        plan: upgradeContext.plan,
+        planType: upgradeContext.planType,
+        userId: upgradeContext.userId,
+      },
+      proration_behavior: 'none',
+    },
+  )
+  const currentPeriodStart = fromUnixTimestamp(updatedSubscription.items.data[0]?.current_period_start)
+  const currentPeriodEnd = fromUnixTimestamp(updatedSubscription.items.data[0]?.current_period_end)
+
+  await upsertUserSubscription({
+    clerkUserId: upgradeContext.userId,
+    stripeCustomerId: String(updatedSubscription.customer),
+    stripeSubscriptionId: updatedSubscription.id,
+    status: updatedSubscription.status,
+    plan: upgradeContext.plan,
+    planType: upgradeContext.planType,
+    cancelAtPeriodEnd: Boolean(updatedSubscription.cancel_at_period_end),
+    currentPeriodStart,
+    currentPeriodEnd,
+  })
+  await markCheckoutSessionProcessed(session.id, upgradeContext.userId)
+
+  return {
+    plan: upgradeContext.plan,
+    userId: upgradeContext.userId,
   }
 }
 
@@ -1116,6 +1315,12 @@ async function handleCheckoutCompleted(event: Stripe.CheckoutSessionCompletedEve
     })
   }
   await recordCheckoutPromoCodeRedemption(session)
+
+  if (getCheckoutSessionUpgradeContext(session)) {
+    await activateManagedPlanUpgradeCheckoutSession(session)
+    return
+  }
+
   await activateCheckoutSession(session)
 }
 
@@ -1567,13 +1772,16 @@ export async function verifyCheckoutSession(input: {
   const checkoutSession = await stripeClient.checkout.sessions.retrieve(input.sessionId, {
     expand: ['customer', 'subscription'],
   })
+  const upgradeContext = getCheckoutSessionUpgradeContext(checkoutSession)
   const sessionContext = getCheckoutSessionContext(checkoutSession)
 
-  if (!sessionContext) {
+  if (!sessionContext && !upgradeContext) {
     throw new Error('Checkout session is missing subscription details.')
   }
 
-  if (sessionContext.userId !== input.userId) {
+  const checkoutUserId = upgradeContext?.userId ?? sessionContext?.userId
+
+  if (checkoutUserId !== input.userId) {
     throw new Error('Checkout session does not belong to the authenticated user.')
   }
 
@@ -1582,14 +1790,19 @@ export async function verifyCheckoutSession(input: {
   const alreadyProcessed = await hasProcessedCheckoutSession(input.sessionId)
 
   if (!alreadyProcessed) {
-    await activateCheckoutSession(checkoutSession)
+    if (upgradeContext) {
+      await activateManagedPlanUpgradeCheckoutSession(checkoutSession)
+    } else {
+      await activateCheckoutSession(checkoutSession)
+    }
   } else {
-    await syncManagedPlanForUser(sessionContext.userId)
+    await syncManagedPlanForUser(checkoutUserId)
   }
+  const plan = upgradeContext?.plan ?? sessionContext?.plan
 
   return {
     alreadyProcessed,
-    plan: sessionContext.plan,
+    plan: plan ?? 'regen',
     ...getRewardfulConversionDetails(checkoutSession),
     status: 'active' as const,
   }

@@ -139,4 +139,26 @@ describe('managed subscription upgrade decisions', () => {
     expect(isPaidCheckoutSession({ payment_status: 'unpaid', status: 'complete' } as never)).toBe(false)
     expect(isPaidCheckoutSession({ payment_status: 'paid', status: 'complete' } as never)).toBe(true)
   })
+
+  it('calculates REGEN to AMRITA upgrade as the fixed monthly price difference', async () => {
+    const { getManagedPlanUpgradeAmountCents } = await importSubscriptionHelpers()
+
+    expect(
+      getManagedPlanUpgradeAmountCents({
+        currentAmountCents: 1999,
+        targetAmountCents: 2999,
+      }),
+    ).toBe(1000)
+  })
+
+  it('rejects non-upgrade price differences', async () => {
+    const { getManagedPlanUpgradeAmountCents } = await importSubscriptionHelpers()
+
+    expect(() =>
+      getManagedPlanUpgradeAmountCents({
+        currentAmountCents: 2999,
+        targetAmountCents: 1999,
+      }),
+    ).toThrow('not a paid upgrade')
+  })
 })
