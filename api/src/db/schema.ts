@@ -111,7 +111,7 @@ export const subscriptions = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex('subscriptions_customer_idx').on(table.stripeCustomerId),
+    index('subscriptions_customer_idx').on(table.stripeCustomerId),
     uniqueIndex('subscriptions_subscription_idx').on(table.stripeSubscriptionId),
   ],
 )

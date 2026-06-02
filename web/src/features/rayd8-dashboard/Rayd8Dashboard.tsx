@@ -8,7 +8,7 @@ import {
   type ReactNode
 } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import type { Experience } from '../../app/types'
+import type { Experience, PlanTier } from '../../app/types'
 import { ConfirmModal } from '../../components/ConfirmModal'
 import { GuideModal } from '../rayd8-player/GuideModal'
 import { logExpressPlaybackDebug } from '../rayd8-player/expressPlaybackDebug'
@@ -200,7 +200,12 @@ function MemberDashboardLaunchpad({
   const amritaDashboardTrackedRef = useRef(false)
   const usageHydratedFromMeRef = useRef(false)
   const adminAccessActive = adminAccessMode && user?.role === 'admin'
-  const isAmritaMember = !adminAccessActive && !isPreviewMode && user?.plan === 'amrita'
+  const resolvedMembershipPlan: PlanTier = isPreviewMode
+    ? effectivePlan
+    : usageSnapshot?.plan ?? user?.plan ?? effectivePlan
+  const resolvedPlan = normalizePlaybackPlan(resolvedMembershipPlan)
+  const displayUser = user ? { ...user, plan: resolvedMembershipPlan } : user
+  const isAmritaMember = !adminAccessActive && !isPreviewMode && resolvedMembershipPlan === 'amrita'
 
   useEffect(() => {
     if (authStatus !== 'signed-in' || adminAccessActive) {
@@ -351,15 +356,15 @@ function MemberDashboardLaunchpad({
     amritaDashboardTrackedRef.current = true
     trackUmamiEvent('amrita_dashboard_opened', {
       location: 'member_dashboard',
-      plan: user?.plan,
+      plan: resolvedMembershipPlan,
     })
-  }, [isAmritaMember, user?.plan])
+  }, [isAmritaMember, resolvedMembershipPlan])
 
   const expansionAccess = experienceAccess.expansion ?? usageSnapshot?.access.expansion ?? null
   const premiumAccess = experienceAccess.premium ?? usageSnapshot?.access.premium ?? null
   const regenAccess = experienceAccess.regen ?? usageSnapshot?.access.regen ?? null
-  const previewPremiumAllowed = effectivePlan === 'regen'
-  const previewRegenAllowed = effectivePlan === 'regen'
+  const previewPremiumAllowed = resolvedPlan === 'regen'
+  const previewRegenAllowed = resolvedPlan === 'regen'
   const expansionAllowed = adminAccessActive || isPreviewMode ? true : Boolean(expansionAccess?.allowed ?? true)
   const premiumAllowed = adminAccessActive
     ? true
@@ -373,14 +378,17 @@ function MemberDashboardLaunchpad({
       : Boolean(regenAccess?.allowed)
   const premiumTrialAvailable =
     !adminAccessActive &&
-    effectivePlan === 'free' &&
+    resolvedPlan === 'free' &&
     (isPreviewMode ? true : (premiumAccess?.remainingSeconds ?? 3600) >= 30)
   const regenTrialAvailable =
     !adminAccessActive &&
-    effectivePlan === 'free' &&
+    resolvedPlan === 'free' &&
     (isPreviewMode ? true : (regenAccess?.remainingSeconds ?? 3600) >= 30)
-  const hamsaEntitled = !adminAccessActive && !isPreviewMode && (user?.plan === 'regen' || user?.plan === 'amrita')
-  const hamsaSectionVisible = !adminExperience && (hamsaEntitled || (isPreviewMode && effectivePlan === 'regen'))
+  const hamsaEntitled =
+    !adminAccessActive &&
+    !isPreviewMode &&
+    (resolvedMembershipPlan === 'regen' || resolvedMembershipPlan === 'amrita')
+  const hamsaSectionVisible = !adminExperience && (hamsaEntitled || (isPreviewMode && resolvedPlan === 'regen'))
   const expansionCtaLabel =
     adminAccessActive
       ? 'Start Admin Session'
@@ -549,7 +557,7 @@ function MemberDashboardLaunchpad({
         setExperiencePrompts((currentValue) => ({
           ...currentValue,
           expansion:
-            effectivePlan === 'free'
+            resolvedPlan === 'free'
               ? 'You have used your Expansion preview time. Upgrade to continue.'
               : 'Expansion access could not be verified right now.',
         }))
@@ -584,7 +592,7 @@ function MemberDashboardLaunchpad({
   }, [
     adminAccessActive,
     authStatus,
-    effectivePlan,
+    resolvedPlan,
     getTokenSafe,
     maybeStartGuideCheckedSession,
     startAdminSession,
@@ -811,12 +819,12 @@ function MemberDashboardLaunchpad({
     }
 
     trackUmamiEvent('hamsa_session_started', {
-      plan: effectivePlan,
+      plan: resolvedMembershipPlan,
       source: 'member_dashboard',
     })
     logExpressPlaybackDebug('session_launch', { experience: 'hamsa', source: 'member_dashboard' })
     runAfterExpressSidebarClose(() => setHamsaSessionOpen(true))
-  }, [effectivePlan, hamsaEntitled, runAfterExpressSidebarClose])
+  }, [resolvedMembershipPlan, hamsaEntitled, runAfterExpressSidebarClose])
 
   const handleAmritaMainMenuOpen = useCallback(() => {
     if (!isAmritaMember) {
@@ -825,32 +833,32 @@ function MemberDashboardLaunchpad({
 
     trackUmamiEvent('amrita_main_menu_opened', {
       location: 'dashboard_card',
-      plan: user?.plan,
+      plan: resolvedMembershipPlan,
     })
     runAfterExpressSidebarClose(() => navigate('/amrita-dashboard'))
-  }, [isAmritaMember, navigate, runAfterExpressSidebarClose, user?.plan])
+  }, [isAmritaMember, navigate, runAfterExpressSidebarClose, resolvedMembershipPlan])
 
   const handleAmritaUpgrade = useCallback(() => {
     trackUmamiEvent('amrita_upgrade_clicked', {
-      location: user?.plan === 'regen' ? 'regen_dashboard_upgrade_card' : 'dashboard_amrita_section',
-      plan: user?.plan ?? effectivePlan,
+      location: resolvedMembershipPlan === 'regen' ? 'regen_dashboard_upgrade_card' : 'dashboard_amrita_section',
+      plan: resolvedMembershipPlan,
     })
     void navigateToUpgrade({ targetPath: '/subscription?plan=amrita' })
-  }, [effectivePlan, navigateToUpgrade, user?.plan])
+  }, [resolvedMembershipPlan, navigateToUpgrade])
 
   return (
     <div className={immersiveDashboardOutletScrollClassName} id="member-dashboard-scroll">
-      <MemberAccountCluster effectivePlan={effectivePlan} user={user} />
+      <MemberAccountCluster effectivePlan={resolvedPlan} user={displayUser} />
       {adminAccessActive ? <AdminAccessModeBadge label={adminModeLabel} /> : null}
       {!adminAccessActive && !isPreviewMode ? (
         <div className="relative z-20 mx-auto max-w-7xl px-4 pt-[calc(6rem+env(safe-area-inset-top))] sm:px-6 sm:pt-[calc(7rem+env(safe-area-inset-top))] lg:px-8">
           <div className="grid gap-5 sm:gap-6">
             <Rayd8ExpressInstallCard />
-            {user?.plan === 'free' ? (
+            {resolvedMembershipPlan === 'free' ? (
               <AmritaLaunchBanner location="member_dashboard" />
             ) : null}
             {isAmritaMember ? <AmritaMemberBadge /> : null}
-            {user?.plan === 'regen' ? <AmritaUpgradeCard onUpgrade={handleAmritaUpgrade} /> : null}
+            {resolvedMembershipPlan === 'regen' ? <AmritaUpgradeCard onUpgrade={handleAmritaUpgrade} /> : null}
             {trialStatus?.plan === 'free_trial' ? (
               <div
                 className={[
@@ -917,7 +925,7 @@ function MemberDashboardLaunchpad({
               access={premiumAccess}
               adminAccessMode={adminAccessActive}
               ctaLabel={premiumCtaLabel}
-              effectivePlan={effectivePlan}
+              effectivePlan={resolvedPlan}
               isChecking={
                 adminAccessActive || isPreviewMode
                   ? false
@@ -936,7 +944,7 @@ function MemberDashboardLaunchpad({
             access={regenAccess}
             adminAccessMode={adminAccessActive}
             ctaLabel={regenCtaLabel}
-            effectivePlan={effectivePlan}
+            effectivePlan={resolvedPlan}
             isChecking={
               adminAccessActive || isPreviewMode
                 ? false
@@ -958,7 +966,7 @@ function MemberDashboardLaunchpad({
       ) : null}
       {adminExperience ? null : isAmritaMember ? (
         <AmritaDashboardSection onOpen={handleAmritaMainMenuOpen} />
-      ) : user?.plan === 'regen' ? null : (
+      ) : resolvedMembershipPlan === 'regen' ? null : (
         <AmritaComingSoonSection onUpgrade={handleAmritaUpgrade} />
       )}
       <ConfirmModal

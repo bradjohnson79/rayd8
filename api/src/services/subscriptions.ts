@@ -22,6 +22,7 @@ const stripeClient = env.STRIPE_SECRET_KEY
     })
   : null
 
+type AppDatabase = NonNullable<typeof db>
 type ManagedPlan = 'regen' | 'amrita'
 type ManagedPlanType = 'single' | 'multi'
 type PersistedPlan = 'free' | 'premium' | 'regen' | 'amrita'
@@ -320,6 +321,10 @@ async function markEventProcessed(stripeEventId: string, type: string) {
   await db.insert(stripeEvents).values({ stripeEventId, type }).onConflictDoNothing()
 }
 
+function getInvoicePaymentSideEffectKey(invoiceId: string) {
+  return `invoice:${invoiceId}:payment_succeeded`
+}
+
 async function upsertSubscriptionRecord(input: {
   cancelAtPeriodEnd: boolean
   customerId: string
@@ -330,12 +335,12 @@ async function upsertSubscriptionRecord(input: {
   status: string
   stripeSubscriptionId: string
   userId: string
-}) {
-  if (!db) {
+}, database = db) {
+  if (!database) {
     return
   }
 
-  await db
+  await database
     .insert(subscriptions)
     .values({
       userId: input.userId,
@@ -381,12 +386,12 @@ async function updateClerkPlan(userId: string, plan: PersistedPlan) {
   }
 }
 
-async function findSubscriptionContext(stripeSubscriptionId: string) {
-  if (!db) {
+async function findSubscriptionContext(stripeSubscriptionId: string, database = db) {
+  if (!database) {
     return null
   }
 
-  const [subscriptionRecord] = await db
+  const [subscriptionRecord] = await database
     .select()
     .from(subscriptions)
     .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId))
@@ -395,12 +400,12 @@ async function findSubscriptionContext(stripeSubscriptionId: string) {
   return subscriptionRecord ?? null
 }
 
-async function findManageableSubscriptionForUser(userId: string) {
-  if (!db) {
+async function findManageableSubscriptionForUser(userId: string, database = db) {
+  if (!database) {
     return null
   }
 
-  const subscriptionRecords = await db
+  const subscriptionRecords = await database
     .select()
     .from(subscriptions)
     .where(
@@ -414,34 +419,12 @@ async function findManageableSubscriptionForUser(userId: string) {
   return resolveHighestManagedSubscription(subscriptionRecords) ?? null
 }
 
-async function findIncomingManagedSubscriptionConflict(input: {
-  plan: ManagedPlan
-  status: string
-  stripeSubscriptionId: string
-  userId: string
-}) {
-  if (!isManageableSubscriptionStatus(input.status)) {
-    return null
-  }
-
-  const existingSubscription = await findManageableSubscriptionForUser(input.userId)
-
-  if (!existingSubscription || existingSubscription.stripeSubscriptionId === input.stripeSubscriptionId) {
-    return null
-  }
-
-  const existingRank = MANAGED_PLAN_RANK[existingSubscription.plan]
-  const incomingRank = MANAGED_PLAN_RANK[input.plan]
-
-  return existingRank >= incomingRank ? existingSubscription : null
-}
-
-async function findManageableSubscriptionsForUser(userId: string) {
-  if (!db) {
+async function findManageableSubscriptionsForUser(userId: string, database = db) {
+  if (!database) {
     return []
   }
 
-  return db
+  return database
     .select()
     .from(subscriptions)
     .where(
@@ -470,54 +453,100 @@ function resolveHighestManagedSubscription<T extends { currentPeriodEnd: Date | 
     })[0] ?? null
 }
 
-export async function syncManagedPlanForUser(userId: string) {
-  if (!db) {
+export function resolveManagedSubscriptionActivation(input: {
+  existingSubscriptions: Array<{
+    currentPeriodEnd: Date | null
+    plan: PersistedPlan
+    status: string
+    stripeSubscriptionId: string
+  }>
+  incomingSubscription: {
+    plan: ManagedPlan
+    status: string
+    stripeSubscriptionId: string
+  }
+}) {
+  if (!isManageableSubscriptionStatus(input.incomingSubscription.status)) {
+    return {
+      incomingCanceled: false,
+      lowerTierSubscriptionIds: [],
+      shouldActivateIncoming: false,
+      stripeSubscriptionsToCancel: [],
+    }
+  }
+
+  const existingManagedSubscriptions = input.existingSubscriptions
+    .filter((subscriptionRecord): subscriptionRecord is typeof subscriptionRecord & { plan: ManagedPlan } =>
+      subscriptionRecord.stripeSubscriptionId !== input.incomingSubscription.stripeSubscriptionId &&
+      isManagedPlan(subscriptionRecord.plan) &&
+      isManageableSubscriptionStatus(subscriptionRecord.status),
+    )
+  const highestExistingSubscription = resolveHighestManagedSubscription(existingManagedSubscriptions)
+  const incomingRank = MANAGED_PLAN_RANK[input.incomingSubscription.plan]
+  const highestExistingRank = highestExistingSubscription
+    ? MANAGED_PLAN_RANK[highestExistingSubscription.plan]
+    : 0
+
+  if (highestExistingSubscription && highestExistingRank >= incomingRank) {
+    return {
+      incomingCanceled: true,
+      lowerTierSubscriptionIds: [],
+      shouldActivateIncoming: false,
+      stripeSubscriptionsToCancel: [input.incomingSubscription.stripeSubscriptionId],
+    }
+  }
+
+  const lowerTierSubscriptionIds = existingManagedSubscriptions
+    .filter((subscriptionRecord) => MANAGED_PLAN_RANK[subscriptionRecord.plan] < incomingRank)
+    .map((subscriptionRecord) => subscriptionRecord.stripeSubscriptionId)
+
+  return {
+    incomingCanceled: false,
+    lowerTierSubscriptionIds,
+    shouldActivateIncoming: true,
+    stripeSubscriptionsToCancel: lowerTierSubscriptionIds,
+  }
+}
+
+async function persistManagedPlanForUser(userId: string, database = db) {
+  if (!database) {
     return 'free' as PersistedPlan
   }
 
   const highestSubscription = resolveHighestManagedSubscription(
-    await findManageableSubscriptionsForUser(userId),
+    await findManageableSubscriptionsForUser(userId, database),
   )
   const nextPlan = highestSubscription?.plan ?? 'free'
 
-  await db.update(users).set({ plan: nextPlan }).where(eq(users.id, userId))
+  await database.update(users).set({ plan: nextPlan }).where(eq(users.id, userId))
+
+  return nextPlan
+}
+
+export async function syncManagedPlanForUser(userId: string) {
+  const nextPlan = await persistManagedPlanForUser(userId)
   await updateClerkPlan(userId, nextPlan)
 
   return nextPlan
 }
 
-async function cancelOtherManagedSubscriptionsForUser(input: {
-  activeStripeSubscriptionId: string
-  userId: string
-}) {
-  const stripe = stripeClient
-  const database = db
-
-  if (!stripe || !database) {
+async function cancelStripeSubscriptionSafely(stripeSubscriptionId: string, context: Record<string, unknown>) {
+  if (!stripeClient) {
     return
   }
 
-  const otherSubscriptions = (await findManageableSubscriptionsForUser(input.userId)).filter(
-    (subscriptionRecord) =>
-      subscriptionRecord.stripeSubscriptionId !== input.activeStripeSubscriptionId &&
-      isManagedPlan(subscriptionRecord.plan),
-  )
-
-  await Promise.all(
-    otherSubscriptions.map(async (subscriptionRecord) => {
-      await stripe.subscriptions.cancel(subscriptionRecord.stripeSubscriptionId)
-      await database
-        .update(subscriptions)
-        .set({
-          status: 'canceled',
-          cancelAtPeriodEnd: false,
-        })
-        .where(eq(subscriptions.stripeSubscriptionId, subscriptionRecord.stripeSubscriptionId))
-    }),
-  )
+  try {
+    await stripeClient.subscriptions.cancel(stripeSubscriptionId)
+  } catch (error) {
+    console.warn('[subscriptions] Failed to cancel Stripe subscription after DB reconciliation', {
+      ...context,
+      error,
+      stripeSubscriptionId,
+    })
+  }
 }
 
-async function cancelIncomingDuplicateManagedSubscription(input: {
+async function activateManagedSubscriptionRecord(input: {
   cancelAtPeriodEnd: boolean
   customerId: string
   currentPeriodEnd: Date | null
@@ -528,46 +557,75 @@ async function cancelIncomingDuplicateManagedSubscription(input: {
   stripeSubscriptionId: string
   userId: string
 }) {
-  const stripe = stripeClient
-
-  if (!stripe || !db) {
-    return false
+  if (!db || !isManageableSubscriptionStatus(input.status)) {
+    await upsertSubscriptionRecord(input)
+    await syncManagedPlanForUser(input.userId)
+    return
   }
 
-  const conflictingSubscription = await findIncomingManagedSubscriptionConflict({
-    plan: input.plan,
-    status: input.status,
-    stripeSubscriptionId: input.stripeSubscriptionId,
-    userId: input.userId,
+  const reconciliation = await db.transaction(async (transaction) => {
+    const database = transaction as unknown as AppDatabase
+    const existingManagedSubscriptions = await findManageableSubscriptionsForUser(input.userId, database)
+    const activation = resolveManagedSubscriptionActivation({
+      existingSubscriptions: existingManagedSubscriptions,
+      incomingSubscription: {
+        plan: input.plan,
+        status: input.status,
+        stripeSubscriptionId: input.stripeSubscriptionId,
+      },
+    })
+
+    if (activation.incomingCanceled) {
+      await upsertSubscriptionRecord({
+        ...input,
+        cancelAtPeriodEnd: false,
+        status: 'canceled',
+      }, database)
+      const nextPlan = await persistManagedPlanForUser(input.userId, database)
+
+      return {
+        incomingCanceled: true,
+        nextPlan,
+        stripeSubscriptionsToCancel: activation.stripeSubscriptionsToCancel,
+      }
+    }
+
+    if (activation.lowerTierSubscriptionIds.length > 0) {
+      await Promise.all(
+        activation.lowerTierSubscriptionIds.map((stripeSubscriptionId) =>
+          database
+            .update(subscriptions)
+            .set({
+              status: 'canceled',
+              cancelAtPeriodEnd: false,
+            })
+            .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId)),
+        ),
+      )
+    }
+
+    await upsertSubscriptionRecord(input, database)
+    const nextPlan = await persistManagedPlanForUser(input.userId, database)
+
+    return {
+      incomingCanceled: false,
+      nextPlan,
+      stripeSubscriptionsToCancel: activation.stripeSubscriptionsToCancel,
+    }
   })
 
-  if (!conflictingSubscription) {
-    return false
-  }
+  await updateClerkPlan(input.userId, reconciliation.nextPlan)
 
-  await stripe.subscriptions.cancel(input.stripeSubscriptionId)
-  await upsertSubscriptionRecord({
-    userId: input.userId,
-    customerId: input.customerId,
-    stripeSubscriptionId: input.stripeSubscriptionId,
-    status: 'canceled',
-    plan: input.plan,
-    planType: input.planType,
-    cancelAtPeriodEnd: false,
-    currentPeriodStart: input.currentPeriodStart,
-    currentPeriodEnd: input.currentPeriodEnd,
-  })
-  await syncManagedPlanForUser(input.userId)
-
-  console.warn('[subscriptions] Canceled duplicate or lower-tier managed Stripe subscription', {
-    activePlan: conflictingSubscription.plan,
-    activeStripeSubscriptionId: conflictingSubscription.stripeSubscriptionId,
-    incomingPlan: input.plan,
-    incomingStripeSubscriptionId: input.stripeSubscriptionId,
-    userId: input.userId,
-  })
-
-  return true
+  await Promise.all(
+    reconciliation.stripeSubscriptionsToCancel.map((stripeSubscriptionId) =>
+      cancelStripeSubscriptionSafely(stripeSubscriptionId, {
+        incomingCanceled: reconciliation.incomingCanceled,
+        incomingPlan: input.plan,
+        incomingStripeSubscriptionId: input.stripeSubscriptionId,
+        userId: input.userId,
+      }),
+    ),
+  )
 }
 
 async function storeCancellationFeedback(input: {
@@ -671,6 +729,16 @@ function getRewardfulConversionDetails(session: Stripe.Checkout.Session) {
   }
 }
 
+export function isPaidCheckoutSession(session: Pick<Stripe.Checkout.Session, 'payment_status' | 'status'>) {
+  return session.status === 'complete' && session.payment_status === 'paid'
+}
+
+function assertPaidCheckoutSession(session: Stripe.Checkout.Session) {
+  if (!isPaidCheckoutSession(session)) {
+    throw new Error('Checkout session is not fully paid yet.')
+  }
+}
+
 export async function upsertUserSubscription(input: {
   cancelAtPeriodEnd?: boolean
   clerkUserId: string
@@ -682,6 +750,21 @@ export async function upsertUserSubscription(input: {
   stripeCustomerId: string
   stripeSubscriptionId: string
 }) {
+  if (isManagedPlan(input.plan)) {
+    await activateManagedSubscriptionRecord({
+      userId: input.clerkUserId,
+      customerId: input.stripeCustomerId,
+      stripeSubscriptionId: input.stripeSubscriptionId,
+      status: input.status,
+      plan: input.plan,
+      planType: input.planType ?? 'single',
+      cancelAtPeriodEnd: input.cancelAtPeriodEnd ?? false,
+      currentPeriodStart: input.currentPeriodStart ?? null,
+      currentPeriodEnd: input.currentPeriodEnd ?? null,
+    })
+    return
+  }
+
   await upsertSubscriptionRecord({
     userId: input.clerkUserId,
     customerId: input.stripeCustomerId,
@@ -743,6 +826,8 @@ async function activateCheckoutSession(session: Stripe.Checkout.Session) {
     return null
   }
 
+  assertPaidCheckoutSession(session)
+
   const expandedSubscription =
     typeof session.subscription === 'string' && stripeClient
       ? await stripeClient.subscriptions.retrieve(session.subscription)
@@ -756,7 +841,7 @@ async function activateCheckoutSession(session: Stripe.Checkout.Session) {
     clerkUserId: sessionContext.userId,
     stripeCustomerId: sessionContext.customerId,
     stripeSubscriptionId: sessionContext.stripeSubscriptionId,
-    status: 'active',
+    status: subscriptionDetails?.status ?? 'active',
     plan: sessionContext.plan,
     planType: sessionContext.planType,
     cancelAtPeriodEnd: Boolean(subscriptionDetails?.cancel_at_period_end),
@@ -765,11 +850,6 @@ async function activateCheckoutSession(session: Stripe.Checkout.Session) {
     ),
     currentPeriodEnd: fromUnixTimestamp(subscriptionDetails?.items.data[0]?.current_period_end),
   })
-  await cancelOtherManagedSubscriptionsForUser({
-    activeStripeSubscriptionId: sessionContext.stripeSubscriptionId,
-    userId: sessionContext.userId,
-  })
-  await syncManagedPlanForUser(sessionContext.userId)
   await markCheckoutSessionProcessed(session.id, sessionContext.userId)
 
   return {
@@ -1077,23 +1157,6 @@ async function syncSubscriptionFromStripe(subscription: Stripe.Subscription) {
   const currentPeriodStart = fromUnixTimestamp(subscription.items.data[0]?.current_period_start)
   const currentPeriodEnd = fromUnixTimestamp(subscription.items.data[0]?.current_period_end)
 
-  if (
-    isManagedPlan(plan) &&
-    await cancelIncomingDuplicateManagedSubscription({
-      userId,
-      customerId: String(subscription.customer),
-      stripeSubscriptionId: subscription.id,
-      status: subscription.status,
-      plan,
-      planType,
-      cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
-      currentPeriodStart,
-      currentPeriodEnd,
-    })
-  ) {
-    return
-  }
-
   await upsertUserSubscription({
     clerkUserId: userId,
     stripeCustomerId: String(subscription.customer),
@@ -1105,14 +1168,6 @@ async function syncSubscriptionFromStripe(subscription: Stripe.Subscription) {
     currentPeriodStart,
     currentPeriodEnd,
   })
-
-  if (isManagedPlan(plan) && isManageableSubscriptionStatus(subscription.status)) {
-    await cancelOtherManagedSubscriptionsForUser({
-      activeStripeSubscriptionId: subscription.id,
-      userId,
-    })
-    await syncManagedPlanForUser(userId)
-  }
 }
 
 async function handleSubscriptionCreated(event: Stripe.CustomerSubscriptionCreatedEvent) {
@@ -1204,13 +1259,15 @@ async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceed
     return
   }
 
-  invoice = await stripeClient.invoices.retrieve(invoice.id, {
-    expand: [
-      'discounts',
-      'discounts.coupon',
-      'discounts.promotion_code',
-    ],
-  }).catch(() => invoice)
+  invoice = typeof stripeClient.invoices?.retrieve === 'function'
+    ? await stripeClient.invoices.retrieve(invoice.id, {
+        expand: [
+          'discounts',
+          'discounts.coupon',
+          'discounts.promotion_code',
+        ],
+      }).catch(() => invoice)
+    : invoice
   const subscription = await stripeClient.subscriptions.retrieve(subscriptionId, {
     expand: [
       'discounts',
@@ -1219,6 +1276,13 @@ async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceed
     ],
   }).catch(() => stripeClient.subscriptions.retrieve(subscriptionId))
   await syncSubscriptionFromStripe(subscription)
+
+  const invoiceSideEffectKey = getInvoicePaymentSideEffectKey(invoice.id)
+
+  if (await hasProcessedEvent(invoiceSideEffectKey)) {
+    return
+  }
+
   const existingSubscription = await findSubscriptionContext(subscription.id)
   const userId = subscription.metadata.userId ?? existingSubscription?.userId
 
@@ -1279,6 +1343,8 @@ async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceed
     },
     userId,
   })
+
+  await markEventProcessed(invoiceSideEffectKey, 'invoice.payment_side_effects')
 }
 
 async function handleInvoicePaymentFailed(event: Stripe.InvoicePaymentFailedEvent) {
@@ -1511,9 +1577,7 @@ export async function verifyCheckoutSession(input: {
     throw new Error('Checkout session does not belong to the authenticated user.')
   }
 
-  if (checkoutSession.status !== 'complete') {
-    throw new Error('Checkout session is not complete yet.')
-  }
+  assertPaidCheckoutSession(checkoutSession)
 
   const alreadyProcessed = await hasProcessedCheckoutSession(input.sessionId)
 

@@ -127,6 +127,13 @@
       "when": 1777933996755,
       "tag": "0017_wealthy_lady_mastermind",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1780438903136,
+      "tag": "0018_regular_vivisector",
+      "breakpoints": true
     }
   ]
 }

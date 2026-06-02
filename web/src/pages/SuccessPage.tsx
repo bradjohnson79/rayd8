@@ -117,6 +117,7 @@ export function SuccessPage() {
     sessionId && clerkEnabled && !isLoaded
       ? 'Restoring your sign-in so we can finalize your subscription...'
       : statusMessage
+  const canShowRecoveryActions = !sessionId || verificationState === 'error'
 
   return (
     <Rayd8Background intensity="low" variant="landing">
@@ -128,20 +129,28 @@ export function SuccessPage() {
           </h1>
           <p className="mt-5 text-base leading-8 text-slate-300">{displayStatusMessage}</p>
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              className="rounded-full border border-white/12 bg-white/[0.04] px-5 py-3 text-sm text-white/80 transition hover:bg-white/[0.08] hover:text-white"
-              to="/subscription?plan=regen"
-            >
-              Back to Subscription
-            </Link>
-            <Link
-              className="rounded-full border border-emerald-100/40 bg-[linear-gradient(135deg,rgba(167,243,208,0.96),rgba(52,211,153,0.9))] px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_16px_40px_rgba(16,185,129,0.22)] transition hover:brightness-105"
-              to="/dashboard"
-            >
-              Go to Dashboard
-            </Link>
-          </div>
+          {canShowRecoveryActions ? (
+            <div className="mt-8 space-y-4">
+              {verificationState === 'error' ? (
+                <p className="text-sm leading-7 text-amber-100">
+                  Your payment may have succeeded, but account activation could not be confirmed. Please
+                  contact support before trying checkout again.
+                </p>
+              ) : null}
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Link
+                  className="rounded-full border border-white/12 bg-white/[0.04] px-5 py-3 text-sm text-white/80 transition hover:bg-white/[0.08] hover:text-white"
+                  to="/subscription?plan=regen"
+                >
+                  Back to Subscription
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-8 rounded-full border border-emerald-100/20 bg-emerald-100/[0.08] px-5 py-3 text-sm font-semibold text-emerald-100">
+              Verification in progress. Please keep this page open.
+            </div>
+          )}
         </div>
       </div>
     </Rayd8Background>

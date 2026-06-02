@@ -1,7 +1,9 @@
 import { RedirectToSignIn } from '@clerk/react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 
+import type { PlanTier } from '../../app/types'
+import { getMe } from '../../services/me'
 import { trackUmamiEvent } from '../../services/umami'
 import {
   AUTH_LOADING_MESSAGE,
@@ -63,7 +65,53 @@ function AmritaSignedOutScreen() {
 }
 
 export function AmritaRoutePage() {
-  const { authUser, status } = useAuthReadiness()
+  const { authUser, getTokenSafe, status } = useAuthReadiness()
+  const [dbBackedPlan, setDbBackedPlan] = useState<PlanTier | null>(null)
+  const [dbPlanChecked, setDbPlanChecked] = useState(false)
+  const hasDbBackedAmritaAccess = (dbBackedPlan as PlanTier | null) === 'amrita'
+
+  useEffect(() => {
+    if (status !== 'signed-in' || authUser?.plan === 'amrita') {
+      setDbBackedPlan(null)
+      setDbPlanChecked(false)
+      return
+    }
+
+    let cancelled = false
+
+    async function verifyDbPlan() {
+      const tokenResult = await getTokenSafe()
+
+      if (!tokenResult.token) {
+        if (!cancelled) {
+          setDbBackedPlan(null)
+          setDbPlanChecked(true)
+        }
+        return
+      }
+
+      try {
+        const response = await getMe(tokenResult.token)
+
+        if (!cancelled) {
+          setDbBackedPlan(response.user?.plan ?? null)
+          setDbPlanChecked(true)
+        }
+      } catch {
+        if (!cancelled) {
+          setDbBackedPlan(null)
+          setDbPlanChecked(true)
+        }
+      }
+    }
+
+    setDbPlanChecked(false)
+    void verifyDbPlan()
+
+    return () => {
+      cancelled = true
+    }
+  }, [authUser?.plan, getTokenSafe, status])
 
   if (status === 'loading') {
     return <AmritaLoadingScreen />
@@ -73,7 +121,15 @@ export function AmritaRoutePage() {
     return <AmritaSignedOutScreen />
   }
 
-  if (authUser?.plan !== 'amrita') {
+  if (authUser?.plan === 'amrita' || hasDbBackedAmritaAccess) {
+    return <AmritaLaunchScreen />
+  }
+
+  if (!dbPlanChecked) {
+    return <AmritaLoadingScreen />
+  }
+
+  if (!hasDbBackedAmritaAccess) {
     return <Navigate replace to="/subscription?plan=amrita" />
   }
 

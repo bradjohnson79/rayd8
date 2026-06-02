@@ -32,6 +32,14 @@ function makeSelectFromChain<T>(result: T) {
   }
 }
 
+function makeInsertReturningChain<T>(result: T) {
+  return {
+    values: vi.fn(() => ({
+      returning: vi.fn().mockResolvedValue(result),
+    })),
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.resetModules()
@@ -80,6 +88,7 @@ describe('affiliate smoke suite', () => {
           where: updateWhere,
         })),
       })),
+      insert: vi.fn(() => makeInsertReturningChain([{ id: 'tracking_1' }])),
     }
 
     vi.doMock('../db/client.js', () => ({ db: mockDb }))
@@ -155,14 +164,20 @@ describe('affiliate smoke suite', () => {
   })
 
   it('creates a commission only for the first successful subscription payment', async () => {
-    const onConflictDoNothing = vi.fn().mockResolvedValue(undefined)
+    const onConflictDoNothing = vi.fn(() => ({
+      returning: vi.fn().mockResolvedValue([{ id: 'commission_1' }]),
+    }))
     const insertValues = vi.fn(() => ({
       onConflictDoNothing,
     }))
+    const commissionInsert = { values: insertValues }
     const mockDb = {
-      insert: vi.fn(() => ({
-        values: insertValues,
-      })),
+      insert: vi
+        .fn()
+        .mockReturnValueOnce(makeInsertReturningChain([{ id: 'tracking_missing_metadata' }]))
+        .mockReturnValueOnce(makeInsertReturningChain([{ id: 'tracking_metadata_missing' }]))
+        .mockReturnValueOnce(commissionInsert)
+        .mockReturnValueOnce(makeInsertReturningChain([{ id: 'tracking_commission_created' }])),
       select: vi.fn().mockReturnValue(
         makeSelectLimitChain([
           {
