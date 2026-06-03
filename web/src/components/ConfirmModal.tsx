@@ -8,6 +8,7 @@ interface ConfirmModalProps {
   secondaryLabel: string
   onPrimary: () => void
   onSecondary: () => void
+  primaryActions?: ReactNode
   footer?: ReactNode
 }
 
@@ -19,6 +20,7 @@ export function ConfirmModal({
   secondaryLabel,
   onPrimary,
   onSecondary,
+  primaryActions,
   footer,
 }: ConfirmModalProps) {
   if (!open) {
@@ -42,14 +44,16 @@ export function ConfirmModal({
           >
             {secondaryLabel}
           </button>
-          <button
-            autoFocus
-            className="rounded-2xl bg-emerald-300/20 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-300/30"
-            onClick={onPrimary}
-            type="button"
-          >
-            {primaryLabel}
-          </button>
+          {primaryActions ?? (
+            <button
+              autoFocus
+              className="rounded-2xl bg-emerald-300/20 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-300/30"
+              onClick={onPrimary}
+              type="button"
+            >
+              {primaryLabel}
+            </button>
+          )}
         </div>
 
         {footer ? <div className="mt-4 text-xs text-slate-400">{footer}</div> : null}

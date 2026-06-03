@@ -53,6 +53,14 @@ import {
   type MuxPlaybackPayload,
 } from '../../services/player'
 import type { ExperienceAccessSummary } from '../../services/player'
+import { ApiRequestError } from '../../services/api'
+import {
+  getExperiencePreviewLimitContent,
+  getTrialBlockContent,
+  isFreeExperiencePreviewBlockReason,
+  isTrialBlockReason,
+  RESTRICTION_UPGRADE_ACTIONS,
+} from '../../services/trial'
 import { trackUmamiEvent } from '../../services/umami'
 import { isMobileViewport, isSmallScreen, isTabletViewport } from '../../utils/device'
 import {
@@ -102,24 +110,6 @@ const defaultSessionConfig: LastSessionConfig = {
 }
 const GUIDE_MODAL_TRANSITION_MS = 220
 const UPGRADE_PATH = '/subscription?plan=regen'
-
-function isTrialBlockReason(value: string | null | undefined) {
-  return value === 'TRIAL_EXPIRED' || value === 'HOURS_EXCEEDED' || value === 'USAGE_LIMIT_REACHED'
-}
-
-function getTrialBlockContent(reason: string) {
-  if (reason === 'HOURS_EXCEEDED' || reason === 'USAGE_LIMIT_REACHED') {
-    return {
-      description: 'Your free trial has ended. Upgrade to continue using RAYD8.',
-      title: 'Your free trial has ended',
-    }
-  }
-
-  return {
-    description: 'Your free trial has ended. Upgrade to continue using RAYD8.',
-    title: 'Your free trial has ended',
-  }
-}
 
 function formatTrialStatusMeta(input: { daysRemaining?: number; hoursRemaining?: number }) {
   const parts = [
@@ -732,9 +722,20 @@ export function Rayd8PlayerEngine({
 
     return getTrialBlockContent(videoError)
   }, [videoError])
+  const previewLimitErrorState = useMemo(() => {
+    if (!isFreeExperiencePreviewBlockReason(videoError)) {
+      return null
+    }
+
+    return getExperiencePreviewLimitContent()
+  }, [videoError])
   const trialOverlayState = useMemo(() => {
     if (trialErrorState) {
       return trialErrorState
+    }
+
+    if (previewLimitErrorState) {
+      return previewLimitErrorState
     }
 
     if (isFreeTrialUser && trialStatus?.allowed === false && trialStatus.reason) {
@@ -742,7 +743,7 @@ export function Rayd8PlayerEngine({
     }
 
     return null
-  }, [isFreeTrialUser, trialErrorState, trialStatus])
+  }, [isFreeTrialUser, previewLimitErrorState, trialErrorState, trialStatus])
   const activeSoftDenialState = useMemo(
     () =>
       trialOverlayState
@@ -750,6 +751,7 @@ export function Rayd8PlayerEngine({
             ...trialOverlayState,
             ctaLabel: 'Upgrade Now',
             ctaTo: UPGRADE_PATH,
+            upgradeActions: RESTRICTION_UPGRADE_ACTIONS,
           }
         : softDenialState,
     [softDenialState, trialOverlayState],
@@ -994,10 +996,10 @@ export function Rayd8PlayerEngine({
     }
   }, [activePanel])
 
-  const handleUpgradeNavigation = useCallback(async () => {
+  const handleUpgradeNavigation = useCallback(async (targetPath = UPGRADE_PATH) => {
     await exitFullscreen()
     onClose()
-    await navigateToUpgrade()
+    await navigateToUpgrade({ targetPath })
   }, [exitFullscreen, navigateToUpgrade, onClose])
 
   const openManualGuide = useCallback(() => {
@@ -1628,6 +1630,14 @@ export function Rayd8PlayerEngine({
         }
       } catch (error) {
         if (!cancelled) {
+          const restrictionCode = error instanceof ApiRequestError ? error.code : null
+
+          if (isTrialBlockReason(restrictionCode) || isFreeExperiencePreviewBlockReason(restrictionCode)) {
+            playbackAuthority?.dispatch({ type: 'lifecycle_ready' })
+            setVideoError(restrictionCode)
+            return
+          }
+
           if (sessionConfig.videoMode !== DEFAULT_FREE_TRIAL_VIDEO_MODE) {
             setSessionConfig((currentValue) => ({
               ...currentValue,
@@ -2270,15 +2280,23 @@ export function Rayd8PlayerEngine({
               </p>
               <h3 className="mt-3 text-2xl font-semibold text-white">{activeSoftDenialState.title}</h3>
               <p className="mt-3 text-sm leading-6 text-slate-300">{activeSoftDenialState.description}</p>
-              {activeSoftDenialState.ctaTo ? (
+              {activeSoftDenialState.ctaTo || activeSoftDenialState.upgradeActions?.length ? (
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-                  <button
-                    className="rounded-2xl bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-5 py-3 text-sm font-medium text-white transition hover:-translate-y-0.5"
-                    onClick={() => void handleUpgradeNavigation()}
-                    type="button"
-                  >
-                    {activeSoftDenialState.ctaLabel ?? 'Upgrade Now'}
-                  </button>
+                  {(activeSoftDenialState.upgradeActions ?? [
+                    {
+                      label: activeSoftDenialState.ctaLabel ?? 'Upgrade Now',
+                      targetPath: activeSoftDenialState.ctaTo ?? UPGRADE_PATH,
+                    },
+                  ]).map((action) => (
+                    <button
+                      className="rounded-2xl bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-5 py-3 text-sm font-medium text-white transition hover:-translate-y-0.5"
+                      key={action.targetPath}
+                      onClick={() => void handleUpgradeNavigation(action.targetPath)}
+                      type="button"
+                    >
+                      {action.label}
+                    </button>
+                  ))}
                   <button
                     className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/5"
                     onClick={onClose}

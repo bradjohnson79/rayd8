@@ -30,6 +30,14 @@ import {
   type MuxPlaybackPayload,
 } from '../../services/player'
 import { ApiRequestError } from '../../services/api'
+import {
+  getExperiencePreviewLimitContent,
+  getTrialBlockContent,
+  isFreeExperiencePreviewBlockReason,
+  isTrialBlockReason,
+  RESTRICTION_UPGRADE_ACTIONS,
+  type UpgradeAction,
+} from '../../services/trial'
 import { trackUmamiEvent } from '../../services/umami'
 import { SESSION_RESUME_MESSAGE, useAuthReadiness } from '../auth/useAuthReadiness'
 import {
@@ -74,6 +82,7 @@ interface SoftDenialState {
   description: string
   eyebrow?: string
   title: string
+  upgradeActions?: UpgradeAction[]
 }
 
 interface UsageWarningState {
@@ -237,9 +246,12 @@ function toSoftDenialState(access: ExperienceAccessSummary): SoftDenialState | n
   }
 
   if (access.blockReason?.startsWith('free_')) {
+    const content = getExperiencePreviewLimitContent()
+
     return {
-      description: `You have used the remaining ${sessionLabel} preview time for Free Trial. Returning you to the dashboard with upgrade options.`,
-      title: `You've used your ${sessionLabel} preview time`,
+      description: content.description,
+      title: content.title,
+      upgradeActions: RESTRICTION_UPGRADE_ACTIONS,
     }
   }
 
@@ -249,22 +261,26 @@ function toSoftDenialState(access: ExperienceAccessSummary): SoftDenialState | n
   }
 }
 
-function toTrialSoftDenialState(errorMessage: string): SoftDenialState | null {
-  if (errorMessage === 'HOURS_EXCEEDED' || errorMessage === 'USAGE_LIMIT_REACHED') {
+function toRestrictionSoftDenialState(errorMessage: string): SoftDenialState | null {
+  if (isTrialBlockReason(errorMessage)) {
+    const content = getTrialBlockContent(errorMessage)
+
     return {
       ctaLabel: 'Upgrade Now',
       ctaTo: UPGRADE_PATH,
-      description: 'Your free trial has ended. Upgrade to continue using RAYD8.',
-      title: 'Your free trial has ended',
+      description: content.description,
+      title: content.title,
+      upgradeActions: RESTRICTION_UPGRADE_ACTIONS,
     }
   }
 
-  if (errorMessage === 'TRIAL_EXPIRED') {
+  if (isFreeExperiencePreviewBlockReason(errorMessage)) {
+    const content = getExperiencePreviewLimitContent()
+
     return {
-      ctaLabel: 'Upgrade Now',
-      ctaTo: UPGRADE_PATH,
-      description: 'Your free trial has ended. Upgrade to continue using RAYD8.',
-      title: 'Your free trial has ended',
+      description: content.description,
+      title: content.title,
+      upgradeActions: RESTRICTION_UPGRADE_ACTIONS,
     }
   }
 
@@ -458,6 +474,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
       clearTimer(softDenialTimerRef)
       setSoftDenialState(nextState)
+      if (nextState.ctaTo || nextState.upgradeActions?.length) {
+        return
+      }
       softDenialTimerRef.current = sessionScheduler.setTimeout('soft-denial-exit', () => {
         endSession()
       }, SOFT_DENIAL_EXIT_MS)
@@ -519,13 +538,13 @@ export function SessionProvider({ children }: PropsWithChildren) {
         setTrackingSessionId(response.session.id)
       } catch (error) {
         if (!cancelled) {
-          const trialSoftDenial = toTrialSoftDenialState(
+          const restrictionSoftDenial = toRestrictionSoftDenialState(
             getApiErrorCode(error) ?? (error instanceof Error ? error.message : ''),
           )
 
-          if (trialSoftDenial) {
+          if (restrictionSoftDenial) {
             clearTimer(softDenialTimerRef)
-            setSoftDenialState(trialSoftDenial)
+            setSoftDenialState(restrictionSoftDenial)
             setUsageWarningState(null)
             setAudioError(null)
             return
@@ -623,15 +642,15 @@ export function SessionProvider({ children }: PropsWithChildren) {
           return
         }
 
-        const trialSoftDenial = toTrialSoftDenialState(
+        const restrictionSoftDenial = toRestrictionSoftDenialState(
           getApiErrorCode(error) ?? (error instanceof Error ? error.message : ''),
         )
 
-        if (trialSoftDenial) {
+        if (restrictionSoftDenial) {
           clearTimer(softDenialTimerRef)
           setTrackingSessionId(null)
           setUsageWarningState(null)
-          setSoftDenialState(trialSoftDenial)
+          setSoftDenialState(restrictionSoftDenial)
           void finalizeTrackedSession(trackingSessionId)
         }
       }

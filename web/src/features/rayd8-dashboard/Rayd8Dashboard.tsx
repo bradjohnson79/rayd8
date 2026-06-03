@@ -35,7 +35,18 @@ import {
   type ExperienceAccessSummary,
 } from '../../services/player'
 import { markRayd8GuideSeen } from '../../services/settings'
-import type { TrialBlockReason, TrialNotificationLevel } from '../../services/trial'
+import {
+  getExperiencePreviewLimitContent,
+  getTrialBlockContent,
+  isFreeExperiencePreviewBlockReason,
+  isTrialBlockReason,
+  RESTRICTION_UPGRADE_ACTIONS,
+  TRIAL_TOTAL_DAYS,
+  TRIAL_TOTAL_HOURS,
+  type TrialBlockReason,
+  type TrialNotificationLevel,
+  type UpgradeAction,
+} from '../../services/trial'
 import { trackUmamiEvent } from '../../services/umami'
 import { getUsage, type UsageResponse } from '../../services/usage'
 import { immersiveDashboardOutletScrollClassName } from '../dashboard/immersiveDashboardOutlet'
@@ -69,30 +80,29 @@ const DASHBOARD_EXPERIENCES: Experience[] = ['expansion', 'premium', 'regen']
 const GUIDE_MODAL_TRANSITION_MS = 220
 const RAYD8_GUIDE_STORAGE_KEY = 'rayd8_guide_seen'
 
-function isTrialBlockReason(value: string): value is TrialBlockReason {
-  return value === 'TRIAL_EXPIRED' || value === 'HOURS_EXCEEDED' || value === 'USAGE_LIMIT_REACHED'
-}
-
-function getTrialBlockContent(reason: TrialBlockReason) {
-  if (reason === 'HOURS_EXCEEDED' || reason === 'USAGE_LIMIT_REACHED') {
-    return {
-      description: 'Your free trial has ended. Upgrade to continue using RAYD8.',
-      title: 'Your free trial has ended',
-    }
-  }
-
-  return {
-    description: 'Your free trial has ended. Upgrade to continue using RAYD8.',
-    title: 'Your free trial has ended',
-  }
-}
-
 function formatTrialHours(hoursRemaining?: number) {
   if (typeof hoursRemaining !== 'number') {
     return null
   }
 
-  return `${hoursRemaining.toFixed(1)} hours remaining`
+  return hoursRemaining.toFixed(1)
+}
+
+function getTrialDashboardWarnings(input: {
+  daysRemaining?: number
+  hoursRemaining?: number
+}) {
+  const warnings: string[] = []
+
+  if (typeof input.daysRemaining === 'number' && input.daysRemaining > 0 && input.daysRemaining <= 3) {
+    warnings.push('Your free trial expires soon.')
+  }
+
+  if (typeof input.hoursRemaining === 'number' && input.hoursRemaining > 0 && input.hoursRemaining <= 5) {
+    warnings.push('Less than 5 trial hours remain.')
+  }
+
+  return warnings
 }
 
 function formatWholeHours(seconds: number | null) {
@@ -206,6 +216,10 @@ function MemberDashboardLaunchpad({
   const resolvedPlan = normalizePlaybackPlan(resolvedMembershipPlan)
   const displayUser = user ? { ...user, plan: resolvedMembershipPlan } : user
   const isAmritaMember = !adminAccessActive && !isPreviewMode && resolvedMembershipPlan === 'amrita'
+  const trialDashboardWarnings = getTrialDashboardWarnings({
+    daysRemaining: trialStatus?.days_remaining,
+    hoursRemaining: trialStatus?.hours_remaining,
+  })
 
   useEffect(() => {
     if (authStatus !== 'signed-in' || adminAccessActive) {
@@ -557,8 +571,8 @@ function MemberDashboardLaunchpad({
         setExperiencePrompts((currentValue) => ({
           ...currentValue,
           expansion:
-            resolvedPlan === 'free'
-              ? 'You have used your Expansion preview time. Upgrade to continue.'
+            isFreeExperiencePreviewBlockReason(response.access.blockReason)
+              ? getExperiencePreviewLimitContent().description
               : 'Expansion access could not be verified right now.',
         }))
         return
@@ -592,7 +606,6 @@ function MemberDashboardLaunchpad({
   }, [
     adminAccessActive,
     authStatus,
-    resolvedPlan,
     getTokenSafe,
     maybeStartGuideCheckedSession,
     startAdminSession,
@@ -644,7 +657,9 @@ function MemberDashboardLaunchpad({
       if (!response.access.allowed && !premiumTrialAvailable) {
         setExperiencePrompts((currentValue) => ({
           ...currentValue,
-          premium: 'Your Premium allowance is unavailable for this plan. Upgrade to continue.',
+          premium: isFreeExperiencePreviewBlockReason(response.access.blockReason)
+            ? getExperiencePreviewLimitContent().description
+            : 'Your Premium allowance is unavailable for this plan. Upgrade to continue.',
         }))
         return
       }
@@ -733,7 +748,9 @@ function MemberDashboardLaunchpad({
       if (!response.access.allowed && !regenTrialAvailable) {
         setExperiencePrompts((currentValue) => ({
           ...currentValue,
-          regen: 'Your REGEN allowance is unavailable for this plan. Upgrade to continue.',
+          regen: isFreeExperiencePreviewBlockReason(response.access.blockReason)
+            ? getExperiencePreviewLimitContent().description
+            : 'Your REGEN allowance is unavailable for this plan. Upgrade to continue.',
         }))
         return
       }
@@ -846,6 +863,14 @@ function MemberDashboardLaunchpad({
     void navigateToUpgrade({ targetPath: '/subscription?plan=amrita' })
   }, [resolvedMembershipPlan, navigateToUpgrade])
 
+  const handleRegenUpgrade = useCallback(() => {
+    trackUmamiEvent('upgrade_click', {
+      location: 'dashboard_trial_restriction',
+      plan: resolvedMembershipPlan,
+    })
+    void navigateToUpgrade({ targetPath: '/subscription?plan=regen' })
+  }, [navigateToUpgrade, resolvedMembershipPlan])
+
   return (
     <div className={immersiveDashboardOutletScrollClassName} id="member-dashboard-scroll">
       <MemberAccountCluster effectivePlan={resolvedPlan} user={displayUser} />
@@ -872,14 +897,35 @@ function MemberDashboardLaunchpad({
                       Free Trial Status
                     </p>
                     <p className="mt-2 text-base font-medium text-white sm:text-lg">
-                      {trialStatus.notification?.message ?? 'Your free trial is active.'}
+                      {trialDashboardWarnings[0] ?? trialStatus.notification?.message ?? 'Your free trial is active.'}
                     </p>
-                    <p className="mt-2 text-sm text-slate-200/85">
+                    <div className="mt-3 grid gap-2 text-sm text-slate-200/90 sm:grid-cols-2">
+                      <p className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2">
+                        Days Remaining:{' '}
+                        <span className="font-semibold text-white">
+                          {typeof trialStatus.days_remaining === 'number'
+                            ? `${trialStatus.days_remaining} / ${TRIAL_TOTAL_DAYS}`
+                            : 'Unavailable'}
+                        </span>
+                      </p>
+                      <p className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2">
+                        Hours Remaining:{' '}
+                        <span className="font-semibold text-white">
+                          {formatTrialHours(trialStatus.hours_remaining)
+                            ? `${formatTrialHours(trialStatus.hours_remaining)} / ${TRIAL_TOTAL_HOURS}`
+                            : 'Unavailable'}
+                        </span>
+                      </p>
+                    </div>
+                    {trialDashboardWarnings.length > 1 ? (
+                      <p className="mt-2 text-sm text-amber-100">{trialDashboardWarnings[1]}</p>
+                    ) : null}
+                    <p className="mt-2 text-xs text-slate-300/75">
                       {typeof trialStatus.days_remaining === 'number'
                         ? `${trialStatus.days_remaining} day${trialStatus.days_remaining === 1 ? '' : 's'} remaining`
                         : 'Trial countdown unavailable'}
                       {formatTrialHours(trialStatus.hours_remaining)
-                        ? ` • ${formatTrialHours(trialStatus.hours_remaining)}`
+                        ? ` • ${formatTrialHours(trialStatus.hours_remaining)} hours remaining`
                         : ''}
                     </p>
                   </div>
@@ -971,9 +1017,21 @@ function MemberDashboardLaunchpad({
       )}
       <ConfirmModal
         description={trialBlockReason ? getTrialBlockContent(trialBlockReason).description : ''}
-        onPrimary={() => void navigateToUpgrade()}
+        onPrimary={handleRegenUpgrade}
         onSecondary={() => setTrialBlockReason(null)}
         open={trialBlockReason !== null}
+        primaryActions={
+          <RestrictionUpgradeActions
+            actions={RESTRICTION_UPGRADE_ACTIONS}
+            onSelect={(targetPath) => {
+              if (targetPath.includes('plan=amrita')) {
+                handleAmritaUpgrade()
+                return
+              }
+              handleRegenUpgrade()
+            }}
+          />
+        }
         primaryLabel="Upgrade Now"
         secondaryLabel="Not Now"
         title={trialBlockReason ? getTrialBlockContent(trialBlockReason).title : 'Trial limit reached'}
@@ -1203,6 +1261,30 @@ function AdminAccessModeBadge({ label }: { label: string }) {
         {label}
       </div>
     </div>
+  )
+}
+
+function RestrictionUpgradeActions({
+  actions,
+  onSelect,
+}: {
+  actions: UpgradeAction[]
+  onSelect: (targetPath: string) => void
+}) {
+  return (
+    <>
+      {actions.map((action) => (
+        <button
+          autoFocus={action.targetPath.includes('plan=regen')}
+          className="rounded-2xl bg-emerald-300/20 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-300/30"
+          key={action.targetPath}
+          onClick={() => onSelect(action.targetPath)}
+          type="button"
+        >
+          {action.label}
+        </button>
+      ))}
+    </>
   )
 }
 

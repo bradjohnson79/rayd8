@@ -22,13 +22,13 @@ function getTrialAccessError(reason: TrialBlockReason) {
   if (reason === 'TRIAL_EXPIRED') {
     return {
       code: reason,
-      error: 'Your free trial has ended.',
+      error: 'Your 30-day free trial has ended. Upgrade to continue accessing RAYD8 sessions.',
     }
   }
 
   return {
     code: reason,
-    error: 'You have used your available trial hours.',
+    error: 'You have used all 35 trial hours included with your free trial. Upgrade to continue using RAYD8.',
   }
 }
 

@@ -43,15 +43,15 @@ const sessionHeartbeatSchema = z.object({
 
 function getBlockedExperienceMessage(access: ExperienceAccessSummary) {
   if (access.blockReason === 'free_expansion_limit_reached') {
-    return "You've used your Expansion preview time. Upgrade to continue full access."
+    return 'You have reached the preview limit for this experience. Upgrade to unlock unlimited access.'
   }
 
   if (access.blockReason === 'free_premium_limit_reached') {
-    return "You've used your Premium preview time. Upgrade to continue full access."
+    return 'You have reached the preview limit for this experience. Upgrade to unlock unlimited access.'
   }
 
   if (access.blockReason === 'free_regen_limit_reached') {
-    return "You've used your REGEN preview time. Upgrade to continue full access."
+    return 'You have reached the preview limit for this experience. Upgrade to unlock unlimited access.'
   }
 
   if (access.blockReason === 'regen_total_limit_reached') {
@@ -71,13 +71,20 @@ function getTrialAccessError(reason: TrialBlockReason) {
   if (reason === 'TRIAL_EXPIRED') {
     return {
       code: reason,
-      error: 'TRIAL_EXPIRED',
+      error: 'Your 30-day free trial has ended. Upgrade to continue accessing RAYD8 sessions.',
     }
   }
 
   return {
-    code: 'USAGE_LIMIT_REACHED',
-    error: 'USAGE_LIMIT_REACHED',
+    code: reason,
+    error: 'You have used all 35 trial hours included with your free trial. Upgrade to continue using RAYD8.',
+  }
+}
+
+function getBlockedExperienceError(access: ExperienceAccessSummary) {
+  return {
+    code: access.blockReason ?? 'PLAYBACK_ACCESS_BLOCKED',
+    error: getBlockedExperienceMessage(access),
   }
 }
 
@@ -142,9 +149,7 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
     })
 
     if (!access.allowed) {
-      return reply.code(403).send({
-        error: getBlockedExperienceMessage(access),
-      })
+      return reply.code(403).send(getBlockedExperienceError(access))
     }
 
     if (!isMuxPlaybackSigningConfigured()) {
@@ -245,9 +250,7 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
         plan: request.auth.plan,
         userId: request.auth.userId,
       })
-      return reply.code(403).send({
-        error: getBlockedExperienceMessage(access),
-      })
+      return reply.code(403).send(getBlockedExperienceError(access))
     }
 
     const session = await startUsageSession({
