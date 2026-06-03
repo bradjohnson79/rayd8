@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Rayd8Background } from '../components/Rayd8Background'
-import { AmritaLaunchBanner } from '../features/amrita'
 import { AMRITA_PRICE_LINE, amritaTierFeatures, regenTierFeatures } from '../features/amrita/amritaContent'
 import { MarketingButton } from '../features/landing/components/MarketingButton'
 import {
@@ -120,8 +119,6 @@ export function SubscriptionPage() {
                 Sign in once, continue cleanly, and enter the RAYD8® experience without extra steps.
               </p>
             </div>
-
-            <AmritaLaunchBanner className="mt-6" location="subscription_page" />
 
             {canceled ? (
               <div className="mt-6 rounded-2xl border border-amber-300/25 bg-amber-300/10 px-4 py-4 text-sm leading-6 text-amber-100">
