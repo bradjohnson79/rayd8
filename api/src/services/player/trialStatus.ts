@@ -5,6 +5,7 @@ import type { AppPlan } from './accessPolicy.js'
 
 const TRIAL_HOURS_LIMIT = 35
 const TRIAL_HOURS_BLOCK_THRESHOLD = 34.999
+const TRIAL_DAYS = 30
 const DAY_MS = 24 * 60 * 60 * 1000
 const TRIAL_NOTIFICATION_CHECKPOINTS = [21, 14, 7, 3, 1] as const
 
@@ -146,7 +147,7 @@ export async function ensureTrialWindowForUser(userId: string) {
     return null
   }
 
-  const trialEndExpression = sql`NOW() + INTERVAL '30 days'`
+  const trialEndExpression = sql`NOW() + (${TRIAL_DAYS} * INTERVAL '1 day')`
 
   await db
     .update(users)
@@ -154,7 +155,13 @@ export async function ensureTrialWindowForUser(userId: string) {
       trialEndsAt: trialEndExpression,
       trialStartedAt: sql`NOW()`,
     })
-    .where(and(eq(users.id, userId), eq(users.plan, 'free'), sql`${users.trialStartedAt} IS NULL`))
+    .where(
+      and(
+        eq(users.id, userId),
+        eq(users.plan, 'free'),
+        sql`(${users.trialStartedAt} IS NULL OR ${users.trialEndsAt} IS NULL)`,
+      ),
+    )
 
   const [user] = await db
     .select()
