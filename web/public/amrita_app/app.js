@@ -3094,6 +3094,7 @@ function mountRuntimeExperience() {
           removeButton: panel.querySelector('[data-runtime-resonance-remove]'),
           status: panel.querySelector('.runtime-resonance-status'),
           toggle: panel.querySelector('[data-runtime-resonance-toggle]'),
+          uploadLabel: panel.querySelector('[data-runtime-resonance-upload-label]'),
         };
       },
     },

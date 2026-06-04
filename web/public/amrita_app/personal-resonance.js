@@ -102,7 +102,7 @@ export function renderPersonalResonanceRuntimePanel(panel, resonance, handlers) 
     </div>
     <div class="runtime-resonance-actions">
       <label class="runtime-button file-pill" for="runtime-personal-resonance-input">
-        ${resonance.image ? 'Replace Photo' : 'Upload Photo'}
+        <span data-runtime-resonance-upload-label>${resonance.image ? 'Replace Photo' : 'Upload Photo'}</span>
         <input id="runtime-personal-resonance-input" accept="image/jpeg,image/png,image/webp" type="file" />
       </label>
       <label class="runtime-resonance-toggle">
@@ -119,15 +119,16 @@ export function renderPersonalResonanceRuntimePanel(panel, resonance, handlers) 
   const uploadInput = panel.querySelector('#runtime-personal-resonance-input');
   const toggle = panel.querySelector('[data-runtime-resonance-toggle]');
   const removeButton = panel.querySelector('[data-runtime-resonance-remove]');
+  const uploadLabel = panel.querySelector('[data-runtime-resonance-upload-label]');
 
   syncPersonalResonanceRuntimePanel({
     preview,
     previewWrap,
     removeButton,
-    resonance,
     status,
     toggle,
-  });
+    uploadLabel,
+  }, resonance);
 
   uploadInput?.addEventListener('change', async (event) => {
     const file = event.target.files?.[0] ?? null;
@@ -168,6 +169,10 @@ export function syncPersonalResonanceRuntimePanel(elements, resonance) {
 
   if (elements.removeButton) {
     elements.removeButton.disabled = !resonance.image;
+  }
+
+  if (elements.uploadLabel) {
+    elements.uploadLabel.textContent = resonance.image ? 'Replace Photo' : 'Upload Photo';
   }
 
   if (elements.preview && elements.previewWrap) {

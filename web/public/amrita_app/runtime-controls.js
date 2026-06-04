@@ -88,7 +88,7 @@ export function createRuntimeControls({
       button.classList.toggle('active', button.dataset.runtimePanel === activePanel);
     });
 
-    if (activePanel) renderPanel(activePanel);
+    if (activePanel && activePanel !== 'photo') renderPanel(activePanel);
   }
 
   function setStatus(text) {
