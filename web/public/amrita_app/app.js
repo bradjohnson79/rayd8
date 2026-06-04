@@ -2524,6 +2524,7 @@ function applyPersonalResonanceChange(nextValue, noticeMessage = null) {
       paused: state.runtime === 'paused',
       resonance: personalResonance,
     });
+    runtimeControls?.update();
   }
   if (noticeMessage && dom.personalResonanceStatus) {
     dom.personalResonanceStatus.textContent = noticeMessage;

@@ -5,7 +5,7 @@ export const AMRITA_PERSONAL_RESONANCE_STORAGE_KEY = 'amrita_personal_resonance'
 const PERSONAL_RESONANCE_VERSION = 1;
 const TARGET_IMAGE_BYTES = 500 * 1024;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const FADE_IN_DELAY_MS = 2400;
+const FADE_IN_DELAY_MS = 0;
 
 let fadeTimerId = null;
 let fadeDelayRemainingMs = FADE_IN_DELAY_MS;
@@ -195,7 +195,18 @@ function getPersonalResonanceStatusText(resonance) {
 }
 
 export function mountPersonalResonanceOverlay({ container, paused, resonance }) {
-  if (!container || !resonance.enabled || !resonance.image || activeOverlay) {
+  if (!container || !resonance.enabled || !resonance.image) {
+    unmountPersonalResonanceOverlay();
+    setPersonalResonancePaused(paused);
+    return;
+  }
+
+  if (activeOverlay) {
+    const image = activeOverlay.querySelector('img');
+    if (image && image.src !== resonance.image) {
+      image.src = resonance.image;
+    }
+    activeOverlay.classList.add('visible');
     setPersonalResonancePaused(paused);
     return;
   }

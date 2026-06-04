@@ -581,7 +581,7 @@ h2 {
 #personal-resonance-runtime-root {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 7;
   pointer-events: none;
 }
 
