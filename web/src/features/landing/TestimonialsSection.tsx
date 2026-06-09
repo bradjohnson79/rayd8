@@ -99,6 +99,12 @@ const writtenTestimonials = [
   },
   {
     context: 'Member story',
+    name: 'B. Bravo',
+    quote:
+      "My wife and I started the REGEN free trial for 1 hour, and my body was vibrating. We had it super slow at 20x. The next morning I got up with no pain. My wife fell asleep, but she wasn't snoring.",
+  },
+  {
+    context: 'Member story',
     name: 'Arlene Samano',
     quote:
       "It helped me sleep better. It helped with my headache as well. It helps create a peaceful and positive environment. It also works great for meditation and yoga practice.",

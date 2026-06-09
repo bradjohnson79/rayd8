@@ -13,6 +13,26 @@ import {
 } from './personal-resonance.js';
 import { createRuntimeControls } from './runtime-controls.js';
 
+const AMRITA_DEBUG_STORAGE_KEY = 'rayd8-amrita-debug';
+
+function isAmritaDebugEnabled() {
+  try {
+    return window.localStorage.getItem(AMRITA_DEBUG_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function debugAmritaRuntime(eventName, details = {}) {
+  if (!isAmritaDebugEnabled()) return;
+
+  console.info('[AMRITA debug]', eventName, {
+    hidden: document.hidden,
+    visibilityState: document.visibilityState,
+    ...details,
+  });
+}
+
 const GLYPH_FILES = [
   "5 VAYU BODY.png",
   "ACUPUNCTURE BODIES.png",
@@ -3339,6 +3359,11 @@ async function toggleFullscreen() {
 function startSequence() {
   persistState();
   preloadGlyphs().then(() => {
+    debugAmritaRuntime('startSequence', {
+      audioTrack: state.audioTrack,
+      duration: state.duration,
+      filters: [...state.filters],
+    });
     dom.controlPanel.hidden = true;
     dom.runtime.hidden = false;
     state.runtime = 'running';
@@ -3356,6 +3381,10 @@ function startSequence() {
 }
 
 function stopSequence() {
+  debugAmritaRuntime('stopSequence', {
+    previousRuntime: state.runtime,
+    sessionElapsedMs: state.runtime === 'idle' ? 0 : getSessionElapsedMs(),
+  });
   cancelAnimationFrame(state.frameId);
   state.runtime = 'idle';
   state.currentTurn = null;
@@ -3366,6 +3395,11 @@ function stopSequence() {
 
 function togglePause() {
   if (state.runtime === 'running') {
+    debugAmritaRuntime('pause', {
+      audioTrack: state.audioTrack,
+      reason: document.hidden ? 'document_hidden' : 'manual_or_runtime_control',
+      sessionElapsedMs: getSessionElapsedMs(),
+    });
     state.runtime = 'paused';
     state.pauseStartedAt = performance.now();
     setPersonalResonancePaused(true);
@@ -3376,6 +3410,11 @@ function togglePause() {
   }
   if (state.runtime === 'paused') {
     const pausedForMs = performance.now() - state.pauseStartedAt;
+    debugAmritaRuntime('resume', {
+      audioTrack: state.audioTrack,
+      pausedForMs,
+      reason: 'manual_or_runtime_control',
+    });
     state.pausedAccumulatedMs += pausedForMs;
     if (state.currentTurn) {
       state.currentTurn.startsAt += pausedForMs;
@@ -3833,9 +3872,25 @@ function bindEvents() {
   });
   dom.startSequence.addEventListener('click', startSequence);
   bindPersonalResonanceControls(dom, getPersonalResonanceHandlers());
-  window.addEventListener('resize', resizeCanvases);
-  document.addEventListener('fullscreenchange', () => runtimeControls?.update());
+  window.addEventListener('resize', () => {
+    debugAmritaRuntime('resize', {
+      runtime: state.runtime,
+      viewport: `${window.innerWidth}x${window.innerHeight}`,
+    });
+    resizeCanvases();
+  });
+  document.addEventListener('fullscreenchange', () => {
+    debugAmritaRuntime('fullscreenchange', {
+      fullscreen: document.fullscreenElement === dom.runtime,
+      runtime: state.runtime,
+    });
+    runtimeControls?.update();
+  });
   document.addEventListener('visibilitychange', () => {
+    debugAmritaRuntime('visibilitychange', {
+      runtime: state.runtime,
+      willPause: document.hidden && state.runtime === 'running',
+    });
     if (document.hidden && state.runtime === 'running') togglePause();
   });
 }
