@@ -21,6 +21,7 @@ interface InteractionRequiredOverlayProps {
 }
 
 interface UsageWarningOverlayProps {
+  onDismiss: () => void
   smallScreenViewport: boolean
   usageWarningState: UsageWarningState
 }
@@ -127,6 +128,7 @@ export const PlaybackHealthFallbackOverlay = memo(function PlaybackHealthFallbac
 })
 
 export const UsageWarningOverlay = memo(function UsageWarningOverlay({
+  onDismiss,
   smallScreenViewport,
   usageWarningState,
 }: UsageWarningOverlayProps) {
@@ -135,7 +137,15 @@ export const UsageWarningOverlay = memo(function UsageWarningOverlay({
       className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-4"
       style={{ top: `calc(env(safe-area-inset-top) + ${smallScreenViewport ? 72 : 80}px)` }}
     >
-      <div className="max-w-lg rounded-[1.35rem] border border-amber-200/20 bg-slate-950/88 px-4 py-3 text-center shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+      <div className="usage-warning-enter pointer-events-auto relative max-w-lg rounded-[1.35rem] border border-amber-200/20 bg-slate-950/88 px-8 py-4 text-center shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+        <button
+          aria-label="Dismiss usage warning"
+          className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-sm text-white/75 transition hover:bg-white/[0.08] hover:text-white"
+          onClick={onDismiss}
+          type="button"
+        >
+          ✕
+        </button>
         <p className="text-[10px] uppercase tracking-[0.32em] text-amber-100/70">Usage warning</p>
         <p className="mt-2 text-sm font-medium text-white">{usageWarningState.title}</p>
         <p className="mt-1 text-xs leading-5 text-slate-300">{usageWarningState.description}</p>

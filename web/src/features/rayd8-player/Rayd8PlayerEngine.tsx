@@ -608,6 +608,7 @@ export function Rayd8PlayerEngine({
     audioMuted,
     audioTrack,
     audioVolume,
+    dismissUsageWarning,
     experienceAccess,
     isAudioLoading,
     isActive,
@@ -2312,6 +2313,7 @@ export function Rayd8PlayerEngine({
 
         {usageWarningState && !activeSoftDenialState ? (
           <UsageWarningOverlay
+            onDismiss={dismissUsageWarning}
             smallScreenViewport={smallScreenViewport}
             usageWarningState={usageWarningState}
           />

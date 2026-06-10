@@ -73,3 +73,19 @@ a {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 999px;
 }
+
+@keyframes usage-warning-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.usage-warning-enter {
+  animation: usage-warning-enter 220ms ease-out both;
+}

@@ -87,6 +87,8 @@ interface SoftDenialState {
 
 interface UsageWarningState {
   description: string
+  milestone: '90' | '95'
+  storageKey: string
   title: string
 }
 
@@ -103,6 +105,7 @@ interface SessionContextValue extends SessionState, AudioState {
   softDenialState: SoftDenialState | null
   startSession: (type: SessionType, options?: { source?: SessionSource }) => void
   updateExperienceAccess: (nextValue: ExperienceAccessSummary | null) => void
+  dismissUsageWarning: () => void
   usageWarningState: UsageWarningState | null
 }
 
@@ -114,6 +117,7 @@ const AUDIO_HEALTH_CHECK_MS = 60_000
 /** Align with primary video: refresh Mux JWT before streaming endpoints reject the old token. */
 const MUX_AUDIO_REFRESH_LEAD_MS = 90_000
 const MUX_AUDIO_REFRESH_MIN_DELAY_MS = 30 * 60 * 1000
+const USAGE_WARNING_STORAGE_KEY = 'rayd8_usage_warning_milestones_v1'
 const AUDIO_STABILITY_PROFILE = {
   backBufferLength: 90,
   maxBufferLength: 40,
@@ -299,27 +303,110 @@ function toAuthSoftDenialState(): SoftDenialState {
   }
 }
 
+type UsageWarningMilestone = UsageWarningState['milestone']
+type UsageWarningDismissalMap = Record<string, Partial<Record<UsageWarningMilestone, true>>>
+
+function readUsageWarningDismissals(): UsageWarningDismissalMap {
+  if (typeof window === 'undefined') {
+    return {}
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(USAGE_WARNING_STORAGE_KEY)
+    if (!rawValue) {
+      return {}
+    }
+
+    const parsed = JSON.parse(rawValue)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as UsageWarningDismissalMap)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function persistUsageWarningDismissals(nextValue: UsageWarningDismissalMap) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(USAGE_WARNING_STORAGE_KEY, JSON.stringify(nextValue))
+}
+
+function markUsageWarningShown(storageKey: string, milestone: UsageWarningMilestone) {
+  const currentValue = readUsageWarningDismissals()
+  const nextValue: UsageWarningDismissalMap = {
+    ...currentValue,
+    [storageKey]: {
+      ...currentValue[storageKey],
+      [milestone]: true,
+    },
+  }
+
+  persistUsageWarningDismissals(nextValue)
+}
+
+function hasUsageWarningShown(storageKey: string, milestone: UsageWarningMilestone) {
+  return readUsageWarningDismissals()[storageKey]?.[milestone] === true
+}
+
+function toUsageWarningStorageKey(access: ExperienceAccessSummary) {
+  const usage = access.usage
+  const periodStart = usage?.periodStart
+  const periodEnd = usage?.periodEnd
+
+  if (!periodStart || !periodEnd) {
+    return null
+  }
+
+  const parsedPeriodStart = new Date(periodStart)
+  const parsedPeriodEnd = new Date(periodEnd)
+
+  if (!Number.isFinite(parsedPeriodStart.getTime()) || !Number.isFinite(parsedPeriodEnd.getTime())) {
+    return null
+  }
+
+  return [
+    access.experience,
+    usage.periodType ?? 'unknown',
+    parsedPeriodStart.toISOString(),
+    parsedPeriodEnd.toISOString(),
+  ].join(':')
+}
+
 function toUsageWarningState(access: ExperienceAccessSummary): UsageWarningState | null {
   if (access.warningState !== 'approaching_limit') {
     return null
   }
 
-  const sessionLabel =
-    access.experience === 'regen'
-      ? 'REGEN'
-      : access.experience === 'premium'
-        ? 'Premium'
-        : 'Expansion'
+  const storageKey = toUsageWarningStorageKey(access)
+  if (!storageKey) {
+    return null
+  }
+
+  const usagePercent = access.usagePercent ?? 0
+  const milestone: UsageWarningMilestone | null = usagePercent >= 95 ? '95' : usagePercent >= 90 ? '90' : null
+  if (!milestone || hasUsageWarningShown(storageKey, milestone)) {
+    return null
+  }
+
+  markUsageWarningShown(storageKey, milestone)
+
+  if (milestone === '95') {
+    return {
+      description: 'Your remaining time is nearly exhausted.',
+      milestone,
+      storageKey,
+      title: 'You have used 95% of your monthly allowance.',
+    }
+  }
 
   return {
-    description:
-      access.blockReason === 'regen_total_limit_reached' || access.limitSeconds === 900_000
-        ? `${sessionLabel} usage is above 90% of the current billing-cycle allowance.`
-        : `${sessionLabel} usage is above 90% of the current allowance.`,
-    title:
-      access.blockReason === 'regen_total_limit_reached' || access.limitSeconds === 900_000
-        ? 'Monthly watch limit approaching'
-        : `${sessionLabel} limit approaching`,
+    description: 'Approximately 10% remains in your current billing cycle.',
+    milestone,
+    storageKey,
+    title: 'You have used 90% of your monthly allowance.',
   }
 }
 
@@ -346,8 +433,23 @@ function usageWarningStatesEqual(
 ) {
   return (
     currentValue?.title === nextValue?.title &&
-    currentValue?.description === nextValue?.description
+    currentValue?.description === nextValue?.description &&
+    currentValue?.milestone === nextValue?.milestone &&
+    currentValue?.storageKey === nextValue?.storageKey
   )
+}
+
+function resolveUsageWarningState(
+  currentValue: UsageWarningState | null,
+  access: ExperienceAccessSummary,
+) {
+  const nextValue = toUsageWarningState(access)
+  if (nextValue) {
+    return usageWarningStatesEqual(currentValue, nextValue) ? currentValue : nextValue
+  }
+
+  const currentStorageKey = toUsageWarningStorageKey(access)
+  return currentValue?.storageKey === currentStorageKey ? currentValue : null
 }
 
 export function SessionProvider({ children }: PropsWithChildren) {
@@ -484,6 +586,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
     [endSession, sessionScheduler],
   )
 
+  const dismissUsageWarning = useCallback(() => {
+    setUsageWarningState(null)
+  }, [])
+
   useEffect(() => {
     if (!state.isActive || state.sessionSource !== 'member' || !state.sessionType) {
       return
@@ -527,10 +633,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         }
 
         updateExperienceAccess(response.access)
-        setUsageWarningState((currentValue) => {
-          const nextValue = toUsageWarningState(response.access)
-          return usageWarningStatesEqual(currentValue, nextValue) ? currentValue : nextValue
-        })
+        setUsageWarningState((currentValue) => resolveUsageWarningState(currentValue, response.access))
         trackUmamiEvent('start_session', {
           experience,
           sessionType: state.sessionType,
@@ -628,10 +731,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         }
 
         updateExperienceAccess(response.access)
-        setUsageWarningState((currentValue) => {
-          const nextValue = toUsageWarningState(response.access)
-          return usageWarningStatesEqual(currentValue, nextValue) ? currentValue : nextValue
-        })
+        setUsageWarningState((currentValue) => resolveUsageWarningState(currentValue, response.access))
         scheduleSoftDenialExit(toSoftDenialState(response.access))
       } catch (error) {
         if (error instanceof ApiRequestError && error.status === 401) {
@@ -715,11 +815,13 @@ export function SessionProvider({ children }: PropsWithChildren) {
       softDenialState,
       startSession,
       updateExperienceAccess,
+      dismissUsageWarning,
       usageWarningState,
     }),
     [
       audioError,
       audioState,
+      dismissUsageWarning,
       endSession,
       experienceAccess,
       isAudioLoading,
