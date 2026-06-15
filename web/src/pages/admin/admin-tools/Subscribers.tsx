@@ -16,6 +16,21 @@ const emptySummary: AdminSubscriberSummary = {
   totalSubscribers: 0,
 }
 
+function buildSubscriberSummary(subscribers: AdminSubscriberRecord[]): AdminSubscriberSummary {
+  return subscribers.reduce(
+    (summary, subscriber) => ({
+      amritaSubscribers:
+        summary.amritaSubscribers + (subscriber.plan === 'amrita' ? 1 : 0),
+      freeSubscribers: summary.freeSubscribers + (subscriber.plan === 'free' ? 1 : 0),
+      paidSubscribers:
+        summary.paidSubscribers + (subscriber.stripe_subscription_id ? 1 : 0),
+      regenSubscribers: summary.regenSubscribers + (subscriber.plan === 'regen' ? 1 : 0),
+      totalSubscribers: summary.totalSubscribers + 1,
+    }),
+    emptySummary,
+  )
+}
+
 function getSubscriberSourceLabel(source: AdminSubscriberSource) {
   switch (source) {
     case 'amrita':
@@ -81,8 +96,10 @@ export function AdminSubscribersPage() {
         const response = await getAdminSubscribers(token)
 
         if (!cancelled) {
-          setSubscribers(response.subscribers)
-          setSummary(response.summary)
+          const nextSubscribers = response.subscribers ?? []
+
+          setSubscribers(nextSubscribers)
+          setSummary(response.summary ?? buildSubscriberSummary(nextSubscribers))
         }
       } catch (nextError) {
         if (!cancelled) {
@@ -147,7 +164,9 @@ export function AdminSubscribersPage() {
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1 text-xs font-medium text-emerald-100">
-                  {getSubscriberSourceLabel(subscriber.subscriber_source)}
+                  {getSubscriberSourceLabel(
+                    subscriber.subscriber_source ?? (subscriber.plan === 'free' ? 'free_trial' : subscriber.plan),
+                  )}
                 </span>
                 {!subscriber.stripe_subscription_id ? (
                   <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-300">
