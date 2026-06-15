@@ -210,12 +210,15 @@ function MemberDashboardLaunchpad({
   const amritaDashboardTrackedRef = useRef(false)
   const usageHydratedFromMeRef = useRef(false)
   const adminAccessActive = adminAccessMode && user?.role === 'admin'
+  const membershipHydrated = adminAccessActive || isPreviewMode || usageSnapshot !== null
   const resolvedMembershipPlan: PlanTier = isPreviewMode
     ? effectivePlan
     : usageSnapshot?.plan ?? user?.plan ?? effectivePlan
   const resolvedPlan = normalizePlaybackPlan(resolvedMembershipPlan)
   const displayUser = user ? { ...user, plan: resolvedMembershipPlan } : user
-  const isAmritaMember = !adminAccessActive && !isPreviewMode && resolvedMembershipPlan === 'amrita'
+  const isAmritaMember =
+    membershipHydrated && !adminAccessActive && !isPreviewMode && resolvedMembershipPlan === 'amrita'
+  const membershipLoadingPrompt = membershipHydrated ? null : 'Checking your membership and access...'
   const trialDashboardWarnings = getTrialDashboardWarnings({
     daysRemaining: trialStatus?.days_remaining,
     hoursRemaining: trialStatus?.hours_remaining,
@@ -399,6 +402,7 @@ function MemberDashboardLaunchpad({
     resolvedPlan === 'free' &&
     (isPreviewMode ? true : (regenAccess?.remainingSeconds ?? 3600) >= 30)
   const hamsaEntitled =
+    membershipHydrated &&
     !adminAccessActive &&
     !isPreviewMode &&
     (resolvedMembershipPlan === 'regen' || resolvedMembershipPlan === 'amrita')
@@ -416,6 +420,8 @@ function MemberDashboardLaunchpad({
       ? 'Start Admin Session'
       : checkingExperience === 'premium' && !premiumAccess
       ? 'Checking access...'
+      : !membershipHydrated
+        ? 'Checking access...'
       : premiumTrialAvailable
         ? 'Try Premium (1 hour)'
         : premiumAllowed
@@ -426,6 +432,8 @@ function MemberDashboardLaunchpad({
       ? 'Start Admin Session'
       : checkingExperience === 'regen' && !regenAccess
       ? 'Checking access...'
+      : !membershipHydrated
+        ? 'Checking access...'
       : regenTrialAvailable
         ? 'Try REGEN (1 hour)'
         : regenAllowed
@@ -879,12 +887,14 @@ function MemberDashboardLaunchpad({
         <div className="relative z-20 mx-auto max-w-7xl px-4 pt-[calc(6rem+env(safe-area-inset-top))] sm:px-6 sm:pt-[calc(7rem+env(safe-area-inset-top))] lg:px-8">
           <div className="grid gap-5 sm:gap-6">
             <Rayd8ExpressInstallCard />
-            {resolvedMembershipPlan === 'free' ? (
+            {membershipHydrated && resolvedMembershipPlan === 'free' ? (
               <AmritaLaunchBanner location="member_dashboard" />
             ) : null}
             {isAmritaMember ? <AmritaMemberBadge /> : null}
-            {resolvedMembershipPlan === 'regen' ? <AmritaUpgradeCard onUpgrade={handleAmritaUpgrade} /> : null}
-            {trialStatus?.plan === 'free_trial' ? (
+            {membershipHydrated && resolvedMembershipPlan === 'regen' ? (
+              <AmritaUpgradeCard onUpgrade={handleAmritaUpgrade} />
+            ) : null}
+            {membershipHydrated && trialStatus?.plan === 'free_trial' ? (
               <div
                 className={[
                   'rounded-[1.6rem] border px-5 py-4 shadow-[0_18px_60px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:px-6',
@@ -975,10 +985,10 @@ function MemberDashboardLaunchpad({
               isChecking={
                 adminAccessActive || isPreviewMode
                   ? false
-                  : checkingExperience === 'premium' && !premiumAccess
+                  : !membershipHydrated || (checkingExperience === 'premium' && !premiumAccess)
               }
               key={experience}
-              prompt={experiencePrompts.premium ?? null}
+              prompt={membershipLoadingPrompt ?? experiencePrompts.premium ?? null}
               trialAvailable={premiumTrialAvailable}
               onClick={handlePremiumClick}
             />
@@ -994,10 +1004,10 @@ function MemberDashboardLaunchpad({
             isChecking={
               adminAccessActive || isPreviewMode
                 ? false
-                : checkingExperience === 'regen' && !regenAccess
+                  : !membershipHydrated || (checkingExperience === 'regen' && !regenAccess)
             }
             key={experience}
-            prompt={experiencePrompts.regen ?? null}
+            prompt={membershipLoadingPrompt ?? experiencePrompts.regen ?? null}
             trialAvailable={regenTrialAvailable}
             onClick={handleRegenClick}
           />
@@ -1010,7 +1020,7 @@ function MemberDashboardLaunchpad({
           onStart={handleHamsaStart}
         />
       ) : null}
-      {adminExperience ? null : isAmritaMember ? (
+      {adminExperience || !membershipHydrated ? null : isAmritaMember ? (
         <AmritaDashboardSection onOpen={handleAmritaMainMenuOpen} />
       ) : resolvedMembershipPlan === 'regen' ? null : (
         <AmritaComingSoonSection onUpgrade={handleAmritaUpgrade} />

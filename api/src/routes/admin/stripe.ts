@@ -33,7 +33,5 @@ export const adminStripeRoutes: FastifyPluginAsync = async (app) => {
     }
   })
 
-  app.get('/subscribers', { preHandler: requireAdminAccess }, async () => ({
-    subscribers: await getAdminSubscribers(),
-  }))
+  app.get('/subscribers', { preHandler: requireAdminAccess }, async () => getAdminSubscribers())
 }

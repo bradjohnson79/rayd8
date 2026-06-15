@@ -35,6 +35,12 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   CONTACT_FROM_EMAIL: z.string().email().optional(),
   SOURCE_OF_TRUTH_ADMIN_EMAILS: z.string().optional(),
+  AWEBER_CLIENT_ID: z.string().optional(),
+  AWEBER_CLIENT_SECRET: z.string().optional(),
+  AWEBER_REFRESH_TOKEN: z.string().optional(),
+  AWEBER_ACCOUNT_ID: z.string().optional(),
+  AWEBER_LIST_ID: z.string().optional(),
+  AWEBER_SYNC_ENABLED: z.string().optional(),
 })
 
 export const env = envSchema.parse(process.env)

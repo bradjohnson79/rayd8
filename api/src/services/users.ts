@@ -21,6 +21,7 @@ import { dispatchNotification } from './notifications/dispatchNotification.js'
 import { syncManagedPlanForUser } from './subscriptions.js'
 import { toAppPlan } from './player/accessPolicy.js'
 import { ensureTrialWindowForUser } from './player/trialStatus.js'
+import { syncSubscriberToAweber } from './aweber.js'
 
 export type UserRecord = InferSelectModel<typeof users>
 
@@ -192,6 +193,21 @@ async function safeDispatchNotification(
   }
 }
 
+async function safeSyncFreeUserToAweber(input: { email: string; userId: string }) {
+  try {
+    await syncSubscriberToAweber({
+      email: input.email,
+      source: 'free_trial',
+    })
+  } catch (error) {
+    console.error('[aweber] unable to sync free user', {
+      email: input.email,
+      message: error instanceof Error ? error.message : String(error),
+      userId: input.userId,
+    })
+  }
+}
+
 export async function syncUserFromClerk(userId: string) {
   if (!clerkClient) {
     return null
@@ -286,6 +302,13 @@ export async function syncUserFromClerk(userId: string) {
       },
       userId: user.id,
     })
+
+    if (user.plan === 'free') {
+      await safeSyncFreeUserToAweber({
+        email: user.email,
+        userId: user.id,
+      })
+    }
   }
 
   if (user?.plan === 'free') {

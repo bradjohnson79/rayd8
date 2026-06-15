@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { useLandingBackdropMedium } from './landingBackdropHooks'
 import { ConversionButton } from './components/ConversionButton'
 import { LandingBackToTop } from './components/LandingBackToTop'
+import { useLandingMembership } from './useLandingMembership'
 
 const HERO_STILL = '/hero/RAYD8-Premium.png'
 
@@ -11,6 +12,7 @@ interface HeroSectionProps {
 
 export const HeroSection = memo(function HeroSection({ reducedEffects = false }: HeroSectionProps) {
   const heroCardBackdrop = useLandingBackdropMedium()
+  const membership = useLandingMembership()
 
   return (
     <section className="relative min-h-[100svh] w-full overflow-hidden" id="hero">
@@ -67,24 +69,35 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
             A living visual resonance system designed to influence your state within minutes.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-3 sm:mt-10">
-            <ConversionButton
-              guestMode="signUp"
-              label="Start Free Trial"
-              to="/subscription?plan=free"
-              variant="ghost"
-            />
-            <ConversionButton
-              guestMode="signIn"
-              label="Experience REGEN"
-              to="/subscription?plan=regen"
-            />
-            <ConversionButton
-              guestMode="signIn"
-              label="Start Amrita Membership"
-              to="/subscription?plan=amrita"
-            />
-          </div>
+          {membership.isAuthenticated ? (
+            <div className="mt-8 flex flex-wrap items-center gap-3 sm:mt-10">
+              <ConversionButton
+                guestMode="signIn"
+                label={membership.isLoading ? 'Checking Membership...' : 'Go to Dashboard'}
+                to="/dashboard"
+                variant="solid"
+              />
+            </div>
+          ) : (
+            <div className="mt-8 flex flex-wrap items-center gap-3 sm:mt-10">
+              <ConversionButton
+                guestMode="signUp"
+                label="Start Free Trial"
+                to="/subscription?plan=free"
+                variant="ghost"
+              />
+              <ConversionButton
+                guestMode="signIn"
+                label="Experience REGEN"
+                to="/subscription?plan=regen"
+              />
+              <ConversionButton
+                guestMode="signIn"
+                label="Start Amrita Membership"
+                to="/subscription?plan=amrita"
+              />
+            </div>
+          )}
 
           <div className="mt-8 flex flex-wrap gap-2.5 text-xs text-white/75 sm:mt-10 sm:gap-3 sm:text-sm">
             {['No equipment required', 'Works on any screen', 'Results felt within minutes'].map((item) => (

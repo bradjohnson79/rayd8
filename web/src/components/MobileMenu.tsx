@@ -9,6 +9,7 @@ interface MobileMenuItem {
 
 interface MobileMenuProps {
   isAuthenticated: boolean
+  isAuthLoading?: boolean
   items: MobileMenuItem[]
   onClose: () => void
   onSignIn: () => void
@@ -18,6 +19,7 @@ interface MobileMenuProps {
 
 export function MobileMenu({
   isAuthenticated,
+  isAuthLoading = false,
   items,
   onClose,
   onSignIn,
@@ -98,7 +100,11 @@ export function MobileMenu({
 
             <div className="mt-auto border-t border-white/10 pt-5">
               <div className="grid gap-3">
-                {isAuthenticated ? (
+                {isAuthLoading ? (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm text-white/70">
+                    Checking your session...
+                  </div>
+                ) : isAuthenticated ? (
                   <Link
                     className="inline-flex items-center justify-center rounded-full border border-emerald-200/25 bg-[linear-gradient(135deg,rgba(16,185,129,0.92),rgba(59,130,246,0.9))] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_55px_rgba(15,118,110,0.28)] transition hover:brightness-105"
                     onClick={onClose}
@@ -111,7 +117,6 @@ export function MobileMenu({
                     <button
                       className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/[0.04] px-5 py-3 text-sm font-medium text-white/84 transition hover:border-white/18 hover:bg-white/[0.08] hover:text-white"
                       onClick={() => {
-                        onClose()
                         onSignIn()
                       }}
                       type="button"
@@ -121,7 +126,6 @@ export function MobileMenu({
                     <button
                       className="inline-flex items-center justify-center rounded-full border border-emerald-200/25 bg-[linear-gradient(135deg,rgba(16,185,129,0.92),rgba(59,130,246,0.9))] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_55px_rgba(15,118,110,0.28)] transition hover:brightness-105"
                       onClick={() => {
-                        onClose()
                         onSignUp()
                       }}
                       type="button"

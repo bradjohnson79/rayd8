@@ -4,6 +4,7 @@ import { ConversionButton } from './components/ConversionButton'
 import { Section } from './components/Section'
 import { AMRITA_PRICE_LINE, amritaTierFeatures, regenTierFeatures } from '../amrita/amritaContent'
 import { useSubscriptionPlanAction, type SubscriptionPlan } from '../subscription/useSubscriptionPlanAction'
+import { useLandingMembership } from './useLandingMembership'
 
 interface TeaserSectionProps {
   reducedEffects?: boolean
@@ -19,6 +20,7 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
   const { activePlan, isSubmitting, startPlanAction, statusMessage } = useSubscriptionPlanAction({
     location: 'landing_teaser',
   })
+  const membership = useLandingMembership()
 
   function getCtaLabel(plan: SubscriptionPlan, label: string) {
     if (!isSubmitting || activePlan !== plan) {
@@ -72,6 +74,30 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
           Access RAYD8® on any device—mobile, desktop, or Smart TV.
         </p>
 
+        {membership.isAuthenticated ? (
+          <div
+            className={`rounded-2xl border border-emerald-200/18 bg-[linear-gradient(135deg,rgba(16,185,129,0.14),rgba(59,130,246,0.1),rgba(8,14,22,0.94))] px-7 py-8 text-center sm:rounded-3xl sm:px-9 sm:py-10 ${backdropMedium}`}
+          >
+            <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/70">
+              {membership.isLoading ? 'Checking Membership' : `${membership.plan?.toUpperCase() ?? 'RAYD8'} Account`}
+            </p>
+            <h3 className="mt-4 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+              Continue from your member dashboard
+            </h3>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base sm:leading-8">
+              Your account access and plan options are managed from the dashboard, so purchase cards stay out of your way after sign-in.
+            </p>
+            <div className="mt-7">
+              <ConversionButton
+                className="w-full min-h-[3rem] px-7 py-4 text-base sm:w-auto"
+                guestMode="signIn"
+                label="Go to Dashboard"
+                to="/dashboard"
+                variant="solid"
+              />
+            </div>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-7">
           <article className="flex flex-col rounded-2xl border border-white/12 bg-white/[0.03] p-7 transition-colors duration-300 hover:border-white/20 sm:rounded-3xl sm:p-8">
             <h3 className="text-lg font-semibold tracking-tight text-white sm:text-xl">Free Trial</h3>
@@ -167,6 +193,7 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
             </div>
           </article>
         </div>
+        )}
         {statusMessage ? (
           <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm leading-6 text-slate-200">
             {statusMessage}

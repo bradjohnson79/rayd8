@@ -22,6 +22,39 @@ export interface AdminStripeRecord {
   current_period_end: string | null
 }
 
+export type AdminSubscriberSource =
+  | 'amrita'
+  | 'free_trial'
+  | 'legacy_import'
+  | 'premium'
+  | 'regen'
+
+export interface AdminSubscriberRecord {
+  clerk_user_id: string
+  email: string
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  status: string
+  plan: 'free' | 'premium' | 'regen' | 'amrita'
+  plan_type: 'single' | 'multi' | null
+  created_at: string
+  current_period_end: string | null
+  subscriber_source: AdminSubscriberSource
+}
+
+export interface AdminSubscriberSummary {
+  amritaSubscribers: number
+  freeSubscribers: number
+  paidSubscribers: number
+  regenSubscribers: number
+  totalSubscribers: number
+}
+
+export interface AdminSubscribersResponse {
+  subscribers: AdminSubscriberRecord[]
+  summary: AdminSubscriberSummary
+}
+
 export interface AdminStripeRevenueSummary {
   all_time_cents: number
   calculated_at: string
@@ -86,12 +119,77 @@ export async function getAdminOrders() {
   return readStripeRecords()
 }
 
-export async function getAdminSubscribers() {
-  const records = await readStripeRecords({ includeArchived: true })
+function getSubscriberSource(plan: AdminSubscriberRecord['plan']): AdminSubscriberSource {
+  if (plan === 'free') {
+    return 'free_trial'
+  }
 
-  return records.filter((record) =>
-    ['active', 'canceled', 'past_due'].includes(record.status),
-  )
+  return plan
+}
+
+export async function getAdminSubscribers() {
+  if (!db) {
+    return {
+      subscribers: [],
+      summary: {
+        amritaSubscribers: 0,
+        freeSubscribers: 0,
+        paidSubscribers: 0,
+        regenSubscribers: 0,
+        totalSubscribers: 0,
+      },
+    } satisfies AdminSubscribersResponse
+  }
+
+  const [allUsers, allSubscriptions] = await Promise.all([
+    db.select().from(users),
+    db.select().from(subscriptions).orderBy(desc(subscriptions.createdAt)),
+  ])
+  const subscriberSubscriptionStatuses = new Set(['active', 'canceled', 'past_due'])
+  const latestSubscriptionByUser = new Map<string, (typeof allSubscriptions)[number]>()
+
+  for (const subscription of allSubscriptions) {
+    if (!subscriberSubscriptionStatuses.has(subscription.status)) {
+      continue
+    }
+
+    if (!latestSubscriptionByUser.has(subscription.userId)) {
+      latestSubscriptionByUser.set(subscription.userId, subscription)
+    }
+  }
+
+  const subscribers = allUsers
+    .map((user) => {
+      const subscription = latestSubscriptionByUser.get(user.id)
+      const plan = subscription?.plan ?? user.plan
+
+      return {
+        clerk_user_id: user.id,
+        email: user.email,
+        stripe_customer_id: subscription?.stripeCustomerId ?? null,
+        stripe_subscription_id: subscription?.stripeSubscriptionId ?? null,
+        status: subscription?.status ?? (plan === 'free' ? 'free' : 'no_subscription'),
+        plan,
+        plan_type: subscription?.planType ?? null,
+        created_at: user.createdAt.toISOString(),
+        current_period_end: subscription?.currentPeriodEnd
+          ? subscription.currentPeriodEnd.toISOString()
+          : null,
+        subscriber_source: getSubscriberSource(plan),
+      } satisfies AdminSubscriberRecord
+    })
+    .sort((left, right) => right.created_at.localeCompare(left.created_at))
+
+  return {
+    subscribers,
+    summary: {
+      amritaSubscribers: allUsers.filter((user) => user.plan === 'amrita').length,
+      freeSubscribers: allUsers.filter((user) => user.plan === 'free').length,
+      paidSubscribers: subscribers.filter((record) => record.stripe_subscription_id !== null).length,
+      regenSubscribers: allUsers.filter((user) => user.plan === 'regen').length,
+      totalSubscribers: allUsers.length,
+    },
+  } satisfies AdminSubscribersResponse
 }
 
 export async function getAdminRevenueSummary(): Promise<AdminStripeRevenueSummary> {

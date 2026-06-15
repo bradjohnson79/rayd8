@@ -21,6 +21,34 @@ export interface AdminStripeRecord {
   current_period_end: string | null
 }
 
+export type AdminSubscriberSource =
+  | 'amrita'
+  | 'free_trial'
+  | 'legacy_import'
+  | 'premium'
+  | 'regen'
+
+export interface AdminSubscriberRecord {
+  clerk_user_id: string
+  email: string
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  status: string
+  plan: 'free' | 'premium' | 'regen' | 'amrita'
+  plan_type: 'single' | 'multi' | null
+  created_at: string
+  current_period_end: string | null
+  subscriber_source: AdminSubscriberSource
+}
+
+export interface AdminSubscriberSummary {
+  amritaSubscribers: number
+  freeSubscribers: number
+  paidSubscribers: number
+  regenSubscribers: number
+  totalSubscribers: number
+}
+
 export interface AdminStripeRevenueSummary {
   all_time_cents: number
   calculated_at: string
@@ -370,7 +398,7 @@ export async function archiveAdminOrders(stripeSubscriptionIds: string[], token:
 }
 
 export async function getAdminSubscribers(token: string) {
-  return apiRequest<{ subscribers: AdminStripeRecord[] }>(
+  return apiRequest<{ subscribers: AdminSubscriberRecord[]; summary: AdminSubscriberSummary }>(
     '/api/admin/stripe/subscribers',
     undefined,
     token,

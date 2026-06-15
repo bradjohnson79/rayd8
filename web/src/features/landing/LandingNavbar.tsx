@@ -2,7 +2,7 @@ import { lazy, memo, Suspense, useEffect, useState } from 'react'
 import { useClerk } from '@clerk/react'
 import { Link } from 'react-router-dom'
 import { MobileMenu } from '../../components/MobileMenu'
-import { useAuthUser } from '../dashboard/useAuthUser'
+import { useAuthReadiness } from '../auth/useAuthReadiness'
 
 const NavbarAuthCluster = lazy(() => import('./NavbarAuthCluster'))
 
@@ -32,7 +32,7 @@ export const LandingNavbar = memo(function LandingNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mountAuthCluster, setMountAuthCluster] = useState(false)
   const { openSignIn, openSignUp } = useClerk()
-  const user = useAuthUser()
+  const { status } = useAuthReadiness()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -137,11 +137,18 @@ export const LandingNavbar = memo(function LandingNavbar() {
         </div>
       </div>
       <MobileMenu
-        isAuthenticated={user.isAuthenticated}
+        isAuthenticated={status === 'signed-in'}
+        isAuthLoading={status === 'loading'}
         items={navigationItems}
         onClose={() => setMobileMenuOpen(false)}
-        onSignIn={() => void openSignIn()}
-        onSignUp={() => void openSignUp()}
+        onSignIn={() => {
+          setMobileMenuOpen(false)
+          window.setTimeout(() => void openSignIn(), 180)
+        }}
+        onSignUp={() => {
+          setMobileMenuOpen(false)
+          window.setTimeout(() => void openSignUp(), 180)
+        }}
         open={mobileMenuOpen}
       />
     </header>

@@ -2250,7 +2250,9 @@ export function Rayd8PlayerEngine({
                 Unable to initialize session.
               </h3>
               <p className="mt-3 text-sm leading-6 text-slate-300">
-                The session did not become ready. Try again when the app is foregrounded and connected.
+                {videoError && !trialOverlayState
+                  ? videoError
+                  : 'The session did not become ready. Try again when the app is foregrounded and connected.'}
               </p>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
                 <button

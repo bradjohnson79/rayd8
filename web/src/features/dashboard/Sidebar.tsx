@@ -7,29 +7,34 @@ import { getSidebarItems } from './sidebarItems'
 import type { ExpressShellMode } from './useExpressNavigation'
 
 interface SidebarProps {
+  isMembershipLoading?: boolean
   user: AuthUser
   open: boolean
   onClose: () => void
   shellMode: ExpressShellMode
 }
 
-export function Sidebar({ user, open, onClose, shellMode }: SidebarProps) {
+export function Sidebar({ isMembershipLoading = false, user, open, onClose, shellMode }: SidebarProps) {
   if (shellMode === 'drawer' && !open) {
     return null
   }
 
   if (shellMode === 'drawer') {
-    return <DrawerSidebar onClose={onClose} user={user} />
+    return <DrawerSidebar isMembershipLoading={Boolean(isMembershipLoading)} onClose={onClose} user={user} />
   }
 
   if (shellMode === 'persistent') {
-    return <PersistentSidebar onClose={onClose} user={user} />
+    return <PersistentSidebar isMembershipLoading={Boolean(isMembershipLoading)} onClose={onClose} user={user} />
   }
 
   return null
 }
 
-function DrawerSidebar({ user, onClose }: Pick<SidebarProps, 'user' | 'onClose'>) {
+function DrawerSidebar({
+  isMembershipLoading,
+  user,
+  onClose,
+}: Pick<SidebarProps, 'isMembershipLoading' | 'user' | 'onClose'>) {
   const [entered, setEntered] = useState(false)
 
   useEffect(() => {
@@ -73,29 +78,44 @@ function DrawerSidebar({ user, onClose }: Pick<SidebarProps, 'user' | 'onClose'>
           </svg>
         </button>
 
-        <SidebarPanelContent mode="drawer" onClose={onClose} user={user} />
+        <SidebarPanelContent
+          isMembershipLoading={Boolean(isMembershipLoading)}
+          mode="drawer"
+          onClose={onClose}
+          user={user}
+        />
       </aside>
     </>
   )
 }
 
-function PersistentSidebar({ user, onClose }: Pick<SidebarProps, 'user' | 'onClose'>) {
+function PersistentSidebar({
+  isMembershipLoading,
+  user,
+  onClose,
+}: Pick<SidebarProps, 'isMembershipLoading' | 'user' | 'onClose'>) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-[25vw] flex-col bg-transparent">
-      <SidebarPanelContent mode="persistent" onClose={onClose} user={user} />
+      <SidebarPanelContent
+        isMembershipLoading={Boolean(isMembershipLoading)}
+        mode="persistent"
+        onClose={onClose}
+        user={user}
+      />
     </aside>
   )
 }
 
 function SidebarPanelContent({
+  isMembershipLoading = false,
   mode,
   onClose,
   user,
-}: Pick<SidebarProps, 'user' | 'onClose'> & { mode: ExpressShellMode }) {
+}: Pick<SidebarProps, 'isMembershipLoading' | 'user' | 'onClose'> & { mode: ExpressShellMode }) {
   const location = useLocation()
   const navigate = useNavigate()
   const navigateToUpgrade = useUpgradeNavigation()
-  const items = getSidebarItems(user)
+  const items = isMembershipLoading ? getSidebarItems({ ...user, plan: 'premium' }) : getSidebarItems(user)
   const [observerActiveSection, setObserverActiveSection] =
     useState<DashboardSectionId>('expansion')
 
@@ -243,7 +263,7 @@ function SidebarPanelContent({
       <div className={headerClassName}>
         <p className={titleClassName}>RAYD8®</p>
         <p className={planClassName}>
-          {user.plan}
+          {isMembershipLoading ? 'checking' : user.plan}
         </p>
       </div>
 

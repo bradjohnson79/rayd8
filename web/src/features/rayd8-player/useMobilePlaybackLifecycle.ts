@@ -86,19 +86,12 @@ export function useMobilePlaybackLifecycle({
       handleVisible as EventListener,
       'window:focus:mobile-playback',
     )
-    const removeBlurListener = addTrackedDomEventListener(
-      window,
-      'blur',
-      handleHidden as EventListener,
-      'window:blur:mobile-playback',
-    )
 
     return () => {
       removeVisibilityListener()
       removePageHideListener()
       removePageShowListener()
       removeFocusListener()
-      removeBlurListener()
     }
   }, [enabled, playbackAuthority, softResumeVideo])
 

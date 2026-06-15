@@ -1,7 +1,7 @@
 import { RedirectToSignIn } from '@clerk/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import type { AuthUser } from '../../app/types'
+import type { AuthUser, PlanTier } from '../../app/types'
 import { DashboardShell } from '../../components/DashboardShell'
 import {
   AUTH_LOADING_MESSAGE,
@@ -14,13 +14,16 @@ import { useSession } from '../session/SessionProvider'
 import { useAuthUser } from './useAuthUser'
 import { Sidebar } from './Sidebar'
 import { ExpressNavigationProvider, useExpressNavigation } from './useExpressNavigation'
+import { getMe } from '../../services/me'
 
 export function DashboardLayout() {
   const user = useAuthUser()
-  const { authUser, status } = useAuthReadiness()
+  const { authUser, getTokenSafe, status } = useAuthReadiness()
   const location = useLocation()
   const navigate = useNavigate()
   const [showSlowLoadingCopy, setShowSlowLoadingCopy] = useState(false)
+  const [dbPlan, setDbPlan] = useState<PlanTier | null>(null)
+  const [dbPlanChecked, setDbPlanChecked] = useState(false)
 
   useEffect(() => {
     if (status !== 'loading') {
@@ -38,6 +41,8 @@ export function DashboardLayout() {
 
   useEffect(() => {
     if (status !== 'signed-in') {
+      setDbPlan(null)
+      setDbPlanChecked(false)
       return
     }
 
@@ -49,6 +54,47 @@ export function DashboardLayout() {
 
     navigate(pendingPath, { replace: true })
   }, [location.pathname, location.search, navigate, status])
+
+  useEffect(() => {
+    if (status !== 'signed-in') {
+      return
+    }
+
+    let cancelled = false
+
+    async function hydrateDbPlan() {
+      const tokenResult = await getTokenSafe()
+
+      if (!tokenResult.token) {
+        if (!cancelled) {
+          setDbPlan(null)
+          setDbPlanChecked(true)
+        }
+        return
+      }
+
+      try {
+        const response = await getMe(tokenResult.token)
+
+        if (!cancelled) {
+          setDbPlan(response.user?.plan ?? null)
+          setDbPlanChecked(true)
+        }
+      } catch {
+        if (!cancelled) {
+          setDbPlan(null)
+          setDbPlanChecked(true)
+        }
+      }
+    }
+
+    setDbPlanChecked(false)
+    void hydrateDbPlan()
+
+    return () => {
+      cancelled = true
+    }
+  }, [getTokenSafe, status])
 
   if (status === 'loading') {
     return (
@@ -80,12 +126,21 @@ export function DashboardLayout() {
 
   return (
     <ExpressNavigationProvider>
-      <SignedInDashboardLayout user={authUser ?? user} />
+      <SignedInDashboardLayout
+        isMembershipLoading={!dbPlanChecked}
+        user={authUser ? { ...authUser, plan: dbPlan ?? authUser.plan } : user}
+      />
     </ExpressNavigationProvider>
   )
 }
 
-function SignedInDashboardLayout({ user }: { user: AuthUser }) {
+function SignedInDashboardLayout({
+  isMembershipLoading,
+  user,
+}: {
+  isMembershipLoading: boolean
+  user: AuthUser
+}) {
   const location = useLocation()
   const { isActive } = useSession()
   const {
@@ -133,6 +188,7 @@ function SignedInDashboardLayout({ user }: { user: AuthUser }) {
       sidebar={
         shouldRenderSidebar ? (
           <Sidebar
+            isMembershipLoading={isMembershipLoading}
             onClose={closeSidebar}
             open={isSidebarOpen}
             shellMode={shellMode}

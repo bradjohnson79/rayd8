@@ -7,6 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "postinstall": "PUPPETEER_CACHE_DIR=.cache/puppeteer npx puppeteer browsers install chrome && npm run build && node scripts/migrate-on-render.mjs",
     "start": "PUPPETEER_CACHE_DIR=.cache/puppeteer node dist/server.js",
+    "sync-aweber": "tsx scripts/sync-free-users-to-aweber.ts",
     "test:smoke": "vitest run src/services/notifications/notifications.smoke.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "drizzle-kit generate",

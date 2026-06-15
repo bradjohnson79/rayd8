@@ -36,6 +36,22 @@ export type TryPlayResult =
   | { ok: true }
   | { message?: string; ok: false; reason: PlayFailureReason }
 
+function isLikelyFireTvBrowser() {
+  if (typeof navigator === 'undefined') {
+    return false
+  }
+
+  return /\bAFT\w+\b|Silk\//i.test(navigator.userAgent)
+}
+
+function getUnsupportedStreamMessage() {
+  if (isLikelyFireTvBrowser()) {
+    return 'This Fire TV browser cannot play the secure RAYD8 stream. Please use RAYD8 on Safari, Chrome, Edge, or a supported mobile/tablet browser, then cast or mirror from that device when available.'
+  }
+
+  return 'This browser cannot play the current RAYD8® session stream. Please use Safari, Chrome, Edge, or another browser with HLS or MediaSource playback support.'
+}
+
 export async function setMediaSource(input: {
   controllerProfileRef?: MutableRefObject<string | null>
   controllerRef: MutableRefObject<HlsController | null>
@@ -94,7 +110,7 @@ export async function setMediaSource(input: {
   }
 
   if (!Hls.isSupported()) {
-    throw new Error('This browser cannot play the current RAYD8® session stream.')
+    throw new Error(getUnsupportedStreamMessage())
   }
 
   if (controllerRef.current && controllerProfileRef?.current !== profileKey) {
