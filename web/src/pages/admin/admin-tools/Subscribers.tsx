@@ -23,7 +23,8 @@ function buildSubscriberSummary(subscribers: AdminSubscriberRecord[]): AdminSubs
         summary.amritaSubscribers + (subscriber.plan === 'amrita' ? 1 : 0),
       freeSubscribers: summary.freeSubscribers + (subscriber.plan === 'free' ? 1 : 0),
       paidSubscribers:
-        summary.paidSubscribers + (subscriber.stripe_subscription_id ? 1 : 0),
+        summary.paidSubscribers +
+        (subscriber.plan === 'regen' || subscriber.plan === 'amrita' ? 1 : 0),
       regenSubscribers: summary.regenSubscribers + (subscriber.plan === 'regen' ? 1 : 0),
       totalSubscribers: summary.totalSubscribers + 1,
     }),
@@ -46,6 +47,18 @@ function getSubscriberSourceLabel(source: AdminSubscriberSource) {
     default:
       return source
   }
+}
+
+function getSubscriberStatusLabel(subscriber: AdminSubscriberRecord) {
+  if (subscriber.plan === 'free' && !subscriber.stripe_subscription_id) {
+    return 'Free account'
+  }
+
+  if (subscriber.status === 'no_active_subscription') {
+    return 'No active subscription'
+  }
+
+  return subscriber.status
 }
 
 function SummaryCard({
@@ -129,7 +142,7 @@ export function AdminSubscribersPage() {
     >
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="Total Subscribers" tone="primary" value={summary.totalSubscribers} />
-        <SummaryCard label="Free Trial" value={summary.freeSubscribers} />
+        <SummaryCard label="Free Trial / Free Accounts" value={summary.freeSubscribers} />
         <SummaryCard label="REGEN" value={summary.regenSubscribers} />
         <SummaryCard label="AMRITA" value={summary.amritaSubscribers} />
       </div>
@@ -159,18 +172,19 @@ export function AdminSubscribersPage() {
                   </p>
                 </div>
                 <span className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.24em] text-slate-200">
-                  {subscriber.status}
+                  {getSubscriberStatusLabel(subscriber)}
                 </span>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1 text-xs font-medium text-emerald-100">
                   {getSubscriberSourceLabel(
-                    subscriber.subscriber_source ?? (subscriber.plan === 'free' ? 'free_trial' : subscriber.plan),
+                    subscriber.subscriber_source ??
+                      (subscriber.plan === 'free' ? 'free_trial' : subscriber.plan),
                   )}
                 </span>
                 {!subscriber.stripe_subscription_id ? (
                   <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-300">
-                    Free account
+                    {subscriber.plan === 'free' ? 'Free account' : 'No Stripe subscription'}
                   </span>
                 ) : null}
               </div>

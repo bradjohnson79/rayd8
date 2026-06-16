@@ -127,6 +127,60 @@ function getSubscriberSource(plan: AdminSubscriberRecord['plan']): AdminSubscrib
   return plan
 }
 
+const activePaidSubscriptionStatuses = new Set(['active', 'trialing'])
+
+function getPlanRank(plan: AdminSubscriberRecord['plan']) {
+  switch (plan) {
+    case 'amrita':
+      return 3
+    case 'regen':
+      return 2
+    default:
+      return 1
+  }
+}
+
+function isActivePaidSubscription(subscription: typeof subscriptions.$inferSelect) {
+  return (
+    activePaidSubscriptionStatuses.has(subscription.status) &&
+    (subscription.plan === 'amrita' || subscription.plan === 'regen')
+  )
+}
+
+function getBestActivePaidSubscription(
+  userSubscriptions: Array<typeof subscriptions.$inferSelect>,
+) {
+  return userSubscriptions
+    .filter(isActivePaidSubscription)
+    .sort((left, right) => {
+      const rankDelta = getPlanRank(right.plan) - getPlanRank(left.plan)
+
+      if (rankDelta !== 0) {
+        return rankDelta
+      }
+
+      return right.createdAt.getTime() - left.createdAt.getTime()
+    })[0]
+}
+
+function getEffectiveSubscriberPlan({
+  activePaidSubscription,
+  userPlan,
+}: {
+  activePaidSubscription?: typeof subscriptions.$inferSelect
+  userPlan: AdminSubscriberRecord['plan']
+}): AdminSubscriberRecord['plan'] {
+  if (activePaidSubscription) {
+    return activePaidSubscription.plan
+  }
+
+  if (userPlan === 'amrita' || userPlan === 'regen') {
+    return userPlan
+  }
+
+  return 'free'
+}
+
 export async function getAdminSubscribers() {
   if (!db) {
     return {
@@ -145,30 +199,30 @@ export async function getAdminSubscribers() {
     db.select().from(users),
     db.select().from(subscriptions).orderBy(desc(subscriptions.createdAt)),
   ])
-  const subscriberSubscriptionStatuses = new Set(['active', 'canceled', 'past_due'])
-  const latestSubscriptionByUser = new Map<string, (typeof allSubscriptions)[number]>()
+  const subscriptionsByUser = new Map<string, Array<(typeof allSubscriptions)[number]>>()
 
   for (const subscription of allSubscriptions) {
-    if (!subscriberSubscriptionStatuses.has(subscription.status)) {
-      continue
-    }
-
-    if (!latestSubscriptionByUser.has(subscription.userId)) {
-      latestSubscriptionByUser.set(subscription.userId, subscription)
-    }
+    const userSubscriptions = subscriptionsByUser.get(subscription.userId) ?? []
+    userSubscriptions.push(subscription)
+    subscriptionsByUser.set(subscription.userId, userSubscriptions)
   }
 
   const subscribers = allUsers
     .map((user) => {
-      const subscription = latestSubscriptionByUser.get(user.id)
-      const plan = subscription?.plan ?? user.plan
+      const userSubscriptions = subscriptionsByUser.get(user.id) ?? []
+      const activePaidSubscription = getBestActivePaidSubscription(userSubscriptions)
+      const plan = getEffectiveSubscriberPlan({
+        activePaidSubscription,
+        userPlan: user.plan,
+      })
+      const subscription = plan === 'free' ? undefined : activePaidSubscription ?? userSubscriptions[0]
 
       return {
         clerk_user_id: user.id,
         email: user.email,
         stripe_customer_id: subscription?.stripeCustomerId ?? null,
         stripe_subscription_id: subscription?.stripeSubscriptionId ?? null,
-        status: subscription?.status ?? (plan === 'free' ? 'free' : 'no_subscription'),
+        status: subscription?.status ?? (plan === 'free' ? 'free' : 'no_active_subscription'),
         plan,
         plan_type: subscription?.planType ?? null,
         created_at: user.createdAt.toISOString(),
@@ -183,11 +237,11 @@ export async function getAdminSubscribers() {
   return {
     subscribers,
     summary: {
-      amritaSubscribers: allUsers.filter((user) => user.plan === 'amrita').length,
-      freeSubscribers: allUsers.filter((user) => user.plan === 'free').length,
-      paidSubscribers: subscribers.filter((record) => record.stripe_subscription_id !== null).length,
-      regenSubscribers: allUsers.filter((user) => user.plan === 'regen').length,
-      totalSubscribers: allUsers.length,
+      amritaSubscribers: subscribers.filter((record) => record.plan === 'amrita').length,
+      freeSubscribers: subscribers.filter((record) => record.plan === 'free').length,
+      paidSubscribers: subscribers.filter((record) => record.plan === 'regen' || record.plan === 'amrita').length,
+      regenSubscribers: subscribers.filter((record) => record.plan === 'regen').length,
+      totalSubscribers: subscribers.length,
     },
   } satisfies AdminSubscribersResponse
 }
