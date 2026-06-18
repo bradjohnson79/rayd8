@@ -291,57 +291,16 @@ function couponMatchesPromoCode(
   )
 }
 
-async function getProductIdFromPriceId(priceId: string | undefined, planLabel: string) {
-  if (!stripeClient || !priceId) {
-    return null
-  }
-
-  const price = await stripeClient.prices.retrieve(priceId).catch((error) => {
-    const message = error instanceof Error ? error.message : ''
-
-    if (stripeEnvironment() === 'test' && message.includes('similar object exists in live mode')) {
-      console.warn(
-        `Skipping Stripe product restriction for test-mode promo code because ${planLabel} price belongs to live mode.`,
-      )
-      return null
-    }
-
-    throw error
-  })
-
-  if (!price) {
-    return null
-  }
-
-  return typeof price.product === 'string' ? price.product : price.product.id
+function getCouponProductRestrictions(coupon: Stripe.Coupon) {
+  return coupon.applies_to?.products ?? []
 }
 
-async function getProductIdsForPlan(plan: PromoCodePlan) {
-  if (plan === 'all') {
-    const productIds = (
-      await Promise.all([
-        getProductIdFromPriceId(env.STRIPE_REGEN_PRICE_ID, 'REGEN'),
-        getProductIdFromPriceId(env.STRIPE_AMRITA_PRICE_ID, 'Amrita'),
-      ])
-    ).filter((productId): productId is string => Boolean(productId))
-
-    return productIds.length ? productIds : null
-  }
-
-  if (plan === 'amrita') {
-    const productId = await getProductIdFromPriceId(env.STRIPE_AMRITA_PRICE_ID, 'Amrita')
-
-    if (!productId) {
-      throw new Error(
-        'Amrita Stripe price is not configured. Set STRIPE_AMRITA_PRICE_ID before creating Amrita promo codes.',
-      )
-    }
-
-    return [productId]
-  }
-
-  const productId = await getProductIdFromPriceId(env.STRIPE_REGEN_PRICE_ID, 'REGEN')
-  return productId ? [productId] : null
+function getProductIdsForPlan(plan: PromoCodePlan) {
+  void plan
+  // Stripe product-restricted coupons can be valid but fail at Checkout when
+  // product IDs drift between REGEN/AMRITA prices. RAYD8 stores intended plan
+  // scope in metadata/admin records and keeps Stripe coupons checkout-safe.
+  return null
 }
 
 function isStripeMissingError(error: unknown) {
@@ -788,6 +747,13 @@ export async function validatePromoCodeWithStripe(id: string): Promise<AdminProm
           status = 'mismatch'
           messages.push('Coupon expiration does not match local record.')
         }
+
+        if (getCouponProductRestrictions(coupon).length > 0) {
+          status = 'mismatch'
+          messages.push(
+            'Coupon has Stripe product restrictions. This can make the code valid but not applicable at checkout when product IDs differ; repair sync to recreate it without product restrictions.',
+          )
+        }
       }
 
       if (!promotionCode.active && existing.isActive) {
@@ -900,6 +866,60 @@ export async function repairPromoCodeSync(id: string) {
   const coupon = retrievedCoupon as Stripe.Coupon
   const promotionCode = await stripeClient.promotionCodes.retrieve(existing.stripePromotionCodeId)
   const localRedemptionCount = await getRedemptionCountForPromoCode(existing.id)
+
+  if (getCouponProductRestrictions(coupon).length > 0) {
+    await stripeClient.promotionCodes.update(promotionCode.id, { active: false })
+
+    try {
+      const metadata = {
+        rayd8_applies_to_plan: existing.appliesToPlan,
+        rayd8_code: existing.code,
+        rayd8_repaired_from_coupon: coupon.id,
+        rayd8_repaired_from_promo: promotionCode.id,
+      }
+      const repairedCoupon = await stripeClient.coupons.create({
+        amount_off: coupon.amount_off ?? undefined,
+        currency: coupon.amount_off ? coupon.currency ?? existing.currency : undefined,
+        duration: coupon.duration,
+        duration_in_months: coupon.duration === 'repeating' ? coupon.duration_in_months ?? undefined : undefined,
+        max_redemptions: coupon.max_redemptions ?? undefined,
+        metadata,
+        name: coupon.name ?? existing.name,
+        percent_off: coupon.percent_off ?? undefined,
+        redeem_by: coupon.redeem_by ?? undefined,
+      })
+      const repairedPromotionCode = await stripeClient.promotionCodes.create({
+        active: existing.isActive,
+        code: existing.code,
+        expires_at: promotionCode.expires_at ?? undefined,
+        max_redemptions: promotionCode.max_redemptions ?? undefined,
+        metadata,
+        promotion: {
+          coupon: repairedCoupon.id,
+          type: 'coupon',
+        },
+      })
+      const [record] = await db
+        .update(rayd8PromoCodes)
+        .set({
+          stripeCouponId: repairedCoupon.id,
+          stripeEnvironment: stripeEnvironment(),
+          stripePromotionCodeId: repairedPromotionCode.id,
+          stripeSyncError: null,
+          stripeSyncStatus: repairedPromotionCode.active ? 'synced' : 'inactive',
+          timesRedeemed: localRedemptionCount,
+          updatedAt: new Date(),
+        })
+        .where(eq(rayd8PromoCodes.id, id))
+        .returning()
+
+      return serializePromoCode(record)
+    } catch (error) {
+      await stripeClient.promotionCodes.update(promotionCode.id, { active: promotionCode.active }).catch(() => null)
+      throw error
+    }
+  }
+
   const [record] = await db
     .update(rayd8PromoCodes)
     .set({

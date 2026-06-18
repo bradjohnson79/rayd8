@@ -21,7 +21,7 @@ import { dispatchNotification } from './notifications/dispatchNotification.js'
 import { syncManagedPlanForUser } from './subscriptions.js'
 import { toAppPlan } from './player/accessPolicy.js'
 import { ensureTrialWindowForUser } from './player/trialStatus.js'
-import { syncSubscriberToAweber } from './aweber.js'
+import { safeSyncUserToAweber, type AweberSyncPlan } from './aweber.js'
 
 export type UserRecord = InferSelectModel<typeof users>
 
@@ -193,19 +193,26 @@ async function safeDispatchNotification(
   }
 }
 
-async function safeSyncFreeUserToAweber(input: { email: string; userId: string }) {
-  try {
-    await syncSubscriberToAweber({
-      email: input.email,
-      source: 'free_trial',
-    })
-  } catch (error) {
-    console.error('[aweber] unable to sync free user', {
-      email: input.email,
-      message: error instanceof Error ? error.message : String(error),
-      userId: input.userId,
-    })
+function toAweberSyncPlan(plan: UserRecord['plan']): AweberSyncPlan | null {
+  if (plan === 'free' || plan === 'regen' || plan === 'amrita') {
+    return plan
   }
+
+  return null
+}
+
+function queueUserAweberSync(user: UserRecord) {
+  const plan = toAweberSyncPlan(user.plan)
+
+  if (!plan) {
+    return
+  }
+
+  void safeSyncUserToAweber({
+    email: user.email,
+    plan,
+    userId: user.id,
+  })
 }
 
 export async function syncUserFromClerk(userId: string) {
@@ -278,7 +285,7 @@ export async function syncUserFromClerk(userId: string) {
     }
   }
 
-  await syncManagedPlanForUser(userId)
+  await syncManagedPlanForUser(userId, { syncAweber: false })
 
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
 
@@ -303,12 +310,7 @@ export async function syncUserFromClerk(userId: string) {
       userId: user.id,
     })
 
-    if (user.plan === 'free') {
-      await safeSyncFreeUserToAweber({
-        email: user.email,
-        userId: user.id,
-      })
-    }
+    queueUserAweberSync(user)
   }
 
   if (user?.plan === 'free') {

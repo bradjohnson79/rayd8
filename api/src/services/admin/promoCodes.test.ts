@@ -177,41 +177,7 @@ describe('admin promo codes', () => {
     expect(update).toHaveBeenCalledTimes(1)
   })
 
-  it('rejects Amrita promo creation when the Amrita Stripe price is not configured', async () => {
-    const mockDb = {
-      select: vi.fn().mockReturnValue(makeSelectLimitChain([])),
-    }
-    const mockStripe = {
-      promotionCodes: {
-        list: vi.fn().mockResolvedValue({ data: [] }),
-      },
-    }
-
-    vi.doMock('../../db/client.js', () => ({ db: mockDb }))
-    vi.doMock('../../env.js', () => ({
-      env: {
-        STRIPE_AMRITA_PRICE_ID: undefined,
-        STRIPE_REGEN_PRICE_ID: 'price_regen',
-        STRIPE_SECRET_KEY: 'sk_test_mock',
-      },
-    }))
-    mockStripeClient(mockStripe)
-
-    const { createPromoCode } = await import('./promoCodes.js')
-
-    await expect(
-      createPromoCode({
-        appliesToPlan: 'amrita',
-        code: 'AMRITA25',
-        discountType: 'percent',
-        duration: 'once',
-        name: 'AMRITA 25',
-        percentOff: 25,
-      }),
-    ).rejects.toThrow('Amrita Stripe price is not configured')
-  })
-
-  it('creates Amrita promo codes with Stripe product restriction', async () => {
+  it('creates Amrita promo codes without requiring local product lookup', async () => {
     const createdPromo = makePromoCode({
       appliesToPlan: 'amrita',
       code: 'AMRITA25',
@@ -232,8 +198,61 @@ describe('admin promo codes', () => {
       coupons: {
         create: vi.fn().mockResolvedValue({ id: 'coupon_amrita_1' }),
       },
-      prices: {
-        retrieve: vi.fn().mockResolvedValue({ product: 'prod_amrita' }),
+      promotionCodes: {
+        create: vi.fn().mockResolvedValue({ id: 'promo_amrita_1', times_redeemed: 0 }),
+        list: vi.fn().mockResolvedValue({ data: [] }),
+      },
+    }
+
+    vi.doMock('../../db/client.js', () => ({ db: mockDb }))
+    vi.doMock('../../env.js', () => ({
+      env: {
+        STRIPE_AMRITA_PRICE_ID: undefined,
+        STRIPE_REGEN_PRICE_ID: 'price_regen',
+        STRIPE_SECRET_KEY: 'sk_test_mock',
+      },
+    }))
+    mockStripeClient(mockStripe)
+
+    const { createPromoCode } = await import('./promoCodes.js')
+    const result = await createPromoCode({
+      appliesToPlan: 'amrita',
+      code: 'amrita25',
+      discountType: 'percent',
+      duration: 'once',
+      name: 'AMRITA 25',
+      percentOff: 25,
+    })
+
+    expect(result.applies_to_plan).toBe('amrita')
+    expect(mockStripe.coupons.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        applies_to: undefined,
+        metadata: expect.objectContaining({ rayd8_applies_to_plan: 'amrita' }),
+      }),
+    )
+  })
+
+  it('creates Amrita promo codes without Stripe product restriction', async () => {
+    const createdPromo = makePromoCode({
+      appliesToPlan: 'amrita',
+      code: 'AMRITA25',
+      name: 'AMRITA 25',
+      stripeCouponId: 'coupon_amrita_1',
+      stripePromotionCodeId: 'promo_amrita_1',
+      stripeSyncStatus: 'synced',
+    })
+    const mockDb = {
+      insert: vi.fn(() => ({
+        values: vi.fn(() => ({
+          returning: vi.fn().mockResolvedValue([createdPromo]),
+        })),
+      })),
+      select: vi.fn().mockReturnValue(makeSelectLimitChain([])),
+    }
+    const mockStripe = {
+      coupons: {
+        create: vi.fn().mockResolvedValue({ id: 'coupon_amrita_1' }),
       },
       promotionCodes: {
         create: vi.fn().mockResolvedValue({ id: 'promo_amrita_1', times_redeemed: 0 }),
@@ -264,7 +283,7 @@ describe('admin promo codes', () => {
     expect(result.applies_to_plan).toBe('amrita')
     expect(mockStripe.coupons.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        applies_to: { products: ['prod_amrita'] },
+        applies_to: undefined,
         metadata: expect.objectContaining({ rayd8_applies_to_plan: 'amrita' }),
       }),
     )

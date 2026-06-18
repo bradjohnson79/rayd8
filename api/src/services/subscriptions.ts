@@ -15,6 +15,7 @@ import { dispatchNotification } from './notifications/dispatchNotification.js'
 import { getAffiliateAttributionForUser } from './referrals.js'
 import { recordAffiliateTrackingEvent } from './affiliates/tracking.js'
 import { recordPromoCodeRedemption } from './admin/promoCodes.js'
+import { safeSyncUserToAweber, type AweberSyncPlan } from './aweber.js'
 
 const stripeClient = env.STRIPE_SECRET_KEY
   ? new Stripe(env.STRIPE_SECRET_KEY, {
@@ -620,9 +621,16 @@ async function persistManagedPlanForUser(userId: string, database = db) {
   return nextPlan
 }
 
-export async function syncManagedPlanForUser(userId: string) {
+export async function syncManagedPlanForUser(
+  userId: string,
+  options: { syncAweber?: boolean } = {},
+) {
   const nextPlan = await persistManagedPlanForUser(userId)
   await updateClerkPlan(userId, nextPlan)
+
+  if (options.syncAweber !== false) {
+    queueAweberPlanSync({ plan: nextPlan, userId })
+  }
 
   return nextPlan
 }
@@ -712,6 +720,7 @@ async function activateManagedSubscriptionRecord(input: {
   })
 
   await updateClerkPlan(input.userId, reconciliation.nextPlan)
+  queueAweberPlanSync({ plan: reconciliation.nextPlan, userId: input.userId })
 
   await Promise.all(
     reconciliation.stripeSubscriptionsToCancel.map((stripeSubscriptionId) =>
@@ -762,6 +771,53 @@ async function safeDispatchNotification(
   } catch (error) {
     console.error('[notifications]', error)
   }
+}
+
+function toAweberSyncPlan(plan: PersistedPlan): AweberSyncPlan | null {
+  if (plan === 'free' || plan === 'regen' || plan === 'amrita') {
+    return plan
+  }
+
+  return null
+}
+
+async function safeSyncPlanToAweber(input: { plan: PersistedPlan; userId: string }) {
+  const plan = toAweberSyncPlan(input.plan)
+
+  if (!db || !plan) {
+    return
+  }
+
+  try {
+    const [userRecord] = await db
+      .select({
+        email: users.email,
+        id: users.id,
+      })
+      .from(users)
+      .where(eq(users.id, input.userId))
+      .limit(1)
+
+    if (!userRecord) {
+      return
+    }
+
+    await safeSyncUserToAweber({
+      email: userRecord.email,
+      plan,
+      userId: userRecord.id,
+    })
+  } catch (error) {
+    console.error('[aweber] unable to sync finalized user plan', {
+      message: error instanceof Error ? error.message : String(error),
+      plan,
+      userId: input.userId,
+    })
+  }
+}
+
+function queueAweberPlanSync(input: { plan: PersistedPlan; userId: string }) {
+  void safeSyncPlanToAweber(input)
 }
 
 function normalizePlanType(value: unknown): ManagedPlanType {

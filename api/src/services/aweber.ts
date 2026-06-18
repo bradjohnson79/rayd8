@@ -7,7 +7,8 @@ export type AweberSubscriberSource =
   | 'premium'
   | 'regen'
 
-export type AweberSyncStatus = 'created' | 'skipped' | 'updated'
+export type AweberSyncPlan = 'amrita' | 'free' | 'regen'
+export type AweberSyncStatus = 'already_exists' | 'failed' | 'skipped' | 'synced'
 
 export interface AweberSyncInput {
   email: string
@@ -15,11 +16,21 @@ export interface AweberSyncInput {
   source: AweberSubscriberSource
 }
 
-export interface AweberSyncResult {
+export interface AweberUserSyncInput {
   email: string
+  firstName?: string | null
+  lastName?: string | null
+  name?: string | null
+  plan: AweberSyncPlan
+  userId?: string | null
+}
+
+export type AweberSyncResult = {
+  email?: string
+  plan?: AweberSyncPlan
   reason?: string
   status: AweberSyncStatus
-  tag?: string
+  tags?: string[]
 }
 
 interface AweberTokenResponse {
@@ -37,15 +48,12 @@ interface AweberFindResponse {
 
 const AWEBER_AUTH_URL = 'https://auth.aweber.com/oauth2/token'
 const AWEBER_API_BASE_URL = 'https://api.aweber.com/1.0'
+export const PLAN_TAGS = ['plan-free', 'plan-regen', 'plan-amrita'] as const
 
-// TODO: When plan-change sync is added, call this service from subscription
-// transitions so Aweber tags stay current for free -> REGEN -> AMRITA journeys.
-const sourceTags: Record<AweberSubscriberSource, string> = {
-  amrita: 'AMRITA',
-  free_trial: 'Free Trial',
-  legacy_import: 'Legacy Import',
-  premium: 'Premium',
-  regen: 'REGEN',
+const planTags: Record<AweberSyncPlan, string[]> = {
+  amrita: ['rayd8', 'paid-member', 'amrita', 'plan-amrita', 'highest-tier'],
+  free: ['rayd8', 'free-account', 'free-trial', 'plan-free'],
+  regen: ['rayd8', 'paid-member', 'regen', 'plan-regen'],
 }
 
 function isAweberEnabled() {
@@ -150,13 +158,13 @@ async function createAweberSubscriber(input: {
   email: string
   listUrl: string
   name?: string | null
-  tag: string
+  tags: string[]
 }) {
   await aweberRequest(`${input.listUrl}/subscribers`, input.accessToken, {
     body: JSON.stringify({
       email: input.email,
       name: input.name ?? input.email,
-      tags: [input.tag],
+      tags: input.tags,
     }),
     method: 'POST',
   })
@@ -165,70 +173,177 @@ async function createAweberSubscriber(input: {
 async function updateAweberSubscriber(input: {
   accessToken: string
   subscriber: AweberSubscriberEntry
-  tag: string
+  tags: string[]
 }) {
   if (!input.subscriber.self_link) {
     throw new Error('Aweber subscriber lookup did not include a self link.')
   }
 
+  // Aweber tag removal is intentionally not attempted here. Additive tags are
+  // safe and idempotent; removing stale plan tags needs verified API semantics
+  // so we do not accidentally remove unrelated marketing tags or subscriber state.
   await aweberRequest(input.subscriber.self_link, input.accessToken, {
     body: JSON.stringify({
-      tags: [input.tag],
+      tags: input.tags,
     }),
     method: 'PATCH',
   })
 }
 
 export function getAweberTagForSource(source: AweberSubscriberSource) {
-  return sourceTags[source]
+  switch (source) {
+    case 'amrita':
+      return 'plan-amrita'
+    case 'free_trial':
+      return 'plan-free'
+    case 'regen':
+      return 'plan-regen'
+    default:
+      return source
+  }
 }
 
-export async function syncSubscriberToAweber(input: AweberSyncInput): Promise<AweberSyncResult> {
+export function getAweberTagsForPlan(plan: AweberSyncPlan) {
+  return planTags[plan]
+}
+
+function getDisplayName(input: AweberUserSyncInput) {
+  if (input.name?.trim()) {
+    return input.name.trim()
+  }
+
+  const name = [input.firstName, input.lastName]
+    .map((value) => value?.trim())
+    .filter(Boolean)
+    .join(' ')
+
+  return name || input.email
+}
+
+function sourceToPlan(source: AweberSubscriberSource): AweberSyncPlan | null {
+  switch (source) {
+    case 'amrita':
+      return 'amrita'
+    case 'free_trial':
+      return 'free'
+    case 'regen':
+      return 'regen'
+    default:
+      return null
+  }
+}
+
+export async function syncUserToAweber(input: AweberUserSyncInput): Promise<AweberSyncResult> {
   const config = getAweberConfig()
-  const tag = getAweberTagForSource(input.source)
+  const tags = getAweberTagsForPlan(input.plan)
 
   if (!config) {
     return {
       email: input.email,
       reason: isAweberEnabled() ? 'missing_aweber_config' : 'aweber_sync_disabled',
       status: 'skipped',
-      tag,
+      plan: input.plan,
+      tags,
     }
   }
 
-  const accessToken = await refreshAweberAccessToken(config)
-  const listUrl = getListUrl(config)
-  const existingSubscriber = await findAweberSubscriber({
-    accessToken,
-    email: input.email,
-    listUrl,
-  })
-
-  if (existingSubscriber) {
-    await updateAweberSubscriber({
+  try {
+    const accessToken = await refreshAweberAccessToken(config)
+    const listUrl = getListUrl(config)
+    const existingSubscriber = await findAweberSubscriber({
       accessToken,
-      subscriber: existingSubscriber,
-      tag,
+      email: input.email,
+      listUrl,
+    })
+
+    if (existingSubscriber) {
+      await updateAweberSubscriber({
+        accessToken,
+        subscriber: existingSubscriber,
+        tags,
+      })
+
+      return {
+        email: input.email,
+        plan: input.plan,
+        status: 'already_exists',
+        tags,
+      }
+    }
+
+    await createAweberSubscriber({
+      accessToken,
+      email: input.email,
+      listUrl,
+      name: getDisplayName(input),
+      tags,
     })
 
     return {
       email: input.email,
-      status: 'updated',
-      tag,
+      plan: input.plan,
+      status: 'synced',
+      tags,
+    }
+  } catch (error) {
+    return {
+      email: input.email,
+      plan: input.plan,
+      reason: error instanceof Error ? error.message : 'Aweber sync failed.',
+      status: 'failed',
+      tags,
+    }
+  }
+}
+
+export async function safeSyncUserToAweber(input: AweberUserSyncInput): Promise<AweberSyncResult> {
+  try {
+    const result = await syncUserToAweber(input)
+
+    if (result.status === 'failed') {
+      console.error('[aweber] user sync failed', {
+        email: input.email,
+        plan: input.plan,
+        reason: result.reason,
+        userId: input.userId ?? null,
+      })
+    }
+
+    return result
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Aweber sync failed.'
+
+    console.error('[aweber] user sync failed', {
+      email: input.email,
+      plan: input.plan,
+      reason,
+      userId: input.userId ?? null,
+    })
+
+    return {
+      email: input.email,
+      plan: input.plan,
+      reason,
+      status: 'failed',
+      tags: getAweberTagsForPlan(input.plan),
+    }
+  }
+}
+
+export async function syncSubscriberToAweber(input: AweberSyncInput): Promise<AweberSyncResult> {
+  const plan = sourceToPlan(input.source)
+
+  if (!plan) {
+    return {
+      email: input.email,
+      reason: 'unsupported_aweber_source',
+      status: 'skipped',
     }
   }
 
-  await createAweberSubscriber({
-    accessToken,
+  return syncUserToAweber({
     email: input.email,
-    listUrl,
     name: input.name,
-    tag,
+    plan,
   })
-
-  return {
-    email: input.email,
-    status: 'created',
-    tag,
-  }
 }
