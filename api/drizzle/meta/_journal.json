@@ -134,6 +134,13 @@
       "when": 1780438903136,
       "tag": "0018_regular_vivisector",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1781893346782,
+      "tag": "0019_smart_shen",
+      "breakpoints": true
     }
   ]
 }

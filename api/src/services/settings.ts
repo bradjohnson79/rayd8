@@ -3,7 +3,6 @@ import { db } from '../db/client.js'
 import { userSettings } from '../db/schema.js'
 
 export interface SettingsPayload {
-  allowExtendedSessions: boolean
   amplifierMode: 'off' | '5x' | '10x' | '20x'
   blueLightEnabled: boolean
   circadianEnabled: boolean
@@ -12,7 +11,6 @@ export interface SettingsPayload {
 }
 
 export const defaultSettings: SettingsPayload = {
-  allowExtendedSessions: false,
   amplifierMode: 'off',
   blueLightEnabled: false,
   circadianEnabled: false,
@@ -36,7 +34,6 @@ export async function getSettingsForUser(userId: string) {
   }
 
   return {
-    allowExtendedSessions: settings.allowExtendedSessions,
     amplifierMode: settings.amplifierMode,
     blueLightEnabled: settings.blueLightEnabled,
     circadianEnabled: settings.circadianEnabled,
@@ -57,7 +54,6 @@ export async function upsertSettingsForUser(
     .insert(userSettings)
     .values({
       userId,
-      allowExtendedSessions: settings.allowExtendedSessions,
       amplifierMode: settings.amplifierMode,
       blueLightEnabled: settings.blueLightEnabled,
       circadianEnabled: settings.circadianEnabled,
@@ -67,7 +63,6 @@ export async function upsertSettingsForUser(
     .onConflictDoUpdate({
       target: userSettings.userId,
       set: {
-        allowExtendedSessions: settings.allowExtendedSessions,
         amplifierMode: settings.amplifierMode,
         blueLightEnabled: settings.blueLightEnabled,
         circadianEnabled: settings.circadianEnabled,

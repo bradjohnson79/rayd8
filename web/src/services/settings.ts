@@ -2,7 +2,6 @@ import { apiRequest } from './api'
 
 export interface SettingsResponse {
   settings: {
-    allowExtendedSessions: boolean
     amplifierMode: 'off' | '5x' | '10x' | '20x'
     blueLightEnabled: boolean
     circadianEnabled: boolean

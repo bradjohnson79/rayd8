@@ -1,4 +1,9 @@
-import type { SessionPlaybackStatus } from '../rayd8-player/sessionWarning'
+export type SessionPlaybackStatus =
+  | 'preloading'
+  | 'ready'
+  | 'playing'
+  | 'recovering'
+  | 'interaction-required'
 
 export type PlaybackMachineState =
   | 'IDLE'

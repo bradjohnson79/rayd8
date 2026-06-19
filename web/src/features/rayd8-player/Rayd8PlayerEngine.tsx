@@ -90,7 +90,7 @@ import {
   recordSourceLoad,
   recordVideoMount,
 } from './playerDiagnostics'
-import type { SessionPlaybackStatus } from './sessionWarning'
+import type { SessionPlaybackStatus } from '../playback-authority/playbackPresentation'
 import { useMobilePlaybackLifecycle } from './useMobilePlaybackLifecycle'
 import { useAudioUnlockGesture } from './useAudioUnlockGesture'
 import { usePlaybackHealthGuard } from './usePlaybackHealthGuard'
