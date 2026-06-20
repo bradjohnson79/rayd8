@@ -1,4 +1,5 @@
 import type {
+  AdminAffiliatePurchasePayload,
   AdminPaymentReceivedPayload,
   AdminTestPayload,
   NotificationEvent,
@@ -19,6 +20,7 @@ export interface RenderedNotificationTemplate {
 }
 
 const ADMIN_ORDER_SUBJECT_PREFIX = 'NICE! YOU JUST GOT AN ORDER: RAYD8 Paid Subscription -'
+const ADMIN_AFFILIATE_PURCHASE_SUBJECT_PREFIX = 'RAYD8 affiliate sale: commission earned -'
 
 function adminPaymentReceivedSubjectLabel(payload: AdminPaymentReceivedPayload): string {
   const trimmed = (value: string | null | undefined) => value?.trim() || ''
@@ -59,6 +61,46 @@ function renderAdminPaymentReceivedTemplate(payload: AdminPaymentReceivedPayload
       callToAction: {
         label: 'Review Orders',
         url: getRayd8Url('/admin/orders'),
+      },
+    }),
+  }
+}
+
+function renderAdminAffiliatePurchaseTemplate(payload: AdminAffiliatePurchasePayload): RenderedNotificationTemplate {
+  const customerLabel = payload.customerEmail?.trim() || payload.referredUserId
+
+  return {
+    subject: `${ADMIN_AFFILIATE_PURCHASE_SUBJECT_PREFIX} ${customerLabel}`,
+    html: renderRayd8Email({
+      eyebrow: 'Affiliate Alert',
+      title: 'Affiliate subscription purchase recorded',
+      intro: 'A customer purchased a RAYD8 subscription through affiliate attribution, and a commission is now owed for review/payout.',
+      sections: [
+        renderInfoCard(
+          'Commission details',
+          renderKeyValueTable([
+            { label: 'Commission ID', value: payload.entityId },
+            { label: 'Commission owed', value: money(payload.amountUsd / 100, 'USD') },
+            { label: 'Plan', value: payload.plan.toUpperCase() },
+            { label: 'Affiliate email', value: text(payload.affiliateEmail, 'Unavailable') },
+            { label: 'Customer email', value: text(payload.customerEmail, 'Unavailable') },
+            { label: 'Referral code', value: text(payload.referralCode, 'Unavailable') },
+          ]),
+        ),
+        renderInfoCard(
+          'Stripe details',
+          renderKeyValueTable([
+            { label: 'Invoice ID', value: payload.stripeInvoiceId },
+            { label: 'Subscription ID', value: payload.stripeSubscriptionId },
+            { label: 'Customer ID', value: text(payload.stripeCustomerId, 'Unavailable') },
+            { label: 'Affiliate user ID', value: payload.affiliateUserId },
+            { label: 'Referred user ID', value: payload.referredUserId },
+          ]),
+        ),
+      ],
+      callToAction: {
+        label: 'Review Affiliate Commissions',
+        url: getRayd8Url('/admin/affiliates'),
       },
     }),
   }
@@ -133,6 +175,8 @@ export function renderNotificationTemplate<TEvent extends NotificationEvent>(
       return renderAdminNewUserTemplate(payload as NotificationPayloadMap['admin.new.user'])
     case 'user.created':
       return renderUserCreatedTemplate(payload as NotificationPayloadMap['user.created'])
+    case 'admin.affiliate.purchase':
+      return renderAdminAffiliatePurchaseTemplate(payload as NotificationPayloadMap['admin.affiliate.purchase'])
     case 'admin.payment.received':
       return renderAdminPaymentReceivedTemplate(payload as NotificationPayloadMap['admin.payment.received'])
     case 'stream.started':

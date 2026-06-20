@@ -26,6 +26,7 @@ export const DEFAULT_ENABLED_EVENTS: NotificationSettingsMap = {
   'user.created': true,
   'stream.limit.reached': true,
   'admin.new.user': true,
+  'admin.affiliate.purchase': true,
   'admin.payment.received': true,
 }
 

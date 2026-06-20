@@ -200,11 +200,12 @@ export async function createAffiliateCommissionForSubscriptionCreate(input: {
     })
   }
 
+  const commissionAmountUsd = 600
   const insertedRows = await db
     .insert(affiliateCommissions)
     .values({
       affiliateUserId: user.referredByUserId,
-      amountUsd: 600,
+      amountUsd: commissionAmountUsd,
       eventId: input.eventId,
       referredUserId: user.id,
       source: 'stripe_invoice',
@@ -232,7 +233,14 @@ export async function createAffiliateCommissionForSubscriptionCreate(input: {
     stripeSubscriptionId: input.stripeSubscriptionId,
   })
 
-  return { created, reason: created ? ('inserted' as const) : ('duplicate' as const) }
+  return {
+    affiliateUserId: user.referredByUserId,
+    amountUsd: commissionAmountUsd,
+    commissionId: insertedRows[0]?.id ?? null,
+    created,
+    referredUserId: user.id,
+    reason: created ? ('inserted' as const) : ('duplicate' as const),
+  }
 }
 
 export function verifyStripeWebhook(payload: string | Buffer, signature?: string) {
@@ -1565,7 +1573,7 @@ async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceed
     userId,
   })
 
-  await createAffiliateCommissionForSubscriptionCreate({
+  const affiliateCommissionResult = await createAffiliateCommissionForSubscriptionCreate({
     affiliateUserIdFromMetadata: subscription.metadata.referrer_user_id ?? null,
     billingReason: invoice.billing_reason,
     eventId: event.id,
@@ -1577,6 +1585,29 @@ async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceed
     stripeSubscriptionId: subscription.id,
     userId,
   })
+
+  if (affiliateCommissionResult.created && affiliateCommissionResult.commissionId) {
+    const affiliateContext = await getUserNotificationContext(affiliateCommissionResult.affiliateUserId)
+
+    await safeDispatchNotification({
+      event: 'admin.affiliate.purchase',
+      payload: {
+        affiliateEmail: affiliateContext?.email ?? null,
+        affiliateUserId: affiliateCommissionResult.affiliateUserId,
+        amountUsd: affiliateCommissionResult.amountUsd,
+        customerEmail: userContext?.email ?? invoice.customer_email ?? null,
+        entityId: affiliateCommissionResult.commissionId,
+        plan,
+        referralCode: subscription.metadata.referral_code ?? null,
+        referredUserId: affiliateCommissionResult.referredUserId,
+        stripeCustomerId:
+          typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id ?? null,
+        stripeInvoiceId: invoice.id,
+        stripeSubscriptionId: subscription.id,
+      },
+      userId,
+    })
+  }
 
   await safeDispatchNotification({
     event: 'payment.succeeded',

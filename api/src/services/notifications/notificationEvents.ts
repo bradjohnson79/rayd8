@@ -7,6 +7,7 @@ export type NotificationEvent =
   | 'stream.started'
   | 'stream.limit.reached'
   | 'admin.new.user'
+  | 'admin.affiliate.purchase'
   | 'admin.payment.received'
   | 'admin.test'
 
@@ -100,6 +101,19 @@ export interface AdminPaymentReceivedPayload extends BaseNotificationPayload {
   stripeCustomerName?: string | null
 }
 
+export interface AdminAffiliatePurchasePayload extends BaseNotificationPayload {
+  affiliateEmail?: string | null
+  affiliateUserId: string
+  amountUsd: number
+  customerEmail?: string | null
+  plan: 'free' | 'premium' | 'regen' | 'amrita'
+  referralCode?: string | null
+  referredUserId: string
+  stripeCustomerId?: string | null
+  stripeInvoiceId: string
+  stripeSubscriptionId: string
+}
+
 export interface AdminTestPayload extends BaseNotificationPayload {
   initiatedByUserId?: string | null
   message?: string | null
@@ -114,6 +128,7 @@ export interface NotificationPayloadMap {
   'stream.started': StreamStartedPayload
   'stream.limit.reached': StreamLimitReachedPayload
   'admin.new.user': AdminNewUserPayload
+  'admin.affiliate.purchase': AdminAffiliatePurchasePayload
   'admin.payment.received': AdminPaymentReceivedPayload
   'admin.test': AdminTestPayload
 }
@@ -138,6 +153,7 @@ export const USER_NOTIFICATION_EVENTS = [
 
 export const ADMIN_NOTIFICATION_EVENTS = [
   'admin.new.user',
+  'admin.affiliate.purchase',
   'admin.payment.received',
   'admin.test',
 ] as const satisfies readonly NotificationEvent[]
@@ -150,6 +166,7 @@ export const CONFIGURABLE_NOTIFICATION_EVENTS = [
   'user.created',
   'stream.limit.reached',
   'admin.new.user',
+  'admin.affiliate.purchase',
   'admin.payment.received',
 ] as const satisfies readonly NotificationEvent[]
 

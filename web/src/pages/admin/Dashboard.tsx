@@ -6,6 +6,7 @@ import { useAuthToken } from '../../features/dashboard/useAuthToken'
 import { useSession } from '../../features/session/SessionProvider'
 import {
   getAdminMessages,
+  getAdminAffiliateSummary,
   getAdminMuxStats,
   getAdminOrders,
   getAdminOverview,
@@ -13,6 +14,7 @@ import {
   getAdminUsers,
   type AdminMuxStats,
   type AdminOverview,
+  type AdminAffiliateSummaryResponse,
   type AdminStripeRevenueSummary,
   type AdminStripeRecord,
   type AdminUserRecord,
@@ -39,6 +41,40 @@ const emptyRevenue: AdminStripeRevenueSummary = {
   paid_invoice_count: 0,
 }
 
+const emptyAffiliateSummary: AdminAffiliateSummaryResponse = {
+  cards: {
+    nextPayoutDate: '',
+    totalAffiliateRevenueGeneratedUsd: 0,
+    totalCommissionsOwedUsd: 0,
+    totalPaidOutUsd: 0,
+  },
+  payoutSchedule: {
+    cutoffDate: '',
+    daysUntilNextPayout: 0,
+    minimumPayoutThresholdUsd: 0,
+    nextPayoutDate: '',
+    payoutWindowLabel: '',
+  },
+  tracking: {
+    health: {
+      label: 'Loading',
+      message: 'Affiliate tracking summary is loading.',
+      status: 'yellow',
+    },
+    lastVerifiedAffiliateFlow: {
+      message: '',
+      result: 'warning',
+      verifiedAt: null,
+    },
+    stripeSyncIntegrity: {
+      attributedPayments: 0,
+      commissionCreationRate: 0,
+      metadataCoverageRate: 0,
+      totalTrackedPayments: 0,
+    },
+  },
+}
+
 function formatStripeMoney(amountCents: number, currency: string) {
   return new Intl.NumberFormat('en-US', {
     currency: currency.toUpperCase(),
@@ -53,6 +89,7 @@ export function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [overview, setOverview] = useState<AdminOverview>(emptyOverview)
   const [revenue, setRevenue] = useState<AdminStripeRevenueSummary>(emptyRevenue)
+  const [affiliateSummary, setAffiliateSummary] = useState<AdminAffiliateSummaryResponse>(emptyAffiliateSummary)
   const [users, setUsers] = useState<AdminUserRecord[]>([])
   const [orders, setOrders] = useState<AdminStripeRecord[]>([])
   const [messages, setMessages] = useState<ContactMessageRecord[]>([])
@@ -82,10 +119,12 @@ export function AdminDashboardPage() {
         const revenueRequest = getAdminRevenueSummary(token).catch(() => ({
           revenue: emptyRevenue,
         }))
-        const [overviewResponse, revenueResponse, userResponse, orderResponse, messageResponse, muxResponse] =
+        const affiliateSummaryRequest = getAdminAffiliateSummary(token).catch(() => emptyAffiliateSummary)
+        const [overviewResponse, revenueResponse, affiliateSummaryResponse, userResponse, orderResponse, messageResponse, muxResponse] =
           await Promise.all([
             getAdminOverview(token),
             revenueRequest,
+            affiliateSummaryRequest,
             getAdminUsers(token),
             getAdminOrders(token),
             getAdminMessages(token),
@@ -95,6 +134,7 @@ export function AdminDashboardPage() {
         if (!cancelled) {
           setOverview(overviewResponse.overview)
           setRevenue(revenueResponse.revenue)
+          setAffiliateSummary(affiliateSummaryResponse)
           setUsers(userResponse.users)
           setOrders(orderResponse.orders)
           setMessages(messageResponse.messages)
@@ -120,10 +160,11 @@ export function AdminDashboardPage() {
     }
   }, [getAuthToken])
 
-  return <AdminDashboardHome error={error} loading={loading} messages={messages} muxStats={muxStats} orders={orders} overview={overview} revenue={revenue} users={users} />
+  return <AdminDashboardHome affiliateSummary={affiliateSummary} error={error} loading={loading} messages={messages} muxStats={muxStats} orders={orders} overview={overview} revenue={revenue} users={users} />
 }
 
 function AdminDashboardHome({
+  affiliateSummary,
   error,
   loading,
   messages,
@@ -133,6 +174,7 @@ function AdminDashboardHome({
   revenue,
   users,
 }: {
+  affiliateSummary: AdminAffiliateSummaryResponse
   error: string | null
   loading: boolean
   messages: ContactMessageRecord[]
@@ -211,6 +253,19 @@ function AdminDashboardHome({
             detail={loading ? 'Loading active sessions...' : 'Streaming sessions with recent heartbeat activity.'}
             label="Current streaming sessions"
             value={overview.currentStreamingSessions}
+          />
+          <AdminStatCard
+            detail={
+              loading
+                ? 'Loading affiliate commissions...'
+                : `Pending and approved affiliate commissions. Next payout: ${
+                    affiliateSummary.cards.nextPayoutDate
+                      ? new Date(affiliateSummary.cards.nextPayoutDate).toLocaleDateString()
+                      : 'not scheduled'
+                  }.`
+            }
+            label="Affiliate commissions owed"
+            value={formatStripeMoney(affiliateSummary.cards.totalCommissionsOwedUsd, 'usd')}
           />
           <AdminStatCard
             detail={loading ? 'Loading today watch time...' : 'Total watched minutes recorded for the current UTC day.'}
