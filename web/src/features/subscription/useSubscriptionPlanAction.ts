@@ -1,5 +1,5 @@
 import { useClerk } from '@clerk/react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AUTH_LOADING_MESSAGE,
@@ -57,9 +57,14 @@ export function useSubscriptionPlanAction({ location }: UseSubscriptionPlanActio
   const [activePlan, setActivePlan] = useState<SubscriptionPlan | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
+  const isSubmittingRef = useRef(false)
 
   const startPlanAction = useCallback(
     async (plan: SubscriptionPlan) => {
+      if (isSubmittingRef.current) {
+        return false
+      }
+
       setActivePlan(plan)
       setStatusMessage('')
 
@@ -86,6 +91,7 @@ export function useSubscriptionPlanAction({ location }: UseSubscriptionPlanActio
       }
 
       setIsSubmitting(true)
+      isSubmittingRef.current = true
 
       try {
         const tokenResult = await getTokenSafe()
@@ -117,6 +123,7 @@ export function useSubscriptionPlanAction({ location }: UseSubscriptionPlanActio
         setStatusMessage(error instanceof Error ? error.message : CHECKOUT_FAILURE_MESSAGE)
         return false
       } finally {
+        isSubmittingRef.current = false
         setIsSubmitting(false)
       }
     },

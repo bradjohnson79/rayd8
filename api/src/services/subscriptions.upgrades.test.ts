@@ -151,6 +151,77 @@ describe('managed subscription upgrade decisions', () => {
     ).toBe(1000)
   })
 
+  it('updates the existing subscription item without resetting the billing cycle or creating Stripe proration', async () => {
+    const { buildManagedPlanUpgradeSubscriptionUpdateParams } = await importSubscriptionHelpers()
+
+    expect(
+      buildManagedPlanUpgradeSubscriptionUpdateParams({
+        currentMetadata: {
+          existing: 'preserved',
+          plan: 'regen',
+          userId: 'user_existing',
+        },
+        plan: 'amrita',
+        planType: 'single',
+        subscriptionItemId: 'si_regen',
+        targetPriceId: 'price_amrita',
+        userId: 'user_upgrade',
+      }),
+    ).toEqual({
+      billing_cycle_anchor: 'unchanged',
+      cancel_at_period_end: false,
+      items: [
+        {
+          id: 'si_regen',
+          price: 'price_amrita',
+        },
+      ],
+      metadata: {
+        existing: 'preserved',
+        plan: 'amrita',
+        planType: 'single',
+        userId: 'user_upgrade',
+      },
+      proration_behavior: 'none',
+    })
+  })
+
+  it('blocks full checkout when persisted REGEN access cannot be matched to a Stripe subscription for AMRITA upgrade', async () => {
+    const { getPersistedPlanCheckoutBlockMessage } = await importSubscriptionHelpers()
+
+    expect(
+      getPersistedPlanCheckoutBlockMessage({
+        persistedPlan: 'regen',
+        requestedPlan: 'amrita',
+      }),
+    ).toContain('no active Stripe subscription was found for a prorated AMRITA upgrade')
+  })
+
+  it('blocks duplicate and downgrade checkouts from persisted managed access', async () => {
+    const { getPersistedPlanCheckoutBlockMessage } = await importSubscriptionHelpers()
+
+    expect(
+      getPersistedPlanCheckoutBlockMessage({
+        persistedPlan: 'amrita',
+        requestedPlan: 'amrita',
+      }),
+    ).toBe('This account already has AMRITA access.')
+    expect(
+      getPersistedPlanCheckoutBlockMessage({
+        persistedPlan: 'amrita',
+        requestedPlan: 'regen',
+      }),
+    ).toBe(
+      'This account already includes AMRITA access. A lower-tier subscription cannot be purchased while it is active.',
+    )
+    expect(
+      getPersistedPlanCheckoutBlockMessage({
+        persistedPlan: 'free',
+        requestedPlan: 'regen',
+      }),
+    ).toBeNull()
+  })
+
   it('rejects non-upgrade price differences', async () => {
     const { getManagedPlanUpgradeAmountCents } = await importSubscriptionHelpers()
 

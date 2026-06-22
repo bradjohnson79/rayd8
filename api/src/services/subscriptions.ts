@@ -79,6 +79,28 @@ function getPlanLabel(plan: ManagedPlan) {
   return plan === 'amrita' ? 'AMRITA' : 'REGEN'
 }
 
+export function getPersistedPlanCheckoutBlockMessage(input: {
+  persistedPlan: PersistedPlan | null
+  requestedPlan: ManagedPlan
+}) {
+  if (!isManagedPlan(input.persistedPlan)) {
+    return null
+  }
+
+  const persistedRank = MANAGED_PLAN_RANK[input.persistedPlan]
+  const requestedRank = MANAGED_PLAN_RANK[input.requestedPlan]
+
+  if (persistedRank === requestedRank) {
+    return `This account already has ${getPlanLabel(input.requestedPlan)} access.`
+  }
+
+  if (persistedRank > requestedRank) {
+    return `This account already includes ${getPlanLabel(input.persistedPlan)} access. A lower-tier subscription cannot be purchased while it is active.`
+  }
+
+  return `This account already has ${getPlanLabel(input.persistedPlan)} access, but no active Stripe subscription was found for a prorated ${getPlanLabel(input.requestedPlan)} upgrade. Please contact support before checkout.`
+}
+
 export function getManagedPlanUpgradeAmountCents(input: {
   currentAmountCents: number | null
   targetAmountCents: number | null
@@ -125,6 +147,33 @@ async function getManagedPlanUpgradeAmountForStripe(input: {
     currentAmountCents: currentPrice.unit_amount,
     targetAmountCents: targetPrice.unit_amount,
   })
+}
+
+export function buildManagedPlanUpgradeSubscriptionUpdateParams(input: {
+  currentMetadata?: Stripe.Metadata | null
+  plan: ManagedPlan
+  planType: ManagedPlanType
+  subscriptionItemId: string
+  targetPriceId: string
+  userId: string
+}): Stripe.SubscriptionUpdateParams {
+  return {
+    billing_cycle_anchor: 'unchanged',
+    cancel_at_period_end: false,
+    items: [
+      {
+        id: input.subscriptionItemId,
+        price: input.targetPriceId,
+      },
+    ],
+    metadata: {
+      ...(input.currentMetadata ?? {}),
+      plan: input.plan,
+      planType: input.planType,
+      userId: input.userId,
+    },
+    proration_behavior: 'none',
+  }
 }
 
 export async function createAffiliateCommissionForSubscriptionCreate(input: {
@@ -335,6 +384,18 @@ export async function createCheckoutSession(input: {
     }
   }
 
+  const persistedUserPlan = await findPersistedUserPlan(input.userId)
+  const persistedPlanBlockMessage = !existingSubscription
+    ? getPersistedPlanCheckoutBlockMessage({
+        persistedPlan: persistedUserPlan,
+        requestedPlan: input.plan,
+      })
+    : null
+
+  if (persistedPlanBlockMessage) {
+    throw new Error(persistedPlanBlockMessage)
+  }
+
   const customerId = existingSubscription?.stripeCustomerId
   const sessionConfig: Stripe.Checkout.SessionCreateParams = {
     mode: 'subscription',
@@ -539,6 +600,20 @@ async function findManageableSubscriptionsForUser(userId: string, database = db)
         inArray(subscriptions.status, [...MANAGED_SUBSCRIPTION_STATUSES]),
       ),
     )
+}
+
+async function findPersistedUserPlan(userId: string, database = db) {
+  if (!database) {
+    return null
+  }
+
+  const [userRecord] = await database
+    .select({ plan: users.plan })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+
+  return userRecord?.plan ?? null
 }
 
 function resolveHighestManagedSubscription<T extends { currentPeriodEnd: Date | null; plan: PersistedPlan }>(
@@ -1082,22 +1157,14 @@ async function activateManagedPlanUpgradeCheckoutSession(session: Stripe.Checkou
 
   const updatedSubscription = await stripeClient.subscriptions.update(
     currentSubscription.id,
-    {
-      cancel_at_period_end: false,
-      items: [
-        {
-          id: subscriptionItem.id,
-          price: targetPriceId,
-        },
-      ],
-      metadata: {
-        ...(currentSubscription.metadata ?? {}),
-        plan: upgradeContext.plan,
-        planType: upgradeContext.planType,
-        userId: upgradeContext.userId,
-      },
-      proration_behavior: 'none',
-    },
+    buildManagedPlanUpgradeSubscriptionUpdateParams({
+      currentMetadata: currentSubscription.metadata,
+      plan: upgradeContext.plan,
+      planType: upgradeContext.planType,
+      subscriptionItemId: subscriptionItem.id,
+      targetPriceId,
+      userId: upgradeContext.userId,
+    }),
   )
   const currentPeriodStart = fromUnixTimestamp(updatedSubscription.items.data[0]?.current_period_start)
   const currentPeriodEnd = fromUnixTimestamp(updatedSubscription.items.data[0]?.current_period_end)

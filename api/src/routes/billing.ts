@@ -58,6 +58,8 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
 
     if (
       message.includes('already has an active') ||
+      message.includes('already has ') ||
+      message.includes('no active Stripe subscription was found for a prorated') ||
       message.includes('already includes')
     ) {
       return {
