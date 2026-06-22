@@ -3,7 +3,6 @@ export type SessionPlaybackStatus =
   | 'ready'
   | 'playing'
   | 'recovering'
-  | 'interaction-required'
 
 export type PlaybackMachineState =
   | 'IDLE'
@@ -12,8 +11,6 @@ export type PlaybackMachineState =
   | 'PLAYING'
   | 'BUFFERING'
   | 'PASSIVE_RECOVERY'
-  | 'WAITING_FOR_GESTURE'
-  | 'INTERRUPTED'
   | 'FATAL_ERROR'
   | 'ENDED'
 
@@ -35,9 +32,6 @@ export function machineToLegacyPlaybackState(machine: PlaybackMachineState): Ses
       return 'playing'
     case 'PASSIVE_RECOVERY':
       return 'recovering'
-    case 'WAITING_FOR_GESTURE':
-    case 'INTERRUPTED':
-      return 'interaction-required'
     case 'FATAL_ERROR':
       return 'ready'
     case 'ENDED':
@@ -45,10 +39,6 @@ export function machineToLegacyPlaybackState(machine: PlaybackMachineState): Ses
     default:
       return 'ready'
   }
-}
-
-export function shouldShowInteractionOverlay(machine: PlaybackMachineState): boolean {
-  return machine === 'WAITING_FOR_GESTURE' || machine === 'INTERRUPTED'
 }
 
 export function createInitialPresentationSnapshot(): PlaybackPresentationSnapshot {

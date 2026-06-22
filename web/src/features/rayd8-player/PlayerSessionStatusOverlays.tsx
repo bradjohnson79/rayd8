@@ -15,11 +15,6 @@ interface PlaybackHealthFallbackOverlayProps {
   onTryAgain: () => void
 }
 
-interface InteractionRequiredOverlayProps {
-  onExit: () => void
-  onResume: () => void
-}
-
 interface UsageWarningOverlayProps {
   onDismiss: () => void
   smallScreenViewport: boolean
@@ -40,43 +35,6 @@ export const PreloadOverlay = memo(function PreloadOverlay({
           Loading the secure stream, attaching the video source, and buffering for a smoother start.
         </p>
         <p className="mt-3 text-2xl font-semibold text-white">{preloadPercent}%</p>
-      </div>
-    </div>
-  )
-})
-
-export const InteractionRequiredOverlay = memo(function InteractionRequiredOverlay({
-  onExit,
-  onResume,
-}: InteractionRequiredOverlayProps) {
-  return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/78 p-6 text-center">
-      <div className="max-w-sm rounded-[2rem] border border-white/12 bg-slate-950/92 p-6 text-white shadow-[0_18px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-        <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/70">
-          Playback paused
-        </p>
-        <h3 className="mt-3 text-2xl font-semibold text-white">
-          Tap To Start Playback
-        </h3>
-        <p className="mt-3 text-sm leading-6 text-slate-300">
-          Your browser needs one more tap to begin this session.
-        </p>
-        <div className="mt-6 flex flex-col gap-3">
-          <button
-            className="rounded-2xl bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-5 py-3 text-sm font-medium text-white transition hover:-translate-y-0.5"
-            onClick={onResume}
-            type="button"
-          >
-            Resume Session
-          </button>
-          <button
-            className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/5"
-            onClick={onExit}
-            type="button"
-          >
-            Exit Session
-          </button>
-        </div>
       </div>
     </div>
   )

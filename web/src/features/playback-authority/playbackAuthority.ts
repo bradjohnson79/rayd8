@@ -5,20 +5,16 @@ import {
   type PlaybackPolicyProfile,
 } from './playbackPolicy'
 import {
-  classifyPlaybackSignal,
-  playbackSignalPriority,
   type PlaybackSignal,
 } from './playbackSignals'
 import {
   createInitialPresentationSnapshot,
   machineToLegacyPlaybackState,
-  shouldShowInteractionOverlay,
   type PlaybackMachineState,
   type PlaybackPresentationSnapshot,
 } from './playbackPresentation'
 import {
   recordAuthorityDecision,
-  recordInterruption,
   soakFreezeEnd,
   soakFreezeStart,
   soakMarkPlayingState,
@@ -55,9 +51,6 @@ export class PlaybackAuthorityController {
   private videoDelegate: PlaybackVideoDelegate | null = null
   private audioDelegate: PlaybackAudioDelegate | null = null
 
-  private overlaySuppressed = false
-  private activeHardInterruption = false
-  private hardInterruptionPriority = 0
   private lastMajorRecoveryAt = 0
   private majorVideoRecoveryInFlight = false
   private majorAudioRecoveryInFlight = false
@@ -113,8 +106,6 @@ export class PlaybackAuthorityController {
     recordAuthorityDecision(signal.type, this.snapshot.machine)
 
     if (signal.type === 'lifecycle_preloading') {
-      this.resetHardInterruptionState()
-      this.overlaySuppressed = false
       this.commitPresentation('PRELOADING')
       return
     }
@@ -126,11 +117,9 @@ export class PlaybackAuthorityController {
 
     if (signal.type === 'lifecycle_play_attempt_finished') {
       if (signal.ok) {
-        this.resetHardInterruptionState()
-        this.overlaySuppressed = false
         this.commitPresentation('PLAYING')
       } else {
-        this.enterGestureRequired(false)
+        void this.runSilentResumeRecovery()
       }
       return
     }
@@ -141,19 +130,7 @@ export class PlaybackAuthorityController {
     }
 
     if (signal.type === 'lifecycle_idle') {
-      this.resetHardInterruptionState()
       this.commitPresentation('IDLE')
-      return
-    }
-
-    const priority = playbackSignalPriority(signal)
-    const category = classifyPlaybackSignal(signal)
-
-    if (
-      this.activeHardInterruption &&
-      priority < this.hardInterruptionPriority &&
-      category !== 'hard_stop'
-    ) {
       return
     }
 
@@ -177,11 +154,7 @@ export class PlaybackAuthorityController {
         return
 
       case 'video_pause_while_expecting_play':
-        if (this.profile === 'uninterrupted') {
-          return
-        }
-
-        this.enterGestureRequired(false)
+        void this.runSilentResumeRecovery()
         return
 
       case 'video_ended_loop':
@@ -189,7 +162,7 @@ export class PlaybackAuthorityController {
         return
 
       case 'audio_autoplay_blocked':
-        this.enterGestureRequired(this.profile === 'uninterrupted')
+        void this.runSilentResumeRecovery()
         return
 
       case 'audio_error':
@@ -230,36 +203,19 @@ export class PlaybackAuthorityController {
     }
   }
 
-  private resetHardInterruptionState() {
-    this.activeHardInterruption = false
-    this.hardInterruptionPriority = 0
-    this.overlaySuppressed = false
-  }
-
   private notify() {
     this.listeners.forEach((listener) => listener())
   }
 
   private commitPresentation(machine: PlaybackMachineState) {
-    const interactionOverlayVisible =
-      shouldShowInteractionOverlay(machine) && !this.overlaySuppressed
-
     this.snapshot = {
-      interactionOverlayVisible,
+      interactionOverlayVisible: false,
       legacyPlaybackState: machineToLegacyPlaybackState(machine),
       machine,
     }
 
     soakMarkPlayingState(machine === 'PLAYING' || machine === 'BUFFERING')
     this.notify()
-  }
-
-  private enterGestureRequired(suppressOverlay: boolean) {
-    this.activeHardInterruption = true
-    this.hardInterruptionPriority = Math.max(this.hardInterruptionPriority, 68)
-    this.overlaySuppressed = suppressOverlay
-    recordInterruption('gesture_required')
-    this.commitPresentation('WAITING_FOR_GESTURE')
   }
 
   private scheduleTabVisibleResume() {
@@ -293,14 +249,41 @@ export class PlaybackAuthorityController {
       const audioOk = await d.audio.attemptSoftResume()
 
       if (videoOk && audioOk) {
-        this.resetHardInterruptionState()
         this.commitPresentation('PLAYING')
         return
       }
 
-      if (this.profile !== 'uninterrupted') {
-        this.enterGestureRequired(false)
+      this.commitPresentation('PASSIVE_RECOVERY')
+    } finally {
+      this.resumeOperationInFlight = false
+    }
+  }
+
+  private async runSilentResumeRecovery() {
+    if (this.resumeOperationInFlight) {
+      return
+    }
+
+    const d = this.delegates()
+
+    if (!d) {
+      this.commitPresentation('READY')
+      return
+    }
+
+    this.resumeOperationInFlight = true
+    this.commitPresentation('PASSIVE_RECOVERY')
+
+    try {
+      const videoOk = await d.video.attemptSoftResume()
+      const audioOk = await d.audio.attemptSoftResume()
+
+      if (videoOk && audioOk) {
+        this.commitPresentation('PLAYING')
+        return
       }
+
+      this.commitPresentation('READY')
     } finally {
       this.resumeOperationInFlight = false
     }
@@ -333,10 +316,9 @@ export class PlaybackAuthorityController {
       const ok = await d.video.attemptMajorRecovery(reason)
 
       if (ok) {
-        this.resetHardInterruptionState()
         this.commitPresentation('PLAYING')
       } else {
-        this.enterGestureRequired(false)
+        this.commitPresentation('READY')
       }
     } finally {
       soakFreezeEnd()
@@ -371,8 +353,8 @@ export class PlaybackAuthorityController {
     try {
       const ok = await d.audio.attemptMajorRecovery(reason)
 
-      if (!ok && this.profile !== 'uninterrupted') {
-        this.enterGestureRequired(false)
+      if (!ok) {
+        this.commitPresentation('READY')
       }
     } finally {
       this.majorAudioRecoveryInFlight = false
