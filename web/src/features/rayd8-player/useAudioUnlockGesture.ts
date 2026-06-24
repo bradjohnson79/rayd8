@@ -1,22 +1,19 @@
 import { useEffect, useRef } from 'react'
-import { isAudioUnlockPrompt } from './audioUnlock'
 import { addTrackedDomEventListener } from './playerDiagnostics'
 
 interface UseAudioUnlockGestureInput {
-  audioError: string | null
   enabled: boolean
   resumeAudioPlayback: () => Promise<boolean>
 }
 
 export function useAudioUnlockGesture({
-  audioError,
   enabled,
   resumeAudioPlayback,
 }: UseAudioUnlockGestureInput) {
   const unlockInFlightRef = useRef(false)
 
   useEffect(() => {
-    if (!enabled || !isAudioUnlockPrompt(audioError)) {
+    if (!enabled) {
       return
     }
 
@@ -60,5 +57,5 @@ export function useAudioUnlockGesture({
     return () => {
       removeListeners.forEach((removeListener) => removeListener())
     }
-  }, [audioError, enabled, resumeAudioPlayback])
+  }, [enabled, resumeAudioPlayback])
 }

@@ -47,30 +47,6 @@ export function PlayerScreen({ plan }: PlayerScreenProps) {
               circadianEnabled={state.circadianEnabled}
             />
 
-            {!state.audioUnlocked ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/55 p-6 text-center">
-                <div className="max-w-md rounded-[2rem] border border-white/10 bg-slate-950/90 p-6 backdrop-blur-xl">
-                  <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/60">
-                    Start playback
-                  </p>
-                  <h3 className="mt-3 text-2xl font-semibold text-white">
-                    Tap once to unlock audio and video
-                  </h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">
-                    Mobile browsers require a first interaction before audio can play. After that,
-                    switching speeds remains seamless.
-                  </p>
-                  <button
-                    className="mt-6 w-full rounded-2xl bg-emerald-300/20 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-300/30"
-                    onClick={() => void actions.unlockPlayback()}
-                    type="button"
-                  >
-                    Start session
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
             <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 bg-gradient-to-t from-black/70 via-black/10 to-transparent p-5">
               <div className="pointer-events-auto rounded-2xl border border-white/10 bg-black/35 px-4 py-3 backdrop-blur-xl">
                 <p className="text-xs uppercase tracking-[0.28em] text-emerald-200/60">Plan</p>
@@ -116,7 +92,6 @@ export function PlayerScreen({ plan }: PlayerScreenProps) {
           <section className="rounded-[2rem] border border-white/12 bg-white/[0.05] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
             <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/60">Status</p>
             <div className="mt-4 space-y-3 text-sm text-slate-300">
-              <p>Playback unlock: {state.audioUnlocked ? 'ready' : 'waiting for first tap'}</p>
               <p>Current speed: {state.lastSpeedMode}</p>
               <p>Amplifier: {state.amplifierMode}</p>
               <p>Blue light filter: {state.blueLightEnabled ? 'on' : 'off'}</p>

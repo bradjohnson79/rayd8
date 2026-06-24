@@ -615,6 +615,7 @@ export function Rayd8PlayerEngine({
     setAudioMuted,
     setAudioTrack,
     setAudioVolume,
+    singleAvAudioActive,
     setSingleAvAudioActive,
     softDenialState,
     startSession,
@@ -1281,8 +1282,7 @@ export function Rayd8PlayerEngine({
   })
 
   useAudioUnlockGesture({
-    audioError,
-    enabled: isActive && audioTrack !== 'none' && !singleAvAudioActiveRef.current,
+    enabled: isActive && audioTrack !== 'none' && !singleAvAudioActive,
     resumeAudioPlayback,
   })
 

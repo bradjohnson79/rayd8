@@ -25,7 +25,6 @@ export interface PersistedPlayerSettings {
 
 export interface PlayerState extends PersistedPlayerSettings {
   plan: 'free' | 'premium' | 'regen' | 'amrita'
-  audioUnlocked: boolean
   amplifierMenuOpen: boolean
   exitModalOpen: boolean
   videoError: string | null

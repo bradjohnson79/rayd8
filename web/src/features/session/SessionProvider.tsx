@@ -52,7 +52,6 @@ import {
   type HlsController,
   type TryPlayResult,
 } from '../rayd8-player/mediaController'
-import { AUDIO_UNLOCK_PROMPT } from '../rayd8-player/audioUnlock'
 import { logExpressPlaybackDebug } from '../rayd8-player/expressPlaybackDebug'
 import { PlaybackScheduler } from '../rayd8-player/playbackScheduler'
 
@@ -101,6 +100,7 @@ interface SessionContextValue extends SessionState, AudioState {
   setAudioMuted: (nextValue: boolean) => void
   setAudioTrack: (nextValue: SharedAudioTrack) => void
   setAudioVolume: (nextValue: number) => void
+  singleAvAudioActive: boolean
   setSingleAvAudioActive: (nextValue: boolean) => void
   softDenialState: SoftDenialState | null
   startSession: (type: SessionType, options?: { source?: SessionSource }) => void
@@ -196,7 +196,7 @@ function getAudioPlaybackFailureMessage(result: TryPlayResult) {
 
   switch (result.reason) {
     case 'NotAllowedError':
-      return AUDIO_UNLOCK_PROMPT
+      return null
     case 'DocumentNotVisible':
       return 'Audio will resume when the session tab is visible.'
     case 'MediaElementMissing':
@@ -811,6 +811,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
           audioVolume: Math.max(0, Math.min(1, nextValue)),
         }))
       },
+      singleAvAudioActive,
       setSingleAvAudioActive,
       softDenialState,
       startSession,
@@ -825,6 +826,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       endSession,
       experienceAccess,
       isAudioLoading,
+      singleAvAudioActive,
       softDenialState,
       startSession,
       state,

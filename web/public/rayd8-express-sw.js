@@ -1,4 +1,4 @@
-const STATIC_CACHE = 'rayd8-express-static-v1'
+const STATIC_CACHE = 'rayd8-express-static-v2'
 const STATIC_ASSETS = [
   '/favicon.svg',
   '/manifest.webmanifest',

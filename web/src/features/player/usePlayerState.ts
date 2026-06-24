@@ -68,7 +68,6 @@ function toLegacyMediaPlan(plan: PlanTier) {
 async function resetAndPlay(
   media: HTMLMediaElement | null,
   src: string,
-  shouldPlay: boolean,
   muted = false,
 ) {
   if (!media) {
@@ -84,26 +83,12 @@ async function resetAndPlay(
     media.muted = true
   }
 
-  if (!shouldPlay) {
-    return
-  }
-
   try {
     await media.play()
   } catch {
-    // Playback on mobile can fail until the first user activation.
-  }
-}
-
-async function resumePlayback(media: HTMLMediaElement | null) {
-  if (!media) {
-    return
-  }
-
-  try {
-    await media.play()
-  } catch {
-    // Ignore autoplay errors until the user taps to unlock.
+    if (import.meta.env.DEV) {
+      console.warn('[rayd8-player] Media autoplay deferred silently.')
+    }
   }
 }
 
@@ -111,7 +96,6 @@ export function usePlayerState(plan: PlanTier) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [state, setState] = useState<Omit<PlayerState, 'plan'>>(() => ({
-    audioUnlocked: false,
     amplifierMenuOpen: false,
     exitModalOpen: false,
     videoError: null,
@@ -119,7 +103,6 @@ export function usePlayerState(plan: PlanTier) {
     ...readPersistedSettings(),
   }))
   const playbackStateRef = useRef({
-    audioUnlocked: state.audioUnlocked,
     lastSpeedMode: state.lastSpeedMode,
   })
 
@@ -139,11 +122,11 @@ export function usePlayerState(plan: PlanTier) {
   )
 
   const applyCurrentSources = useCallback(
-    async (speedMode: SpeedMode, shouldPlay: boolean) => {
+    async (speedMode: SpeedMode) => {
       const nextSources = MEDIA_SOURCES[toLegacyMediaPlan(plan)][speedMode]
 
-      await resetAndPlay(videoRef.current, nextSources.video, shouldPlay, true)
-      await resetAndPlay(audioRef.current, nextSources.audio, shouldPlay)
+      await resetAndPlay(videoRef.current, nextSources.video, true)
+      await resetAndPlay(audioRef.current, nextSources.audio)
     },
     [plan],
   )
@@ -154,16 +137,12 @@ export function usePlayerState(plan: PlanTier) {
 
   useEffect(() => {
     playbackStateRef.current = {
-      audioUnlocked: state.audioUnlocked,
       lastSpeedMode: state.lastSpeedMode,
     }
-  }, [state.audioUnlocked, state.lastSpeedMode])
+  }, [state.lastSpeedMode])
 
   useEffect(() => {
-    void applyCurrentSources(
-      playbackStateRef.current.lastSpeedMode,
-      playbackStateRef.current.audioUnlocked,
-    )
+    void applyCurrentSources(playbackStateRef.current.lastSpeedMode)
   }, [applyCurrentSources])
 
   const setSpeedMode = useCallback(
@@ -175,27 +154,10 @@ export function usePlayerState(plan: PlanTier) {
         audioError: null,
       }))
 
-      await applyCurrentSources(speedMode, state.audioUnlocked)
+      await applyCurrentSources(speedMode)
     },
-    [applyCurrentSources, state.audioUnlocked],
+    [applyCurrentSources],
   )
-
-  const unlockPlayback = useCallback(async () => {
-    setState((currentState) => ({
-      ...currentState,
-      audioUnlocked: true,
-      videoError: null,
-      audioError: null,
-    }))
-
-    if (!videoRef.current?.src || !audioRef.current?.src) {
-      await applyCurrentSources(state.lastSpeedMode, true)
-      return
-    }
-
-    await resumePlayback(videoRef.current)
-    await resumePlayback(audioRef.current)
-  }, [applyCurrentSources, state.lastSpeedMode])
 
   const setAmplifierMode = useCallback((amplifierMode: AmplifierMode) => {
     setState((currentState) => ({
@@ -251,7 +213,6 @@ export function usePlayerState(plan: PlanTier) {
       setVideoError,
       toggleBlueLight,
       toggleCircadian,
-      unlockPlayback,
     },
   }
 }
