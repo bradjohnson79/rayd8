@@ -105,12 +105,14 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
               <li className={featureLi}>
                 <span className={featureBullet} aria-hidden />
                 <span>
-                  <span className="font-semibold text-slate-100">35 hours of watch time per month</span>
+                  <span className="font-semibold text-slate-100">
+                    35 total hours during your 30-day trial
+                  </span>
                 </span>
               </li>
               <li className={featureLi}>
                 <span className={featureBullet} aria-hidden />
-                <span>30 day free trial</span>
+                <span>One-time free trial with no monthly reset</span>
               </li>
               <li className={featureLi}>
                 <span className={featureBullet} aria-hidden />

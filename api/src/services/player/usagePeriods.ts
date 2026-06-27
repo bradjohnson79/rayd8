@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { db } from '../../db/client.js'
 import { subscriptions, usagePeriods, users } from '../../db/schema.js'
 import type { AppPlan, Experience } from './accessPolicy.js'
@@ -8,6 +8,7 @@ export const MAX_HEARTBEAT_SECONDS = 30
 
 const HOUR_IN_SECONDS = 60 * 60
 const FAR_FUTURE_PERIOD_END = new Date('9999-12-31T23:59:59.999Z')
+const UNKNOWN_FREE_PERIOD_START = new Date(0)
 
 export const PLAN_LIMITS = {
   free: {
@@ -51,6 +52,10 @@ function getUtcMonthWindow(now: Date) {
   return { end, start }
 }
 
+export function getFreeUsagePeriodStart(userCreatedAt: Date | null | undefined) {
+  return userCreatedAt ?? UNKNOWN_FREE_PERIOD_START
+}
+
 async function resolveUsagePeriod(input: { plan: UsageBucketPlan; userId: string }) {
   const fallbackWindow = getUtcMonthWindow(new Date())
 
@@ -58,7 +63,7 @@ async function resolveUsagePeriod(input: { plan: UsageBucketPlan; userId: string
     return input.plan === 'free'
       ? {
           periodEnd: FAR_FUTURE_PERIOD_END,
-          periodStart: fallbackWindow.start,
+          periodStart: getFreeUsagePeriodStart(null),
           periodType: 'lifetime' as const,
         }
       : {
@@ -77,7 +82,7 @@ async function resolveUsagePeriod(input: { plan: UsageBucketPlan; userId: string
 
     return {
       periodEnd: FAR_FUTURE_PERIOD_END,
-      periodStart: user?.createdAt ?? fallbackWindow.start,
+      periodStart: getFreeUsagePeriodStart(user?.createdAt),
       periodType: 'lifetime' as const,
     }
   }
@@ -227,21 +232,21 @@ export async function addTrackedUsageSeconds(input: {
     await db
       .update(usagePeriods)
       .set({
-        expansionSeconds: periodRecord.expansionSeconds + normalizedSeconds,
+        expansionSeconds: sql`${usagePeriods.expansionSeconds} + ${normalizedSeconds}`,
       })
       .where(eq(usagePeriods.id, periodRecord.id))
   } else if (input.experience === 'premium') {
     await db
       .update(usagePeriods)
       .set({
-        premiumSeconds: periodRecord.premiumSeconds + normalizedSeconds,
+        premiumSeconds: sql`${usagePeriods.premiumSeconds} + ${normalizedSeconds}`,
       })
       .where(eq(usagePeriods.id, periodRecord.id))
   } else {
     await db
       .update(usagePeriods)
       .set({
-        regenSeconds: periodRecord.regenSeconds + normalizedSeconds,
+        regenSeconds: sql`${usagePeriods.regenSeconds} + ${normalizedSeconds}`,
       })
       .where(eq(usagePeriods.id, periodRecord.id))
   }

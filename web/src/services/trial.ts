@@ -1,6 +1,6 @@
 import { apiRequest } from './api'
 
-export type TrialBlockReason = 'HOURS_EXCEEDED' | 'TRIAL_EXPIRED' | 'USAGE_LIMIT_REACHED'
+export type TrialBlockReason = 'HOURS_EXCEEDED' | 'TRIAL_EXPIRED'
 export type TrialNotificationLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 export type FreeExperiencePreviewBlockReason =
   | 'free_expansion_limit_reached'
@@ -33,7 +33,7 @@ export const RESTRICTION_UPGRADE_ACTIONS: UpgradeAction[] = [
 ]
 
 export function isTrialBlockReason(value: string | null | undefined): value is TrialBlockReason {
-  return value === 'TRIAL_EXPIRED' || value === 'HOURS_EXCEEDED' || value === 'USAGE_LIMIT_REACHED'
+  return value === 'TRIAL_EXPIRED' || value === 'HOURS_EXCEEDED'
 }
 
 export function isFreeExperiencePreviewBlockReason(
@@ -47,7 +47,7 @@ export function isFreeExperiencePreviewBlockReason(
 }
 
 export function getTrialBlockContent(reason: TrialBlockReason): RestrictionContent {
-  if (reason === 'HOURS_EXCEEDED' || reason === 'USAGE_LIMIT_REACHED') {
+  if (reason === 'HOURS_EXCEEDED') {
     return {
       description: TRIAL_HOURS_EXCEEDED_MESSAGE,
       title: 'Trial hours used',

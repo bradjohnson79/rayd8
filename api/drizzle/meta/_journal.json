@@ -141,6 +141,13 @@
       "when": 1781893346782,
       "tag": "0019_smart_shen",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1782579840000,
+      "tag": "0020_free_trial_integrity",
+      "breakpoints": true
     }
   ]
 }

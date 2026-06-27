@@ -23,8 +23,8 @@ const planCards: Array<{
     plan: 'free',
     name: 'Free Trial',
     bullets: [
-      '35 hours of watch time per month',
-      '30-day free trial',
+      '35 total hours during your 30-day free trial',
+      'One-time trial window with no monthly reset',
       'Expansion version + 1 hour access to Premium & REGEN versions each',
       'Works on any device',
     ],
@@ -238,7 +238,7 @@ export function SubscriptionPage() {
 
             <div className="mt-8 rounded-2xl border border-white/10 bg-black/15 px-4 py-4 text-sm leading-6 text-slate-300">
               {selectedPlan === 'free'
-                ? 'Free Trial starts immediately after authentication.'
+                ? 'Free Trial starts immediately after authentication and runs once for 30 calendar days.'
                 : selectedPlan === 'amrita'
                   ? 'AMRITA starts a fresh Stripe billing cycle and unlocks the complete RAYD8 ecosystem after payment completes.'
                   : 'REGEN uses a secure server-created Stripe Checkout session and activates on your dashboard after payment completes.'}

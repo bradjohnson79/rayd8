@@ -1318,7 +1318,7 @@ function ExpansionSection({
     : adminAccessMode
       ? 'Admin unrestricted access: no subscription, entitlement, or hour limits.'
     : access?.limitSeconds
-      ? 'Free Trial members can explore Expansion for up to 33 hours.'
+      ? 'Free Trial members can explore Expansion for up to 33 hours during the one-time trial.'
       : null
 
   return (
@@ -1367,7 +1367,7 @@ function PremiumSection({
     : adminAccessMode
       ? 'Admin unrestricted access: no subscription, entitlement, or hour limits.'
     : effectivePlan === 'free'
-      ? 'Free Trial members can sample Premium for one hour.'
+      ? 'Free Trial members can sample Premium for one hour during the one-time trial.'
       : null
 
   return (
@@ -1416,7 +1416,7 @@ function RegenSection({
     : adminAccessMode
       ? 'Admin unrestricted access: no subscription, entitlement, or hour limits.'
     : effectivePlan === 'free'
-      ? 'Free Trial members can sample REGEN for one hour.'
+      ? 'Free Trial members can sample REGEN for one hour during the one-time trial.'
       : null
 
   return (

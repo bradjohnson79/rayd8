@@ -4,7 +4,6 @@ import { users } from '../../db/schema.js'
 import type { AppPlan } from './accessPolicy.js'
 
 const TRIAL_HOURS_LIMIT = 35
-const TRIAL_HOURS_BLOCK_THRESHOLD = 34.999
 const TRIAL_DAYS = 30
 const DAY_MS = 24 * 60 * 60 * 1000
 const TRIAL_NOTIFICATION_CHECKPOINTS = [21, 14, 7, 3, 1] as const
@@ -76,22 +75,7 @@ export function getTrialNotification(daysRemaining: number): TrialNotificationPa
 
 export function getTrialStatus(user: TrialUserRow, now = new Date()): TrialStatusPayload {
   const trialExpired = user.trialEndsAt ? now > user.trialEndsAt : true
-  const hoursExceeded = user.trialHoursUsed >= TRIAL_HOURS_BLOCK_THRESHOLD
-
-  if (user.role === 'admin') {
-    const hasActiveTrialWindow = Boolean(user.trialStartedAt && user.trialEndsAt && !trialExpired)
-
-    return {
-      allowed: true,
-      days_remaining: hasActiveTrialWindow ? toDaysRemaining(user.trialEndsAt as Date, now) : undefined,
-      hours_remaining: hasActiveTrialWindow ? roundHours(TRIAL_HOURS_LIMIT - user.trialHoursUsed) : undefined,
-      notification: null,
-      plan: user.plan === 'free' ? 'free_trial' : user.plan,
-      reason: null,
-      trial_ends_at: user.trialEndsAt,
-      trial_hours_used: user.trialHoursUsed,
-    }
-  }
+  const hoursExceeded = user.trialHoursUsed >= TRIAL_HOURS_LIMIT
 
   if (user.plan !== 'free') {
     return {
@@ -147,19 +131,31 @@ export async function ensureTrialWindowForUser(userId: string) {
     return null
   }
 
-  const trialEndExpression = sql`NOW() + (${TRIAL_DAYS} * INTERVAL '1 day')`
-
   await db
     .update(users)
     .set({
-      trialEndsAt: trialEndExpression,
-      trialStartedAt: sql`NOW()`,
+      trialEndsAt: sql`${users.createdAt} + (${TRIAL_DAYS} * INTERVAL '1 day')`,
+      trialStartedAt: sql`${users.createdAt}`,
     })
     .where(
       and(
         eq(users.id, userId),
         eq(users.plan, 'free'),
         sql`(${users.trialStartedAt} IS NULL OR ${users.trialEndsAt} IS NULL)`,
+      ),
+    )
+
+  await db
+    .update(users)
+    .set({
+      trialEndsAt: sql`${users.trialStartedAt} + (${TRIAL_DAYS} * INTERVAL '1 day')`,
+    })
+    .where(
+      and(
+        eq(users.id, userId),
+        eq(users.plan, 'free'),
+        sql`${users.trialStartedAt} IS NOT NULL`,
+        sql`${users.trialEndsAt} > ${users.trialStartedAt} + (${TRIAL_DAYS} * INTERVAL '1 day')`,
       ),
     )
 
@@ -189,7 +185,7 @@ export async function incrementTrialHours(input: {
   await db
     .update(users)
     .set({
-      trialHoursUsed: sql`${users.trialHoursUsed} + ${normalizedSeconds / 3600}`,
+      trialHoursUsed: sql`LEAST(${TRIAL_HOURS_LIMIT}, ${users.trialHoursUsed} + ${normalizedSeconds / 3600})`,
     })
     .where(and(eq(users.id, input.userId), eq(users.plan, 'free')))
 }
@@ -250,10 +246,12 @@ export async function getTrialStatusForUser(input: {
 
   if (!user) {
     return {
-      allowed: true,
+      allowed: false,
+      days_remaining: 0,
+      hours_remaining: 0,
       notification: null,
       plan: 'free_trial',
-      reason: null,
+      reason: 'TRIAL_EXPIRED',
     } satisfies TrialStatusPayload
   }
 
