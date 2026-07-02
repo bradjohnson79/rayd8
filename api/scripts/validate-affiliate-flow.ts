@@ -85,16 +85,22 @@ async function main() {
       {
         email: affiliateEmail,
         id: affiliateUserId,
+        billingConflictReviewRequired: false,
+        normalizedEmail: affiliateEmail.toLowerCase(),
         plan: 'free',
         referralCode,
         role: 'member',
+        stripeCustomerId: null,
       },
       {
         email: referredEmail,
         id: referredUserId,
+        billingConflictReviewRequired: false,
+        normalizedEmail: referredEmail.toLowerCase(),
         plan: 'free',
         referralCode: `NEW${suffix.replace(/[^0-9a-z]/gi, '').slice(-10).toUpperCase()}`,
         role: 'member',
+        stripeCustomerId: null,
       },
     ])
 

@@ -1,9 +1,10 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm'
 import Stripe from 'stripe'
 import { db } from '../db/client.js'
 import { env } from '../env.js'
 import {
   affiliateCommissions,
+  billingCheckoutAttempts,
   stripeCheckoutSessions,
   stripeEvents,
   subscriptionCancellationFeedback,
@@ -11,7 +12,17 @@ import {
   users,
 } from '../db/schema.js'
 import { clerkClient } from '../lib/clerk.js'
+import {
+  assertStripeCustomerBelongsToUser,
+  resolveStripeCustomerForUser,
+} from './billingIdentity.js'
+import { getBillingConflictReviewStatus } from './billingConflictReview.js'
 import { dispatchNotification } from './notifications/dispatchNotification.js'
+import {
+  getSubscriptionStateForUser,
+  resolveSubscriptionStateFromRecords,
+  type BillingPlan,
+} from './subscriptionState.js'
 import { getAffiliateAttributionForUser } from './referrals.js'
 import { recordAffiliateTrackingEvent } from './affiliates/tracking.js'
 import { recordPromoCodeRedemption } from './admin/promoCodes.js'
@@ -27,12 +38,14 @@ type AppDatabase = NonNullable<typeof db>
 type ManagedPlan = 'regen' | 'amrita'
 type ManagedPlanType = 'single' | 'multi'
 type PersistedPlan = 'free' | 'premium' | 'regen' | 'amrita'
-const MANAGED_SUBSCRIPTION_STATUSES = ['active', 'trialing', 'past_due', 'unpaid'] as const
+const MANAGED_SUBSCRIPTION_STATUSES = ['active', 'trialing', 'past_due'] as const
 const MANAGED_PLAN_RANK: Record<ManagedPlan, number> = {
   regen: 2,
   amrita: 3,
 }
 const MANAGED_PLAN_UPGRADE_CHECKOUT_KIND = 'managed_plan_upgrade'
+const CHECKOUT_ATTEMPT_TTL_MS = 30 * 60 * 1000
+const STRIPE_EVENT_LEASE_MS = 5 * 60 * 1000
 export type CancellationReason =
   | 'too_expensive'
   | 'not_using_enough'
@@ -149,6 +162,179 @@ async function getManagedPlanUpgradeAmountForStripe(input: {
   })
 }
 
+function getSubscriptionPeriodEnd(subscription: Stripe.Subscription) {
+  return fromUnixTimestamp(subscription.items.data[0]?.current_period_end)
+}
+
+async function updateExistingSubscriptionPlan(input: {
+  currentPlan: ManagedPlan
+  idempotencyKey: string
+  plan: ManagedPlan
+  planType: ManagedPlanType
+  stripeSubscriptionId: string
+  userId: string
+}) {
+  if (!stripeClient) {
+    throw new Error('Stripe is not configured. Add the Stripe secret key and price IDs.')
+  }
+
+  const targetPriceId = getPriceIdForPlan(input.plan)
+
+  if (!targetPriceId) {
+    throw new Error('Stripe is not configured. Add the Stripe secret key and price IDs.')
+  }
+
+  const currentSubscription = await stripeClient.subscriptions.retrieve(input.stripeSubscriptionId, {
+    expand: ['items.data.price'],
+  })
+  const subscriptionItem =
+    currentSubscription.items.data.find((item) => item.price.id === getPriceIdForPlan(input.currentPlan)) ??
+    currentSubscription.items.data[0]
+
+  if (!subscriptionItem) {
+    throw new Error('No active subscription item was found for this plan change.')
+  }
+
+  const updatedSubscription = await stripeClient.subscriptions.update(
+    currentSubscription.id,
+    buildManagedPlanUpgradeSubscriptionUpdateParams({
+      currentMetadata: currentSubscription.metadata,
+      plan: input.plan,
+      planType: input.planType,
+      subscriptionItemId: subscriptionItem.id,
+      targetPriceId,
+      userId: input.userId,
+    }),
+    {
+      idempotencyKey: input.idempotencyKey,
+    },
+  )
+
+  await upsertUserSubscription({
+    clerkUserId: input.userId,
+    stripeCustomerId: String(updatedSubscription.customer),
+    stripeSubscriptionId: updatedSubscription.id,
+    status: updatedSubscription.status,
+    plan: input.plan,
+    planType: input.planType,
+    cancelAtPeriodEnd: Boolean(updatedSubscription.cancel_at_period_end),
+    currentPeriodStart: fromUnixTimestamp(updatedSubscription.items.data[0]?.current_period_start),
+    currentPeriodEnd: getSubscriptionPeriodEnd(updatedSubscription),
+  })
+
+  return updatedSubscription
+}
+
+async function scheduleDowngradeAtPeriodEnd(input: {
+  currentPlan: ManagedPlan
+  idempotencyKey: string
+  plan: ManagedPlan
+  planType: ManagedPlanType
+  stripeSubscriptionId: string
+  userId: string
+}) {
+  if (!stripeClient) {
+    throw new Error('Stripe is not configured. Add the Stripe secret key and price IDs.')
+  }
+
+  const targetPriceId = getPriceIdForPlan(input.plan)
+
+  if (!targetPriceId) {
+    throw new Error('Stripe is not configured. Add the Stripe secret key and price IDs.')
+  }
+
+  const currentSubscription = await stripeClient.subscriptions.retrieve(input.stripeSubscriptionId, {
+    expand: ['items.data.price'],
+  })
+  const currentPeriodStart = currentSubscription.items.data[0]?.current_period_start
+  const currentPeriodEnd = currentSubscription.items.data[0]?.current_period_end
+  const currentItems = currentSubscription.items.data.map((item) => ({
+    price: item.price.id,
+    quantity: item.quantity ?? 1,
+  }))
+
+  if (!currentPeriodStart || !currentPeriodEnd || currentItems.length === 0) {
+    throw new Error('No active subscription period was found for this downgrade.')
+  }
+
+  const schedule = currentSubscription.schedule
+    ? typeof currentSubscription.schedule === 'string'
+      ? { id: currentSubscription.schedule }
+      : currentSubscription.schedule
+    : await stripeClient.subscriptionSchedules.create(
+        {
+          from_subscription: input.stripeSubscriptionId,
+        },
+        {
+          idempotencyKey: `${input.idempotencyKey}:schedule`,
+        },
+      )
+
+  await stripeClient.subscriptionSchedules.update(
+    schedule.id,
+    {
+      phases: [
+        {
+          end_date: currentPeriodEnd,
+          items: currentItems,
+          metadata: {
+            ...(currentSubscription.metadata ?? {}),
+            pendingDowngradePlan: input.plan,
+            plan: input.currentPlan,
+            planType: input.planType,
+            userId: input.userId,
+          },
+          start_date: currentPeriodStart,
+        },
+        {
+          items: [{ price: targetPriceId, quantity: 1 }],
+          metadata: {
+            ...(currentSubscription.metadata ?? {}),
+            pendingDowngradePlan: '',
+            plan: input.plan,
+            planType: input.planType,
+            userId: input.userId,
+          },
+        },
+      ],
+      metadata: {
+        pendingDowngradePlan: input.plan,
+        userId: input.userId,
+      },
+    },
+    {
+      idempotencyKey: `${input.idempotencyKey}:schedule-update`,
+    },
+  )
+
+  await stripeClient.subscriptions.update(
+    input.stripeSubscriptionId,
+    {
+      metadata: {
+        ...(currentSubscription.metadata ?? {}),
+        pendingDowngradePlan: input.plan,
+        plan: input.currentPlan,
+        planType: input.planType,
+        userId: input.userId,
+      },
+    },
+    {
+      idempotencyKey: input.idempotencyKey,
+    },
+  )
+
+  if (db) {
+    await db
+      .update(subscriptions)
+      .set({
+        pendingDowngradePlan: input.plan,
+      })
+      .where(eq(subscriptions.stripeSubscriptionId, input.stripeSubscriptionId))
+  }
+
+  return currentSubscription
+}
+
 export function buildManagedPlanUpgradeSubscriptionUpdateParams(input: {
   currentMetadata?: Stripe.Metadata | null
   plan: ManagedPlan
@@ -168,11 +354,13 @@ export function buildManagedPlanUpgradeSubscriptionUpdateParams(input: {
     ],
     metadata: {
       ...(input.currentMetadata ?? {}),
+      pendingDowngradePlan: '',
       plan: input.plan,
       planType: input.planType,
       userId: input.userId,
     },
-    proration_behavior: 'none',
+    payment_behavior: 'pending_if_incomplete',
+    proration_behavior: 'always_invoice',
   }
 }
 
@@ -304,6 +492,98 @@ export function verifyStripeWebhook(payload: string | Buffer, signature?: string
   )
 }
 
+async function findOpenCheckoutAttempt(input: {
+  action: string
+  targetPlan: ManagedPlan
+  userId: string
+}) {
+  if (!db) {
+    return null
+  }
+
+  const [attempt] = await db
+    .select()
+    .from(billingCheckoutAttempts)
+    .where(
+      and(
+        eq(billingCheckoutAttempts.userId, input.userId),
+        eq(billingCheckoutAttempts.action, input.action),
+        eq(billingCheckoutAttempts.targetPlan, input.targetPlan),
+        eq(billingCheckoutAttempts.status, 'pending'),
+        gt(billingCheckoutAttempts.expiresAt, new Date()),
+      ),
+    )
+    .orderBy(desc(billingCheckoutAttempts.createdAt))
+    .limit(1)
+
+  return attempt ?? null
+}
+
+async function createCheckoutAttempt(input: {
+  action: string
+  targetPlan: ManagedPlan
+  userId: string
+}) {
+  const expiresAt = new Date(Date.now() + CHECKOUT_ATTEMPT_TTL_MS)
+  const idempotencyKey = `rayd8:${input.action}:${input.userId}:${input.targetPlan}:${Math.floor(Date.now() / CHECKOUT_ATTEMPT_TTL_MS)}`
+
+  if (!db) {
+    return { expiresAt, idempotencyKey, stripeSessionId: null }
+  }
+
+  const [attempt] = await db
+    .insert(billingCheckoutAttempts)
+    .values({
+      action: input.action,
+      expiresAt,
+      idempotencyKey,
+      targetPlan: input.targetPlan,
+      userId: input.userId,
+    })
+    .onConflictDoUpdate({
+      target: billingCheckoutAttempts.idempotencyKey,
+      set: {
+        expiresAt,
+        updatedAt: new Date(),
+      },
+    })
+    .returning()
+
+  return attempt
+}
+
+async function attachCheckoutAttemptSession(input: {
+  idempotencyKey: string
+  stripeSessionId: string
+}) {
+  if (!db) {
+    return
+  }
+
+  await db
+    .update(billingCheckoutAttempts)
+    .set({
+      status: 'pending',
+      stripeSessionId: input.stripeSessionId,
+      updatedAt: new Date(),
+    })
+    .where(eq(billingCheckoutAttempts.idempotencyKey, input.idempotencyKey))
+}
+
+async function markCheckoutAttemptCompleted(stripeSessionId: string) {
+  if (!db) {
+    return
+  }
+
+  await db
+    .update(billingCheckoutAttempts)
+    .set({
+      status: 'completed',
+      updatedAt: new Date(),
+    })
+    .where(eq(billingCheckoutAttempts.stripeSessionId, stripeSessionId))
+}
+
 export async function createCheckoutSession(input: {
   email: string
   plan: ManagedPlan
@@ -318,70 +598,66 @@ export async function createCheckoutSession(input: {
     return null
   }
 
-  const existingSubscription = await findManageableSubscriptionForUser(input.userId)
+  const conflictReview = await getBillingConflictReviewStatus(input.userId)
+
+  if (conflictReview.reviewRequired) {
+    throw new Error('Billing review required: this account has conflicting billing history. Contact support before making subscription changes.')
+  }
+
+  const subscriptionState = await getSubscriptionStateForUser(input.userId)
+  const existingSubscription = subscriptionState.activeSubscription
 
   if (existingSubscription) {
     const existingPlan = existingSubscription.plan
+    if (!isManagedPlan(existingPlan)) {
+      throw new Error('The current subscription state requires support review before checkout.')
+    }
     const existingRank = MANAGED_PLAN_RANK[existingPlan]
     const requestedRank = MANAGED_PLAN_RANK[input.plan]
+
+    if (subscriptionState.reason === 'payment_unpaid' || subscriptionState.reason === 'past_due_expired') {
+      throw new Error('Resolve Billing: update your payment method in the Customer Portal before starting a new checkout.')
+    }
 
     if (existingRank === requestedRank) {
       throw new Error(`This account already has an active ${getPlanLabel(input.plan)} subscription.`)
     }
 
     if (existingRank > requestedRank) {
-      throw new Error(
-        `This account already includes ${getPlanLabel(existingPlan)} access. A lower-tier subscription cannot be purchased while it is active.`,
-      )
+      await scheduleDowngradeAtPeriodEnd({
+        currentPlan: existingPlan,
+        idempotencyKey: `rayd8:downgrade:${input.userId}:${existingSubscription.stripeSubscriptionId}:${input.plan}`,
+        plan: input.plan,
+        planType: input.planType ?? existingSubscription.planType ?? 'single',
+        stripeSubscriptionId: existingSubscription.stripeSubscriptionId,
+        userId: input.userId,
+      })
+
+      return {
+        id: existingSubscription.stripeSubscriptionId,
+        url: `${env.APP_URL}/dashboard/settings?billing=downgrade_scheduled`,
+      }
     }
 
     if (existingRank < requestedRank) {
-      const upgradeAmountCents = await getManagedPlanUpgradeAmountForStripe({
+      const updatedSubscription = await updateExistingSubscriptionPlan({
         currentPlan: existingPlan,
-        targetPlan: input.plan,
-      })
-      const session = await stripeClient.checkout.sessions.create({
-        mode: 'payment',
-        allow_promotion_codes: false,
-        success_url: `${env.APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${env.APP_URL}/subscription?plan=${input.plan}&canceled=true`,
-        customer: existingSubscription.stripeCustomerId,
-        client_reference_id: input.userId,
-        line_items: [
-          {
-            quantity: 1,
-            price_data: {
-              currency: 'usd',
-              product_data: {
-                name: `RAYD8 ${getPlanLabel(input.plan)} upgrade`,
-                description: `${getPlanLabel(existingPlan)} to ${getPlanLabel(input.plan)} monthly subscription upgrade`,
-              },
-              unit_amount: upgradeAmountCents,
-            },
-          },
-        ],
-        metadata: {
-          kind: MANAGED_PLAN_UPGRADE_CHECKOUT_KIND,
-          fromPlan: existingPlan,
-          plan: input.plan,
-          planType: input.planType ?? existingSubscription.planType ?? 'single',
-          stripeSubscriptionId: existingSubscription.stripeSubscriptionId,
-          userId: input.userId,
-          upgradeAmountCents: String(upgradeAmountCents),
-        },
-        payment_intent_data: {
-          metadata: {
-            kind: MANAGED_PLAN_UPGRADE_CHECKOUT_KIND,
-            fromPlan: existingPlan,
-            plan: input.plan,
-            stripeSubscriptionId: existingSubscription.stripeSubscriptionId,
-            userId: input.userId,
-          },
-        },
+        idempotencyKey: `rayd8:upgrade:${input.userId}:${existingSubscription.stripeSubscriptionId}:${input.plan}`,
+        plan: input.plan,
+        planType: input.planType ?? existingSubscription.planType ?? 'single',
+        stripeSubscriptionId: existingSubscription.stripeSubscriptionId,
+        userId: input.userId,
       })
 
-      return session
+      return {
+        id: updatedSubscription.id,
+        url: `${env.APP_URL}/dashboard?billing=upgrade_processing`,
+      }
     }
+  }
+
+  if (subscriptionState.paymentRecoveryRequired) {
+    throw new Error('Resolve Billing: update your payment method in the Customer Portal before starting a new checkout.')
   }
 
   const persistedUserPlan = await findPersistedUserPlan(input.userId)
@@ -396,7 +672,30 @@ export async function createCheckoutSession(input: {
     throw new Error(persistedPlanBlockMessage)
   }
 
-  const customerId = existingSubscription?.stripeCustomerId
+  const customerId = await resolveStripeCustomerForUser({
+    email: input.email,
+    stripeClient,
+    userId: input.userId,
+  })
+  const openAttempt = await findOpenCheckoutAttempt({
+    action: 'new_subscription',
+    targetPlan: input.plan,
+    userId: input.userId,
+  })
+
+  if (openAttempt?.stripeSessionId) {
+    const existingSession = await stripeClient.checkout.sessions.retrieve(openAttempt.stripeSessionId)
+
+    if (existingSession.url) {
+      return existingSession
+    }
+  }
+
+  const checkoutAttempt = await createCheckoutAttempt({
+    action: 'new_subscription',
+    targetPlan: input.plan,
+    userId: input.userId,
+  })
   const sessionConfig: Stripe.Checkout.SessionCreateParams = {
     mode: 'subscription',
     allow_promotion_codes: true,
@@ -420,10 +719,16 @@ export async function createCheckoutSession(input: {
         userId: input.userId,
       },
     },
-    ...(customerId ? { customer: customerId } : { customer_email: input.email }),
+    customer: customerId,
   }
 
-  const session = await stripeClient.checkout.sessions.create(sessionConfig)
+  const session = await stripeClient.checkout.sessions.create(sessionConfig, {
+    idempotencyKey: checkoutAttempt.idempotencyKey,
+  })
+  await attachCheckoutAttemptSession({
+    idempotencyKey: checkoutAttempt.idempotencyKey,
+    stripeSessionId: session.id,
+  })
 
   if (input.referralCode && input.referrerUserId) {
     await recordAffiliateTrackingEvent({
@@ -464,6 +769,7 @@ async function markCheckoutSessionProcessed(stripeSessionId: string, userId: str
     .insert(stripeCheckoutSessions)
     .values({ stripeSessionId, userId })
     .onConflictDoNothing()
+  await markCheckoutAttemptCompleted(stripeSessionId)
 }
 
 async function hasProcessedEvent(stripeEventId: string) {
@@ -477,15 +783,108 @@ async function hasProcessedEvent(stripeEventId: string) {
     .where(eq(stripeEvents.stripeEventId, stripeEventId))
     .limit(1)
 
-  return Boolean(eventRecord)
+  return eventRecord?.status === 'completed'
 }
 
-async function markEventProcessed(stripeEventId: string, type: string) {
+async function claimStripeEvent(event: Pick<Stripe.Event, 'created' | 'id' | 'type'>) {
+  if (!db) {
+    return { claimed: true, duplicate: false }
+  }
+
+  const now = new Date()
+  const stripeCreatedAt = fromUnixTimestamp(event.created)
+  const inserted = await db
+    .insert(stripeEvents)
+    .values({
+      stripeEventId: event.id,
+      type: event.type,
+      status: 'processing',
+      attempts: 1,
+      claimedAt: now,
+      stripeCreatedAt,
+      processedAt: now,
+    })
+    .onConflictDoNothing()
+    .returning({ id: stripeEvents.id })
+
+  if (inserted.length > 0) {
+    return { claimed: true, duplicate: false }
+  }
+
+  const [existingEvent] = await db
+    .select()
+    .from(stripeEvents)
+    .where(eq(stripeEvents.stripeEventId, event.id))
+    .limit(1)
+
+  if (!existingEvent || existingEvent.status === 'completed') {
+    return { claimed: false, duplicate: true }
+  }
+
+  const claimIsExpired =
+    !existingEvent.claimedAt || now.getTime() - existingEvent.claimedAt.getTime() > STRIPE_EVENT_LEASE_MS
+
+  if (existingEvent.status === 'processing' && !claimIsExpired) {
+    return { claimed: false, duplicate: true }
+  }
+
+  await db
+    .update(stripeEvents)
+    .set({
+      attempts: existingEvent.attempts + 1,
+      claimedAt: now,
+      failedAt: null,
+      lastError: null,
+      status: 'processing',
+      stripeCreatedAt: existingEvent.stripeCreatedAt ?? stripeCreatedAt,
+      type: event.type,
+    })
+    .where(eq(stripeEvents.stripeEventId, event.id))
+
+  return { claimed: true, duplicate: false }
+}
+
+async function markEventCompleted(stripeEventId: string, type: string) {
   if (!db) {
     return
   }
 
-  await db.insert(stripeEvents).values({ stripeEventId, type }).onConflictDoNothing()
+  const now = new Date()
+  await db
+    .insert(stripeEvents)
+    .values({
+      attempts: 1,
+      completedAt: now,
+      processedAt: now,
+      status: 'completed',
+      stripeEventId,
+      type,
+    })
+    .onConflictDoUpdate({
+      target: stripeEvents.stripeEventId,
+      set: {
+        completedAt: now,
+        lastError: null,
+        processedAt: now,
+        status: 'completed',
+        type,
+      },
+    })
+}
+
+async function markEventFailed(stripeEventId: string, error: unknown) {
+  if (!db) {
+    return
+  }
+
+  await db
+    .update(stripeEvents)
+    .set({
+      failedAt: new Date(),
+      lastError: error instanceof Error ? error.message : String(error),
+      status: 'failed',
+    })
+    .where(eq(stripeEvents.stripeEventId, stripeEventId))
 }
 
 function getInvoicePaymentSideEffectKey(invoiceId: string) {
@@ -501,11 +900,40 @@ async function upsertSubscriptionRecord(input: {
   currentPeriodEnd: Date | null
   status: string
   stripeSubscriptionId: string
+  stripeEventCreatedAt?: Date | null
   userId: string
 }, database = db) {
   if (!database) {
     return
   }
+
+  const existingSubscription = await findSubscriptionContext(input.stripeSubscriptionId, database)
+
+  if (
+    existingSubscription?.stripeEventCreatedAt &&
+    input.stripeEventCreatedAt &&
+    existingSubscription.stripeEventCreatedAt > input.stripeEventCreatedAt
+  ) {
+    return
+  }
+
+  const statusChangedAt =
+    existingSubscription && existingSubscription.status === input.status
+      ? existingSubscription.statusChangedAt
+      : new Date()
+  const pastDueStartedAt =
+    input.status === 'past_due'
+      ? existingSubscription?.status === 'past_due'
+        ? existingSubscription.pastDueStartedAt ?? statusChangedAt
+        : new Date()
+      : input.status === 'active' || input.status === 'trialing'
+        ? null
+        : existingSubscription?.pastDueStartedAt ?? null
+
+  await assertStripeCustomerBelongsToUser({
+    stripeCustomerId: input.customerId,
+    userId: input.userId,
+  })
 
   await database
     .insert(subscriptions)
@@ -519,6 +947,9 @@ async function upsertSubscriptionRecord(input: {
       cancelAtPeriodEnd: input.cancelAtPeriodEnd,
       currentPeriodStart: input.currentPeriodStart,
       currentPeriodEnd: input.currentPeriodEnd,
+      pastDueStartedAt,
+      statusChangedAt,
+      stripeEventCreatedAt: input.stripeEventCreatedAt ?? null,
     })
     .onConflictDoUpdate({
       target: subscriptions.stripeSubscriptionId,
@@ -530,6 +961,9 @@ async function upsertSubscriptionRecord(input: {
         cancelAtPeriodEnd: input.cancelAtPeriodEnd,
         currentPeriodStart: input.currentPeriodStart,
         currentPeriodEnd: input.currentPeriodEnd,
+        pastDueStartedAt,
+        statusChangedAt,
+        stripeEventCreatedAt: input.stripeEventCreatedAt ?? existingSubscription?.stripeEventCreatedAt ?? null,
       },
     })
 }
@@ -575,15 +1009,10 @@ async function findManageableSubscriptionForUser(userId: string, database = db) 
   const subscriptionRecords = await database
     .select()
     .from(subscriptions)
-    .where(
-      and(
-        eq(subscriptions.userId, userId),
-        inArray(subscriptions.status, [...MANAGED_SUBSCRIPTION_STATUSES]),
-      ),
-    )
+    .where(eq(subscriptions.userId, userId))
     .orderBy(desc(subscriptions.currentPeriodEnd), desc(subscriptions.createdAt))
 
-  return resolveHighestManagedSubscription(subscriptionRecords) ?? null
+  return resolveSubscriptionStateFromRecords(subscriptionRecords).activeSubscription
 }
 
 async function findManageableSubscriptionsForUser(userId: string, database = db) {
@@ -694,10 +1123,11 @@ async function persistManagedPlanForUser(userId: string, database = db) {
     return 'free' as PersistedPlan
   }
 
-  const highestSubscription = resolveHighestManagedSubscription(
-    await findManageableSubscriptionsForUser(userId, database),
-  )
-  const nextPlan = highestSubscription?.plan ?? 'free'
+  const subscriptionRecords = await database
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, userId))
+  const nextPlan = resolveSubscriptionStateFromRecords(subscriptionRecords).entitlementPlan
 
   await database.update(users).set({ plan: nextPlan }).where(eq(users.id, userId))
 
@@ -742,6 +1172,7 @@ async function activateManagedSubscriptionRecord(input: {
   plan: ManagedPlan
   planType: ManagedPlanType
   status: string
+  stripeEventCreatedAt?: Date | null
   stripeSubscriptionId: string
   userId: string
 }) {
@@ -1011,6 +1442,7 @@ export async function upsertUserSubscription(input: {
   plan: PersistedPlan
   planType?: ManagedPlanType
   status: string
+  stripeEventCreatedAt?: Date | null
   stripeCustomerId: string
   stripeSubscriptionId: string
 }) {
@@ -1025,6 +1457,7 @@ export async function upsertUserSubscription(input: {
       cancelAtPeriodEnd: input.cancelAtPeriodEnd ?? false,
       currentPeriodStart: input.currentPeriodStart ?? null,
       currentPeriodEnd: input.currentPeriodEnd ?? null,
+      stripeEventCreatedAt: input.stripeEventCreatedAt ?? null,
     })
     return
   }
@@ -1039,6 +1472,7 @@ export async function upsertUserSubscription(input: {
     cancelAtPeriodEnd: input.cancelAtPeriodEnd ?? false,
     currentPeriodStart: input.currentPeriodStart ?? null,
     currentPeriodEnd: input.currentPeriodEnd ?? null,
+    stripeEventCreatedAt: input.stripeEventCreatedAt ?? null,
   })
 
   if (!db) {
@@ -1054,6 +1488,7 @@ export async function updateSubscriptionStatus(input: {
   currentPeriodEnd?: Date | null
   currentPeriodStart?: Date | null
   status: string
+  stripeEventCreatedAt?: Date | null
   stripeSubscriptionId: string
 }) {
   const existingSubscription = await findSubscriptionContext(input.stripeSubscriptionId)
@@ -1061,6 +1496,25 @@ export async function updateSubscriptionStatus(input: {
   if (!db || !existingSubscription) {
     return
   }
+
+  if (
+    existingSubscription.stripeEventCreatedAt &&
+    input.stripeEventCreatedAt &&
+    existingSubscription.stripeEventCreatedAt > input.stripeEventCreatedAt
+  ) {
+    return
+  }
+
+  const statusChangedAt =
+    existingSubscription.status === input.status ? existingSubscription.statusChangedAt : new Date()
+  const pastDueStartedAt =
+    input.status === 'past_due'
+      ? existingSubscription.status === 'past_due'
+        ? existingSubscription.pastDueStartedAt ?? statusChangedAt
+        : new Date()
+      : input.status === 'active' || input.status === 'trialing'
+        ? null
+        : existingSubscription.pastDueStartedAt
 
   await db
     .update(subscriptions)
@@ -1070,15 +1524,19 @@ export async function updateSubscriptionStatus(input: {
       cancelAtPeriodEnd: input.cancelAtPeriodEnd ?? false,
       currentPeriodStart: input.currentPeriodStart ?? existingSubscription.currentPeriodStart,
       currentPeriodEnd: input.currentPeriodEnd ?? existingSubscription.currentPeriodEnd,
+      pastDueStartedAt,
+      statusChangedAt,
+      stripeEventCreatedAt: input.stripeEventCreatedAt ?? existingSubscription.stripeEventCreatedAt,
     })
     .where(eq(subscriptions.stripeSubscriptionId, input.stripeSubscriptionId))
 
   await syncManagedPlanForUser(existingSubscription.userId)
 }
 
-export async function markSubscriptionPastDue(stripeSubscriptionId: string) {
+export async function markSubscriptionPastDue(stripeSubscriptionId: string, stripeEventCreatedAt?: Date | null) {
   await updateSubscriptionStatus({
     status: 'past_due',
+    stripeEventCreatedAt,
     stripeSubscriptionId,
   })
 }
@@ -1421,6 +1879,10 @@ async function recordInvoicePromoCodeRedemption(input: {
 async function handleCheckoutCompleted(event: Stripe.CheckoutSessionCompletedEvent) {
   let session = event.data.object
 
+  if (await hasProcessedCheckoutSession(session.id)) {
+    return
+  }
+
   if (stripeClient) {
     const retrievedSession = await retrieveCheckoutSessionWithDiscounts(event.data.object.id)
 
@@ -1455,13 +1917,27 @@ async function handleCheckoutCompleted(event: Stripe.CheckoutSessionCompletedEve
   await activateCheckoutSession(session)
 }
 
-async function syncSubscriptionFromStripe(subscription: Stripe.Subscription) {
+async function syncSubscriptionFromStripe(subscription: Stripe.Subscription, stripeEventCreatedAt?: Date | null) {
   const existingSubscription = await findSubscriptionContext(subscription.id)
-  const userId = subscription.metadata.userId ?? existingSubscription?.userId
+  const stripeCustomerId = subscription.customer ? String(subscription.customer) : null
+  const [customerMappedUser] =
+    db && stripeCustomerId
+      ? await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.stripeCustomerId, stripeCustomerId))
+          .limit(1)
+      : [null]
+  const userId = customerMappedUser?.id ?? subscription.metadata.userId ?? existingSubscription?.userId
 
-  if (!userId || !subscription.customer) {
+  if (!userId || !stripeCustomerId) {
     return
   }
+
+  await assertStripeCustomerBelongsToUser({
+    stripeCustomerId,
+    userId,
+  })
 
   const hasReferralMetadata = Boolean(
     subscription.metadata.referral_code && subscription.metadata.referrer_user_id,
@@ -1476,7 +1952,7 @@ async function syncSubscriptionFromStripe(subscription: Stripe.Subscription) {
       referralCode: subscription.metadata.referral_code ?? null,
       referredUserId: userId,
       result: 'success',
-      stripeCustomerId: String(subscription.customer),
+      stripeCustomerId,
       stripeSubscriptionId: subscription.id,
     })
   }
@@ -1495,7 +1971,7 @@ async function syncSubscriptionFromStripe(subscription: Stripe.Subscription) {
 
   await upsertUserSubscription({
     clerkUserId: userId,
-    stripeCustomerId: String(subscription.customer),
+    stripeCustomerId,
     stripeSubscriptionId: subscription.id,
     status: subscription.status,
     plan,
@@ -1503,12 +1979,13 @@ async function syncSubscriptionFromStripe(subscription: Stripe.Subscription) {
     cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
     currentPeriodStart,
     currentPeriodEnd,
+    stripeEventCreatedAt,
   })
 }
 
 async function handleSubscriptionCreated(event: Stripe.CustomerSubscriptionCreatedEvent) {
   const subscription = event.data.object
-  await syncSubscriptionFromStripe(subscription)
+  await syncSubscriptionFromStripe(subscription, fromUnixTimestamp(event.created))
 
   const existingSubscription = await findSubscriptionContext(subscription.id)
   const userId = subscription.metadata.userId ?? existingSubscription?.userId
@@ -1538,7 +2015,7 @@ async function handleSubscriptionCreated(event: Stripe.CustomerSubscriptionCreat
 }
 
 async function handleSubscriptionUpdated(event: Stripe.CustomerSubscriptionUpdatedEvent) {
-  await syncSubscriptionFromStripe(event.data.object)
+  await syncSubscriptionFromStripe(event.data.object, fromUnixTimestamp(event.created))
 }
 
 async function handleSubscriptionDeleted(event: Stripe.CustomerSubscriptionDeletedEvent) {
@@ -1550,6 +2027,7 @@ async function handleSubscriptionDeleted(event: Stripe.CustomerSubscriptionDelet
     cancelAtPeriodEnd: false,
     currentPeriodStart: fromUnixTimestamp(subscription.items.data[0]?.current_period_start),
     currentPeriodEnd: fromUnixTimestamp(subscription.items.data[0]?.current_period_end),
+    stripeEventCreatedAt: fromUnixTimestamp(event.created),
   })
 
   const userId = subscription.metadata.userId ?? existingSubscription?.userId
@@ -1611,7 +2089,7 @@ async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceed
       'discounts.promotion_code',
     ],
   }).catch(() => stripeClient.subscriptions.retrieve(subscriptionId))
-  await syncSubscriptionFromStripe(subscription)
+  await syncSubscriptionFromStripe(subscription, fromUnixTimestamp(event.created))
 
   const invoiceSideEffectKey = getInvoicePaymentSideEffectKey(invoice.id)
 
@@ -1703,7 +2181,7 @@ async function handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceed
     userId,
   })
 
-  await markEventProcessed(invoiceSideEffectKey, 'invoice.payment_side_effects')
+  await markEventCompleted(invoiceSideEffectKey, 'invoice.payment_side_effects')
 }
 
 async function handleInvoicePaymentFailed(event: Stripe.InvoicePaymentFailedEvent) {
@@ -1717,7 +2195,7 @@ async function handleInvoicePaymentFailed(event: Stripe.InvoicePaymentFailedEven
     return
   }
 
-  await markSubscriptionPastDue(subscriptionId)
+  await markSubscriptionPastDue(subscriptionId, fromUnixTimestamp(event.created))
   const existingSubscription = await findSubscriptionContext(subscriptionId)
   const userId = existingSubscription?.userId
 
@@ -1743,37 +2221,44 @@ async function handleInvoicePaymentFailed(event: Stripe.InvoicePaymentFailedEven
 }
 
 export async function processStripeEvent(event: Stripe.Event) {
-  if (await hasProcessedEvent(event.id)) {
+  const claim = await claimStripeEvent(event)
+
+  if (claim.duplicate || !claim.claimed) {
     return { duplicate: true }
   }
 
-  switch (event.type) {
-    case 'checkout.session.completed':
-      await handleCheckoutCompleted(event as Stripe.CheckoutSessionCompletedEvent)
-      break
-    case 'customer.subscription.created':
-      await handleSubscriptionCreated(event as Stripe.CustomerSubscriptionCreatedEvent)
-      break
-    case 'customer.subscription.updated':
-      await handleSubscriptionUpdated(event as Stripe.CustomerSubscriptionUpdatedEvent)
-      break
-    case 'customer.subscription.deleted':
-      await handleSubscriptionDeleted(event as Stripe.CustomerSubscriptionDeletedEvent)
-      break
-    case 'invoice.payment_succeeded':
-      await handleInvoicePaymentSucceeded(event as Stripe.InvoicePaymentSucceededEvent)
-      break
-    case 'invoice.paid':
-      await handleInvoicePaymentSucceeded(event as unknown as Stripe.InvoicePaymentSucceededEvent)
-      break
-    case 'invoice.payment_failed':
-      await handleInvoicePaymentFailed(event as Stripe.InvoicePaymentFailedEvent)
-      break
-    default:
-      break
-  }
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutCompleted(event as Stripe.CheckoutSessionCompletedEvent)
+        break
+      case 'customer.subscription.created':
+        await handleSubscriptionCreated(event as Stripe.CustomerSubscriptionCreatedEvent)
+        break
+      case 'customer.subscription.updated':
+        await handleSubscriptionUpdated(event as Stripe.CustomerSubscriptionUpdatedEvent)
+        break
+      case 'customer.subscription.deleted':
+        await handleSubscriptionDeleted(event as Stripe.CustomerSubscriptionDeletedEvent)
+        break
+      case 'invoice.payment_succeeded':
+        await handleInvoicePaymentSucceeded(event as Stripe.InvoicePaymentSucceededEvent)
+        break
+      case 'invoice.paid':
+        await handleInvoicePaymentSucceeded(event as unknown as Stripe.InvoicePaymentSucceededEvent)
+        break
+      case 'invoice.payment_failed':
+        await handleInvoicePaymentFailed(event as Stripe.InvoicePaymentFailedEvent)
+        break
+      default:
+        break
+    }
 
-  await markEventProcessed(event.id, event.type)
+    await markEventCompleted(event.id, event.type)
+  } catch (error) {
+    await markEventFailed(event.id, error)
+    throw error
+  }
 
   return { duplicate: false }
 }
@@ -1814,19 +2299,27 @@ export async function createBillingPortalSession(input: { userId: string }) {
 }
 
 export async function getBillingStatus(userId: string) {
-  const subscription = await findManageableSubscriptionForUser(userId)
+  const state = await getSubscriptionStateForUser(userId)
+  const subscription = state.activeSubscription
 
   if (!subscription) {
     return {
+      entitlementPlan: state.entitlementPlan,
+      paymentRecoveryRequired: state.paymentRecoveryRequired,
+      reason: state.reason,
       subscription: null,
     }
   }
 
   return {
+    entitlementPlan: state.entitlementPlan,
+    paymentRecoveryRequired: state.paymentRecoveryRequired,
+    reason: state.reason,
     subscription: {
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       currentPeriodEnd: subscription.currentPeriodEnd,
       currentPeriodStart: subscription.currentPeriodStart,
+      pendingDowngradePlan: subscription.pendingDowngradePlan,
       plan: subscription.plan,
       status: subscription.status,
       stripeSubscriptionId: subscription.stripeSubscriptionId,

@@ -17,6 +17,7 @@ import {
   users,
 } from '../db/schema.js'
 import { clerkClient } from '../lib/clerk.js'
+import { normalizeEmail } from '../lib/normalizeEmail.js'
 import { dispatchNotification } from './notifications/dispatchNotification.js'
 import { syncManagedPlanForUser } from './subscriptions.js'
 import { toAppPlan } from './player/accessPolicy.js'
@@ -109,14 +110,23 @@ async function reconcileUserIdentity(nextUser: UserRecord) {
     return
   }
 
-  const [userWithEmail] = await db.select().from(users).where(eq(users.email, nextUser.email)).limit(1)
+  const [userWithEmail] = await db
+    .select()
+    .from(users)
+    .where(eq(users.normalizedEmail, nextUser.normalizedEmail))
+    .limit(1)
 
   if (userWithEmail && userWithEmail.id !== nextUser.id) {
+    if (nextUser.stripeCustomerId && userWithEmail.stripeCustomerId && nextUser.stripeCustomerId !== userWithEmail.stripeCustomerId) {
+      throw new Error('Account email conflict requires manual review before identity reconciliation.')
+    }
+
     // Neon HTTP does not support transactions, so keep the relink flow explicit.
     await db
       .update(users)
       .set({
         email: `${userWithEmail.email}__relinked__${userWithEmail.id}`,
+        normalizedEmail: `${userWithEmail.normalizedEmail}__relinked__${userWithEmail.id}`,
       })
       .where(eq(users.id, userWithEmail.id))
 
@@ -124,12 +134,15 @@ async function reconcileUserIdentity(nextUser: UserRecord) {
       ...nextUser,
       referralCode: userWithEmail.referralCode ?? nextUser.referralCode,
       referredByUserId: userWithEmail.referredByUserId,
+      billingConflictReviewRequired:
+        userWithEmail.billingConflictReviewRequired || nextUser.billingConflictReviewRequired,
       role: resolveUserRoleFromSources({
         clerkRole: nextUser.role,
         email: nextUser.email,
         existingRole: userWithEmail.role,
       }),
       createdAt: userWithEmail.createdAt,
+      stripeCustomerId: userWithEmail.stripeCustomerId ?? nextUser.stripeCustomerId,
       trialEndsAt: userWithEmail.trialEndsAt,
       trialHoursUsed: userWithEmail.trialHoursUsed,
       trialNotificationsSent: userWithEmail.trialNotificationsSent,
@@ -175,8 +188,10 @@ async function reconcileUserIdentity(nextUser: UserRecord) {
       target: users.id,
       set: {
         email: nextUser.email,
+        normalizedEmail: nextUser.normalizedEmail,
         referralCode: nextUser.referralCode,
         referredByUserId: nextUser.referredByUserId,
+        billingConflictReviewRequired: nextUser.billingConflictReviewRequired,
         role: nextUser.role,
         plan: nextUser.plan,
       },
@@ -230,12 +245,17 @@ export async function syncUserFromClerk(userId: string) {
     throw new Error('Authenticated Clerk user does not have an email address.')
   }
 
+  const normalizedEmail = normalizeEmail(email)
+
   if (!db) {
     return {
       id: clerkUser.id,
       email,
+      normalizedEmail,
+      stripeCustomerId: null,
       referralCode: generateReferralCodeCandidate(),
       referredByUserId: null,
+      billingConflictReviewRequired: false,
       role: resolveUserRoleFromSources({
         clerkRole: normalizeRole(clerkUser.publicMetadata.role),
         email,
@@ -250,17 +270,33 @@ export async function syncUserFromClerk(userId: string) {
   }
 
   const [existingUserById] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+
+  if (existingUserById && existingUserById.normalizedEmail !== normalizedEmail) {
+    const [emailOwner] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.normalizedEmail, normalizedEmail))
+      .limit(1)
+
+    if (emailOwner && emailOwner.id !== userId) {
+      throw new Error('Account email conflict requires manual review before email changes can be synced.')
+    }
+  }
+
   let nextUser: UserRecord = {
     id: clerkUser.id,
     email,
+    normalizedEmail,
     referralCode: existingUserById?.referralCode ?? (await createUniqueReferralCode()),
     referredByUserId: existingUserById?.referredByUserId ?? null,
+    billingConflictReviewRequired: existingUserById?.billingConflictReviewRequired ?? false,
     role: resolveUserRoleFromSources({
       clerkRole: normalizeRole(clerkUser.publicMetadata.role),
       email,
       existingRole: existingUserById?.role,
     }),
     plan: normalizePlan(clerkUser.publicMetadata.plan),
+    stripeCustomerId: existingUserById?.stripeCustomerId ?? null,
     trialEndsAt: existingUserById?.trialEndsAt ?? null,
     trialHoursUsed: existingUserById?.trialHoursUsed ?? 0,
     trialNotificationsSent: existingUserById?.trialNotificationsSent ?? [],

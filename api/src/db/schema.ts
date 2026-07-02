@@ -76,8 +76,11 @@ export const users = pgTable(
   {
     id: text('id').primaryKey(),
     email: text('email').notNull(),
+    normalizedEmail: text('normalized_email').notNull(),
+    stripeCustomerId: text('stripe_customer_id'),
     referralCode: text('referral_code').notNull(),
     referredByUserId: text('referred_by_user_id').references((): AnyPgColumn => users.id),
+    billingConflictReviewRequired: boolean('billing_conflict_review_required').notNull().default(false),
     role: roleEnum('role').notNull().default('member'),
     plan: planEnum('plan').notNull().default('free'),
     trialStartedAt: timestamp('trial_started_at', { withTimezone: true }),
@@ -88,8 +91,11 @@ export const users = pgTable(
   },
   (table) => [
     uniqueIndex('users_email_idx').on(table.email),
+    uniqueIndex('users_normalized_email_idx').on(table.normalizedEmail),
+    uniqueIndex('users_stripe_customer_idx').on(table.stripeCustomerId),
     uniqueIndex('users_referral_code_idx').on(table.referralCode),
     index('users_referred_by_user_id_idx').on(table.referredByUserId),
+    index('users_billing_conflict_review_idx').on(table.billingConflictReviewRequired),
   ],
 )
 
@@ -108,6 +114,10 @@ export const subscriptions = pgTable(
     cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
     currentPeriodStart: timestamp('current_period_start', { withTimezone: true }),
     currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
+    pendingDowngradePlan: planEnum('pending_downgrade_plan'),
+    pastDueStartedAt: timestamp('past_due_started_at', { withTimezone: true }),
+    statusChangedAt: timestamp('status_changed_at', { withTimezone: true }),
+    stripeEventCreatedAt: timestamp('stripe_event_created_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -162,6 +172,13 @@ export const stripeEvents = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     stripeEventId: text('stripe_event_id').notNull(),
     type: text('type').notNull(),
+    status: text('status').notNull().default('completed'),
+    attempts: integer('attempts').notNull().default(0),
+    claimedAt: timestamp('claimed_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    failedAt: timestamp('failed_at', { withTimezone: true }),
+    lastError: text('last_error'),
+    stripeCreatedAt: timestamp('stripe_created_at', { withTimezone: true }),
     processedAt: timestamp('processed_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex('stripe_events_event_id_idx').on(table.stripeEventId)],
@@ -253,6 +270,29 @@ export const stripeCheckoutSessions = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex('stripe_checkout_sessions_session_id_idx').on(table.stripeSessionId)],
+)
+
+export const billingCheckoutAttempts = pgTable(
+  'billing_checkout_attempts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    action: text('action').notNull(),
+    targetPlan: planEnum('target_plan').notNull(),
+    status: text('status').notNull().default('pending'),
+    stripeSessionId: text('stripe_session_id'),
+    idempotencyKey: text('idempotency_key').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('billing_checkout_attempts_idempotency_idx').on(table.idempotencyKey),
+    index('billing_checkout_attempts_user_status_idx').on(table.userId, table.status),
+    index('billing_checkout_attempts_stripe_session_idx').on(table.stripeSessionId),
+  ],
 )
 
 export const rayd8PromoCodes = pgTable(

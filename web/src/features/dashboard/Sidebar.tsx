@@ -203,7 +203,7 @@ function SidebarPanelContent({
 
   function handleNavigation(item: (typeof items)[number]) {
     if (item.emphasis === 'upgrade') {
-      void navigateToUpgrade()
+      void navigateToUpgrade({ targetPath: item.to })
       onClose()
       return
     }

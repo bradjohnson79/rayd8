@@ -121,10 +121,9 @@ export function useSubscriptionPlanAction({ location }: UseSubscriptionPlanActio
         return true
       } catch (error) {
         setStatusMessage(error instanceof Error ? error.message : CHECKOUT_FAILURE_MESSAGE)
-        return false
-      } finally {
         isSubmittingRef.current = false
         setIsSubmitting(false)
+        return false
       }
     },
     [getTokenSafe, location, navigate, openSignIn, openSignUp, status],
@@ -141,7 +140,13 @@ export function useSubscriptionPlanAction({ location }: UseSubscriptionPlanActio
       return
     }
 
-    void startPlanAction(pendingPlan)
+    const timeoutId = window.setTimeout(() => {
+      void startPlanAction(pendingPlan)
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
   }, [startPlanAction, status])
 
   return {

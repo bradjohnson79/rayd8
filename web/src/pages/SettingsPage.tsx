@@ -107,6 +107,10 @@ function getSubscriptionStatusCopy(
   }
 }
 
+function toBillingEntitlementPlan(plan: string): 'free' | 'regen' | 'amrita' {
+  return plan === 'regen' || plan === 'amrita' ? plan : 'free'
+}
+
 export function SettingsPage() {
   const user = useAuthUser()
   const getAuthToken = useAuthToken()
@@ -115,6 +119,10 @@ export function SettingsPage() {
   const [language, setLanguage] = useState(() => readLanguagePreference())
   const [isLoadingSubscription, setIsLoadingSubscription] = useState(user.isAuthenticated)
   const [subscription, setSubscription] = useState<BillingSubscriptionStatus | null>(null)
+  const [billingEntitlementPlan, setBillingEntitlementPlan] = useState<'free' | 'regen' | 'amrita'>(
+    toBillingEntitlementPlan(user.plan),
+  )
+  const [paymentRecoveryRequired, setPaymentRecoveryRequired] = useState(false)
   const [clerkFocus, setClerkFocus] = useState<ClerkFocus>('profile')
   const [activeCheckout, setActiveCheckout] = useState(false)
   const [activePortal, setActivePortal] = useState(false)
@@ -126,11 +134,12 @@ export function SettingsPage() {
   const [cancelValidationMessage, setCancelValidationMessage] = useState<string | null>(null)
   const clerkCardRef = useRef<HTMLDivElement | null>(null)
 
-  const isSubscribedMember = user.plan === 'regen' || user.plan === 'amrita'
-  const currentPlanLabel = formatPlanLabel(user.plan)
+  const effectiveBillingPlan = billingEntitlementPlan === 'free' ? user.plan : billingEntitlementPlan
+  const isSubscribedMember = effectiveBillingPlan === 'regen' || effectiveBillingPlan === 'amrita'
+  const currentPlanLabel = formatPlanLabel(effectiveBillingPlan)
   const subscriptionStatus = useMemo(
-    () => getSubscriptionStatusCopy(user.plan, subscription, isLoadingSubscription),
-    [isLoadingSubscription, subscription, user.plan],
+    () => getSubscriptionStatusCopy(effectiveBillingPlan, subscription, isLoadingSubscription),
+    [effectiveBillingPlan, isLoadingSubscription, subscription],
   )
 
   useEffect(() => {
@@ -143,6 +152,8 @@ export function SettingsPage() {
     async function loadSubscriptionStatus() {
       if (!user.isAuthenticated) {
         setSubscription(null)
+        setBillingEntitlementPlan('free')
+        setPaymentRecoveryRequired(false)
         setIsLoadingSubscription(false)
         return
       }
@@ -163,6 +174,8 @@ export function SettingsPage() {
         const response = await getBillingSubscriptionStatus(token)
 
         if (!cancelled) {
+          setBillingEntitlementPlan(response.entitlementPlan)
+          setPaymentRecoveryRequired(response.paymentRecoveryRequired)
           setSubscription(response.subscription)
         }
       } catch (error) {
@@ -171,6 +184,8 @@ export function SettingsPage() {
             error instanceof Error ? error.message : 'Unable to load your current billing status.',
           )
           setSubscription(null)
+          setBillingEntitlementPlan('free')
+          setPaymentRecoveryRequired(false)
         }
       } finally {
         if (!cancelled) {
@@ -448,7 +463,9 @@ export function SettingsPage() {
           <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/60">Subscription management</p>
           <h2 className="mt-3 text-2xl font-semibold text-white">Billing and cancellation</h2>
           <p className="mt-4 text-sm leading-7 text-slate-300">
-            {isSubscribedMember
+            {paymentRecoveryRequired
+              ? 'Resolve billing in the secure Stripe portal to restore paid access. New checkout is disabled while a payment issue is open.'
+              : isSubscribedMember
               ? 'Manage your Stripe billing or schedule cancellation. Access continues until the end of the current billing period after cancellation is confirmed.'
               : 'Upgrade to REGEN or AMRITA to unlock secure billing management and pooled monthly access across the RAYD8® ecosystem.'}
           </p>
@@ -460,7 +477,9 @@ export function SettingsPage() {
                   {isSubscribedMember ? `RAYD8® ${currentPlanLabel}` : 'Upgrade to REGEN'}
                 </h3>
                 <p className="mt-3 text-sm leading-6 text-slate-300">
-                  {isSubscribedMember
+                  {paymentRecoveryRequired
+                    ? 'Your subscription needs billing attention. Use Manage Billing to update payment details.'
+                    : isSubscribedMember
                     ? subscription?.cancelAtPeriodEnd
                       ? `Cancellation is already scheduled. Access remains active until ${formatBillingDate(subscription.currentPeriodEnd)}.`
                       : 'Manage your Stripe billing details or cancel the subscription with required feedback.'
@@ -472,7 +491,7 @@ export function SettingsPage() {
               </span>
             </div>
 
-            {isSubscribedMember ? (
+            {isSubscribedMember || paymentRecoveryRequired ? (
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
                   className="rounded-2xl bg-emerald-300/20 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-300/30 disabled:cursor-not-allowed disabled:opacity-50"
@@ -482,14 +501,16 @@ export function SettingsPage() {
                 >
                   {activePortal ? 'Opening billing...' : 'Manage Billing'}
                 </button>
-                <button
-                  className="rounded-2xl border border-rose-300/20 bg-rose-300/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-rose-300/20 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={Boolean(subscription?.cancelAtPeriodEnd) || isLoadingSubscription}
-                  onClick={openCancellationFlow}
-                  type="button"
-                >
-                  {subscription?.cancelAtPeriodEnd ? 'Cancellation Scheduled' : 'Cancel Subscription'}
-                </button>
+                {isSubscribedMember ? (
+                  <button
+                    className="rounded-2xl border border-rose-300/20 bg-rose-300/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-rose-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={Boolean(subscription?.cancelAtPeriodEnd) || isLoadingSubscription}
+                    onClick={openCancellationFlow}
+                    type="button"
+                  >
+                    {subscription?.cancelAtPeriodEnd ? 'Cancellation Scheduled' : 'Cancel Subscription'}
+                  </button>
+                ) : null}
               </div>
             ) : (
               <button

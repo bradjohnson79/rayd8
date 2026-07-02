@@ -69,6 +69,22 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
       }
     }
 
+    if (message.includes('Resolve Billing')) {
+      return {
+        code: 'BILLING_RECOVERY_REQUIRED',
+        error: message,
+        statusCode: 409,
+      }
+    }
+
+    if (message.includes('Billing review required')) {
+      return {
+        code: 'BILLING_REVIEW_REQUIRED',
+        error: message,
+        statusCode: 409,
+      }
+    }
+
     if (message.includes('does not belong to the authenticated user')) {
       return {
         code: 'CHECKOUT_SESSION_MISMATCH',

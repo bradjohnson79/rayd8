@@ -151,7 +151,7 @@ describe('managed subscription upgrade decisions', () => {
     ).toBe(1000)
   })
 
-  it('updates the existing subscription item without resetting the billing cycle or creating Stripe proration', async () => {
+  it('updates the existing subscription item with explicit proration and unchanged billing cycle', async () => {
     const { buildManagedPlanUpgradeSubscriptionUpdateParams } = await importSubscriptionHelpers()
 
     expect(
@@ -178,11 +178,13 @@ describe('managed subscription upgrade decisions', () => {
       ],
       metadata: {
         existing: 'preserved',
+        pendingDowngradePlan: '',
         plan: 'amrita',
         planType: 'single',
         userId: 'user_upgrade',
       },
-      proration_behavior: 'none',
+      payment_behavior: 'pending_if_incomplete',
+      proration_behavior: 'always_invoice',
     })
   })
 

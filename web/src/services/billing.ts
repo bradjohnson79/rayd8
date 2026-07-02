@@ -14,6 +14,7 @@ export interface BillingSubscriptionStatus {
   cancelAtPeriodEnd: boolean
   currentPeriodEnd: string | null
   currentPeriodStart: string | null
+  pendingDowngradePlan?: BillingPlan | null
   plan: BillingPlan
   status: string
   stripeSubscriptionId: string
@@ -29,6 +30,9 @@ export async function getBillingConfig() {
 
 export async function getBillingSubscriptionStatus(token: string) {
   return apiRequest<{
+    entitlementPlan: 'free' | BillingPlan
+    paymentRecoveryRequired: boolean
+    reason: string
     subscription: BillingSubscriptionStatus | null
   }>('/v1/billing/subscription', undefined, token)
 }

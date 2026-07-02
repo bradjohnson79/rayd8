@@ -18,6 +18,13 @@ api/dist
 web/public/testimonials/*.mp4
 .vercel
 
+# Private release/remediation reports can contain customer-identifying billing data.
+/private-reports/
+
+# Local agent skill installs are not production runtime artifacts.
+/.agents/
+/skills-lock.json
+
 # Root-level QA captures and misplaced static dirs (Vite assets live under web/public/)
 /geny-*.png
 /phone-dashboard*.png

@@ -22,16 +22,21 @@ async function ensureUserRecord(input: {
   await db
     .insert(users)
     .values({
+      billingConflictReviewRequired: false,
       email: input.email,
       id: input.userId,
+      normalizedEmail: input.email.toLowerCase(),
       plan: input.plan ?? 'regen',
       referralCode: input.userId.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase() || 'SMOKETST',
       role: input.role ?? 'member',
+      stripeCustomerId: null,
     })
     .onConflictDoUpdate({
       target: users.id,
       set: {
         email: input.email,
+        billingConflictReviewRequired: false,
+        normalizedEmail: input.email.toLowerCase(),
         plan: input.plan ?? 'regen',
         referralCode: input.userId.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase() || 'SMOKETST',
         role: input.role ?? 'member',
