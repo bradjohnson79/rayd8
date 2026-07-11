@@ -8,7 +8,7 @@ const NavbarAuthCluster = lazy(() => import('./NavbarAuthCluster'))
 
 /** Same order and labels for desktop nav and mobile drawer. */
 const navigationItems = [
-  { href: '/#teaser', label: 'Use RAYD8® Now' },
+  { href: '/subscription', label: 'Use RAYD8® Now' },
   { href: '/#affiliate-program', label: 'Affiliate Program' },
   { href: '#about', label: 'About RAYD8®' },
   { href: '#testimonials', label: 'Testimonials' },

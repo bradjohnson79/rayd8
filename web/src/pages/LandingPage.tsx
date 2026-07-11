@@ -173,25 +173,14 @@ export function LandingPage() {
       void ContactSection.preload()
     }
 
-    let timeoutId = 0
     let attempts = 0
-    const settleScrollTimeouts: number[] = []
+    let timeoutId = 0
 
     const scrollToHashTarget = () => {
       const targetElement = document.getElementById(hashId)
 
       if (targetElement) {
         targetElement.scrollIntoView({ behavior: 'auto', block: 'start' })
-        settleScrollTimeouts.push(
-          window.setTimeout(() => {
-            targetElement.scrollIntoView({ behavior: 'auto', block: 'start' })
-          }, 150),
-        )
-        settleScrollTimeouts.push(
-          window.setTimeout(() => {
-            targetElement.scrollIntoView({ behavior: 'auto', block: 'start' })
-          }, 500),
-        )
         return
       }
 
@@ -207,7 +196,6 @@ export function LandingPage() {
 
     return () => {
       window.clearTimeout(timeoutId)
-      settleScrollTimeouts.forEach((nextTimeoutId) => window.clearTimeout(nextTimeoutId))
     }
   }, [location.hash])
 
