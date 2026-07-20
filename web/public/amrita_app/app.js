@@ -14,6 +14,23 @@ import {
 import { createRuntimeControls } from './runtime-controls.js';
 
 const AMRITA_DEBUG_STORAGE_KEY = 'rayd8-amrita-debug';
+const AMRITA_DUAL_PASS_DEBUG_STORAGE_KEY = 'rayd8-amrita-dual-pass-debug';
+const PASS_COUNT = 2;
+const SECOND_PASS_TRIGGER_PROGRESS = 0.5;
+const FIRST_PASS_ID = 1;
+const SECOND_PASS_ID = 2;
+const DUAL_PASS_DIRECTIONS = Object.freeze({
+  down: 'down',
+  up: 'up',
+});
+const DUAL_PASS_PHASES = Object.freeze({
+  downPass1: 'down-pass-1',
+  downBoth: 'down-both',
+  downPass2Finishing: 'down-pass-2-finishing',
+  upPass1: 'up-pass-1',
+  upBoth: 'up-both',
+  upPass2Finishing: 'up-pass-2-finishing',
+});
 
 function isAmritaDebugEnabled() {
   try {
@@ -27,6 +44,24 @@ function debugAmritaRuntime(eventName, details = {}) {
   if (!isAmritaDebugEnabled()) return;
 
   console.info('[AMRITA debug]', eventName, {
+    hidden: document.hidden,
+    visibilityState: document.visibilityState,
+    ...details,
+  });
+}
+
+function isDualPassDebugEnabled() {
+  try {
+    return window.localStorage.getItem(AMRITA_DUAL_PASS_DEBUG_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function debugDualPass(eventName, details = {}) {
+  if (!isDualPassDebugEnabled()) return;
+
+  console.info('[AMRITA dual-pass debug]', eventName, {
     hidden: document.hidden,
     visibilityState: document.visibilityState,
     ...details,
@@ -2452,7 +2487,7 @@ const state = {
   sessionStartedAt: 0,
   pauseStartedAt: 0,
   pausedAccumulatedMs: 0,
-  currentTurn: null,
+  currentCycle: null,
   turnIndex: 0,
   frameId: 0,
   backgroundTime: 0,
@@ -3133,6 +3168,9 @@ function mountRuntimeExperience() {
 }
 
 function unmountRuntimeExperience() {
+  debugDualPass('unmounted', {
+    runtime: state.runtime,
+  });
   runtimeControls?.unmount();
   runtimeControls = null;
   runtimeResonancePanelElements = null;
@@ -3370,7 +3408,7 @@ function startSequence() {
     state.sessionStartedAt = performance.now();
     state.pausedAccumulatedMs = 0;
     state.turnIndex = 0;
-    state.currentTurn = null;
+    state.currentCycle = null;
     state.lastFrameAt = performance.now();
     resizeCanvases();
     setupBackgroundRenderer();
@@ -3387,10 +3425,14 @@ function stopSequence() {
   });
   cancelAnimationFrame(state.frameId);
   state.runtime = 'idle';
-  state.currentTurn = null;
+  state.currentCycle = null;
+  clearGlyphCanvas();
   unmountRuntimeExperience();
   dom.runtime.hidden = true;
   dom.controlPanel.hidden = false;
+  debugDualPass('reset', {
+    sessionElapsedMs: 0,
+  });
 }
 
 function togglePause() {
@@ -3399,6 +3441,11 @@ function togglePause() {
       audioTrack: state.audioTrack,
       reason: document.hidden ? 'document_hidden' : 'manual_or_runtime_control',
       sessionElapsedMs: getSessionElapsedMs(),
+    });
+    debugDualPass('paused', {
+      cycleId: state.currentCycle?.cycleId ?? null,
+      phase: state.currentCycle?.phase ?? null,
+      reason: document.hidden ? 'document_hidden' : 'manual_or_runtime_control',
     });
     state.runtime = 'paused';
     state.pauseStartedAt = performance.now();
@@ -3415,10 +3462,14 @@ function togglePause() {
       pausedForMs,
       reason: 'manual_or_runtime_control',
     });
+    debugDualPass('resumed', {
+      cycleId: state.currentCycle?.cycleId ?? null,
+      pausedForMs,
+      phase: state.currentCycle?.phase ?? null,
+    });
     state.pausedAccumulatedMs += pausedForMs;
-    if (state.currentTurn) {
-      state.currentTurn.startsAt += pausedForMs;
-      state.currentTurn.endsAt += pausedForMs;
+    if (state.currentCycle) {
+      shiftCycleTimestamps(state.currentCycle, pausedForMs);
     }
     state.runtime = 'running';
     state.lastFrameAt = performance.now();
@@ -3457,46 +3508,300 @@ function renderFrame(now) {
     updateSpeedInterpolation(now);
     renderBackground(dt);
     advanceSession(now);
-    renderGlyphs(now);
+    if (state.runtime === 'running') {
+      renderGlyphs(now);
+    }
   }
   updatePerformance(now, dt);
-  state.frameId = requestAnimationFrame(renderFrame);
+  if (state.runtime !== 'idle') {
+    state.frameId = requestAnimationFrame(renderFrame);
+  }
 }
 
 function advanceSession(now) {
   const duration = CONFIG.durations[state.duration].durationMs;
   const elapsed = getSessionElapsedMs(now);
   if (duration !== null && elapsed >= duration) {
+    debugDualPass('session-expired', {
+      cycleId: state.currentCycle?.cycleId ?? null,
+      direction: state.currentCycle?.direction ?? null,
+      elapsed,
+      phase: state.currentCycle?.phase ?? null,
+    });
     stopSequence();
     return;
   }
-  if (!state.currentTurn || now >= state.currentTurn.endsAt) {
-    state.currentTurn = createTurn(now);
-    state.turnIndex += 1;
+  if (!state.currentCycle) {
+    state.currentCycle = createCycle(now);
+  } else {
+    advanceCycle(now);
   }
   const remaining = duration === null ? 'Continuous' : formatClock(Math.max(0, duration - elapsed));
-  const turnLabel = state.currentTurn.label;
-  setRuntimeStatus(state.audioNotice || `${turnLabel} • ${remaining}`);
+  const cycle = state.currentCycle;
+  const turnLabel = cycle?.snapshot.label ?? 'Preparing sequence';
+  const phaseLabel = cycle ? formatDualPassPhase(cycle.phase) : 'Preparing';
+  setRuntimeStatus(state.audioNotice || `${turnLabel} • ${phaseLabel} • ${remaining}`);
 }
 
-function createTurn(now) {
+function createCycle(now) {
+  const snapshot = createCycleSnapshot(now);
+  const cycle = {
+    cycleId: snapshot.cycleId,
+    direction: DUAL_PASS_DIRECTIONS.down,
+    phase: DUAL_PASS_PHASES.downPass1,
+    phaseStartedAt: now,
+    pass2Triggered: false,
+    passes: createPassStates(now),
+    snapshot,
+  };
+
+  debugDualPass('configuration-snapshot-created', summarizeCycle(cycle));
+  debugDualPass('downward-pass-1-started', summarizeCycle(cycle));
+
+  return cycle;
+}
+
+function createCycleSnapshot(now) {
   const concentration = resolveConcentration();
   const speed = resolveSpeed();
   const oneWayDurationMs = speedToDuration(speed);
-  const durationMs = oneWayDurationMs * CONFIG.timing.bidirectionalTurnMultiplier;
   const plan = resolveTurnGlyphs();
   const width = dom.glyphCanvas.width;
   const height = dom.glyphCanvas.height;
   const count = resolveGlyphInstanceCount(plan, concentration);
   const instances = Array.from({ length: count }, (_, index) => createGlyphInstance({ index, count, files: plan.files, width, height, concentration }));
-  return {
+  const frozenInstances = Object.freeze(instances.map((instance) => Object.freeze(instance)));
+  const drawOrder = Object.freeze(
+    frozenInstances
+      .slice()
+      .sort((a, b) => CONFIG.depthBands[a.band].scale - CONFIG.depthBands[b.band].scale),
+  );
+
+  return Object.freeze({
+    cycleId: `cycle-${state.turnIndex}-${Math.round(now)}`,
+    concentration: Object.freeze({ ...concentration }),
+    driftProfile: state.driftProfile,
+    files: Object.freeze([...plan.files]),
+    height,
     label: plan.label,
-    files: plan.files,
-    startsAt: now,
-    endsAt: now + durationMs,
-    durationMs,
+    oneWayDurationMs,
+    passCount: PASS_COUNT,
+    plan: Object.freeze({
+      chargeScoped: Boolean(plan.chargeScoped),
+      label: plan.label,
+      selectionMode: state.selectionMode,
+      selectedGroup: state.selectedGroup,
+    }),
     speed,
-    instances,
+    triggerProgress: SECOND_PASS_TRIGGER_PROGRESS,
+    turnIndex: state.turnIndex,
+    width,
+    instances: frozenInstances,
+    drawOrder,
+  });
+}
+
+function createPassStates(now) {
+  return Array.from({ length: PASS_COUNT }, (_, index) => ({
+    completed: false,
+    passId: index + 1,
+    startedAt: index === 0 ? now : null,
+  }));
+}
+
+function advanceCycle(now) {
+  const cycle = state.currentCycle;
+  if (!cycle) return;
+
+  const firstPass = getPassState(cycle, FIRST_PASS_ID);
+  const secondPass = getPassState(cycle, SECOND_PASS_ID);
+  const firstProgress = getPassProgress(cycle, firstPass, now);
+
+  if (!cycle.pass2Triggered && firstProgress >= SECOND_PASS_TRIGGER_PROGRESS) {
+    const triggerAt = firstPass.startedAt + cycle.snapshot.oneWayDurationMs * SECOND_PASS_TRIGGER_PROGRESS;
+    cycle.pass2Triggered = true;
+    secondPass.startedAt = triggerAt;
+    setCyclePhase(cycle, cycle.direction === DUAL_PASS_DIRECTIONS.down ? DUAL_PASS_PHASES.downBoth : DUAL_PASS_PHASES.upBoth, triggerAt);
+    debugDualPass(`${cycle.direction}-halfway-trigger-reached`, {
+      ...summarizeCycle(cycle),
+      triggerAt,
+    });
+    debugDualPass(`${cycle.direction}-pass-2-started`, summarizeCycle(cycle));
+  }
+
+  updatePassCompletion(cycle, firstPass, now);
+  updatePassCompletion(cycle, secondPass, now);
+
+  if (firstPass.completed && !secondPass.completed) {
+    setCyclePhase(
+      cycle,
+      cycle.direction === DUAL_PASS_DIRECTIONS.down ? DUAL_PASS_PHASES.downPass2Finishing : DUAL_PASS_PHASES.upPass2Finishing,
+      now,
+    );
+  }
+
+  if (firstPass.completed && secondPass.completed) {
+    if (cycle.direction === DUAL_PASS_DIRECTIONS.down) {
+      beginDirectionalPhase(cycle, DUAL_PASS_DIRECTIONS.up, now);
+      return;
+    }
+
+    debugDualPass('cycle-completed', summarizeCycle(cycle));
+    state.currentCycle = null;
+    state.turnIndex += 1;
+    state.currentCycle = createCycle(now);
+  }
+}
+
+function beginDirectionalPhase(cycle, direction, now) {
+  cycle.direction = direction;
+  cycle.phase = direction === DUAL_PASS_DIRECTIONS.down ? DUAL_PASS_PHASES.downPass1 : DUAL_PASS_PHASES.upPass1;
+  cycle.phaseStartedAt = now;
+  cycle.pass2Triggered = false;
+  cycle.passes = createPassStates(now);
+
+  debugDualPass(`${direction}-pass-1-started`, summarizeCycle(cycle));
+}
+
+function setCyclePhase(cycle, phase, phaseStartedAt) {
+  if (cycle.phase === phase) return;
+  cycle.phase = phase;
+  cycle.phaseStartedAt = phaseStartedAt;
+  debugDualPass('phase-changed', summarizeCycle(cycle));
+}
+
+function getPassState(cycle, passId) {
+  return cycle.passes.find((pass) => pass.passId === passId);
+}
+
+function getPassProgress(cycle, pass, now) {
+  if (!pass || pass.startedAt === null) return 0;
+  return Math.max(0, Math.min(1, (now - pass.startedAt) / cycle.snapshot.oneWayDurationMs));
+}
+
+function updatePassCompletion(cycle, pass, now) {
+  if (!pass || pass.startedAt === null || pass.completed) return;
+  if (getPassProgress(cycle, pass, now) < 1) return;
+
+  pass.completed = true;
+  debugDualPass(
+    `${cycle.direction}-pass-${pass.passId}-${cycle.direction === DUAL_PASS_DIRECTIONS.down ? 'reached-bottom' : 'reached-top'}`,
+    summarizeCycle(cycle),
+  );
+}
+
+function shiftCycleTimestamps(cycle, offsetMs) {
+  cycle.phaseStartedAt += offsetMs;
+  cycle.passes.forEach((pass) => {
+    if (pass.startedAt !== null) {
+      pass.startedAt += offsetMs;
+    }
+  });
+}
+
+function formatDualPassPhase(phase) {
+  switch (phase) {
+    case DUAL_PASS_PHASES.downPass1:
+      return 'Downward Pass 1';
+    case DUAL_PASS_PHASES.downBoth:
+      return 'Downward Dual Pass';
+    case DUAL_PASS_PHASES.downPass2Finishing:
+      return 'Downward Pass 2 Completing';
+    case DUAL_PASS_PHASES.upPass1:
+      return 'Upward Pass 1';
+    case DUAL_PASS_PHASES.upBoth:
+      return 'Upward Dual Pass';
+    case DUAL_PASS_PHASES.upPass2Finishing:
+      return 'Upward Pass 2 Completing';
+    default:
+      return 'Preparing';
+  }
+}
+
+function summarizeCycle(cycle) {
+  return {
+    cycleId: cycle.cycleId,
+    direction: cycle.direction,
+    glyphCount: cycle.snapshot.instances.length,
+    label: cycle.snapshot.label,
+    oneWayDurationMs: cycle.snapshot.oneWayDurationMs,
+    pass2Triggered: cycle.pass2Triggered,
+    passes: cycle.passes.map((pass) => ({
+      completed: pass.completed,
+      passId: pass.passId,
+      started: pass.startedAt !== null,
+    })),
+    phase: cycle.phase,
+    speed: cycle.snapshot.speed,
+    turnIndex: cycle.snapshot.turnIndex,
+  };
+}
+
+function getDualPassDiagnostics(now = performance.now()) {
+  const cycle = state.currentCycle;
+  const effectiveNow = state.runtime === 'paused' ? state.pauseStartedAt : now;
+  return {
+    activeGlyphDrawCount: getActiveGlyphDrawCount(),
+    duration: state.duration,
+    runtime: state.runtime,
+    sessionElapsedMs: state.runtime === 'idle' ? 0 : getSessionElapsedMs(effectiveNow),
+    turnIndex: state.turnIndex,
+    cycle: cycle
+      ? {
+          cycleId: cycle.cycleId,
+          direction: cycle.direction,
+          phase: cycle.phase,
+          pass2Triggered: cycle.pass2Triggered,
+          passes: cycle.passes.map((pass) => ({
+            completed: pass.completed,
+            passId: pass.passId,
+            progress: getPassProgress(cycle, pass, effectiveNow),
+            startedAt: pass.startedAt,
+          })),
+          snapshot: {
+            drawOrder: cycle.snapshot.drawOrder.map((instance) => instance.drawSeed),
+            files: [...cycle.snapshot.files],
+            glyphCount: cycle.snapshot.instances.length,
+            instanceSignature: cycle.snapshot.instances.map((instance) => ({
+              band: instance.band,
+              drawSeed: instance.drawSeed,
+              file: instance.file,
+              opacity: instance.opacity,
+              phase: instance.phase,
+              size: instance.size,
+              velocity: instance.velocity,
+              xBase: instance.xBase,
+              yStagger: instance.yStagger,
+            })),
+            label: cycle.snapshot.label,
+            oneWayDurationMs: cycle.snapshot.oneWayDurationMs,
+            passCount: cycle.snapshot.passCount,
+            speed: cycle.snapshot.speed,
+            triggerProgress: cycle.snapshot.triggerProgress,
+          },
+        }
+      : null,
+  };
+}
+
+function exposeDualPassDiagnostics() {
+  if (!isDualPassDebugEnabled()) return;
+
+  window.__AMRITA_DUAL_PASS_DIAGNOSTICS__ = {
+    expireSession() {
+      const duration = CONFIG.durations[state.duration].durationMs;
+      if (duration === null || state.runtime === 'idle') return false;
+      state.sessionStartedAt = performance.now() - state.pausedAccumulatedMs - duration - 1;
+      return true;
+    },
+    getState: () => getDualPassDiagnostics(),
+    setSpeed(speed) {
+      state.speed = Math.min(10, Math.max(1, Number(speed) || 4));
+      state.targetSpeed = state.speed;
+      state.speedTransitionFrom = state.speed;
+      state.automaticSpeed = false;
+      renderControls();
+    },
   };
 }
 
@@ -3562,6 +3867,7 @@ function createGlyphInstance({ index, count, files, width, height, concentration
   const size = Math.min(width, height) * 0.075 * depth.scale;
   const stagger = Math.floor(index / laneCount) * size * 1.14;
   return {
+    drawSeed: index,
     file: files[index % files.length],
     band,
     xBase: Math.min(0.96, Math.max(0.04, laneCenter + jitter)),
@@ -3585,19 +3891,35 @@ function renderGlyphs(now) {
   const width = dom.glyphCanvas.width;
   const height = dom.glyphCanvas.height;
   ctx.clearRect(0, 0, width, height);
-  const turn = state.currentTurn;
-  if (!turn) return;
-  const progress = Math.min(1, (now - turn.startsAt) / turn.durationMs);
-  const travelProgress = getBidirectionalTravelProgress(progress);
-  const drift = CONFIG.driftProfiles[state.driftProfile];
+  const cycle = state.currentCycle;
+  if (!cycle) return;
+  const drift = CONFIG.driftProfiles[cycle.snapshot.driftProfile];
   const top = height * CONFIG.boundaries.topOffset;
   const bottom = height * CONFIG.boundaries.bottomOffset;
-  const travel = (bottom - top) + maxStagger(turn.instances) + height * 0.08;
+  const travel = (bottom - top) + maxStagger(cycle.snapshot.instances) + height * 0.08;
 
-  turn.instances
-    .slice()
-    .sort((a, b) => CONFIG.depthBands[a.band].scale - CONFIG.depthBands[b.band].scale)
-    .forEach((instance, index) => {
+  cycle.passes
+    .filter((pass) => pass.startedAt !== null)
+    .sort((a, b) => a.passId - b.passId)
+    .forEach((pass) => {
+      const passProgress = getPassProgress(cycle, pass, now);
+      const travelProgress = cycle.direction === DUAL_PASS_DIRECTIONS.down ? passProgress : 1 - passProgress;
+      drawGlyphPass({
+        ctx,
+        drift,
+        height,
+        pass,
+        top,
+        travel,
+        travelProgress,
+        width,
+        cycle,
+      });
+    });
+}
+
+function drawGlyphPass({ ctx, drift, height, pass, top, travel, travelProgress, width, cycle }) {
+  cycle.snapshot.drawOrder.forEach((instance) => {
       const image = glyphImages.get(instance.file);
       if (!image) return;
       const depth = CONFIG.depthBands[instance.band];
@@ -3605,16 +3927,14 @@ function renderGlyphs(now) {
       const x = width * (instance.xBase + wave * drift.amplitude * depth.softness);
       const y = top - instance.yStagger + travel * travelProgress * instance.velocity;
       if (y < -instance.size * 2 || y > height + instance.size * 2) return;
-      drawWhiteOutlineGlyph(ctx, image, x, y, instance.size, instance.opacity, depth.bloom, index);
+      drawWhiteOutlineGlyph(ctx, image, x, y, instance.size, instance.opacity, depth.bloom, instance.drawSeed);
     });
 }
 
-function getBidirectionalTravelProgress(progress) {
-  if (progress <= 0.5) {
-    return progress * 2;
-  }
-
-  return 1 - (progress - 0.5) * 2;
+function clearGlyphCanvas() {
+  const ctx = dom.glyphCanvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, dom.glyphCanvas.width, dom.glyphCanvas.height);
 }
 
 function maxStagger(instances) {
@@ -3738,9 +4058,16 @@ function updatePerformance(now, dt) {
     `Renderer: WebGL background + Canvas glyphs`,
     `FPS: ${state.fps.toFixed(0)} / ${CONFIG.renderProfile.targetFps}`,
     `DPR cap: ${getDevicePixelRatioCap().toFixed(2)}`,
-    `Glyphs: ${state.currentTurn?.instances.length ?? 0}`,
+    `Glyphs: ${getActiveGlyphDrawCount()}`,
     `Turn: ${state.turnIndex}`,
   ].join('<br />');
+}
+
+function getActiveGlyphDrawCount() {
+  const cycle = state.currentCycle;
+  if (!cycle) return 0;
+  const activePasses = cycle.passes.filter((pass) => pass.startedAt !== null).length;
+  return cycle.snapshot.instances.length * activePasses;
 }
 
 function formatClock(ms) {
@@ -3891,10 +4218,18 @@ function bindEvents() {
       runtime: state.runtime,
       willPause: document.hidden && state.runtime === 'running',
     });
+    debugDualPass('visibilitychange', {
+      cycleId: state.currentCycle?.cycleId ?? null,
+      hidden: document.hidden,
+      phase: state.currentCycle?.phase ?? null,
+      runtime: state.runtime,
+      willPause: document.hidden && state.runtime === 'running',
+    });
     if (document.hidden && state.runtime === 'running') togglePause();
   });
 }
 
 restoreState();
 bindEvents();
+exposeDualPassDiagnostics();
 renderControls();

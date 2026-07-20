@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test:amrita-dual-pass": "node scripts/amrita-dual-pass-regression.mjs",
     "test:global-player-runtime": "node scripts/global-player-runtime-regression.mjs",
     "test:no-playback-prompt": "node scripts/assert-no-playback-prompt.mjs"
   },
