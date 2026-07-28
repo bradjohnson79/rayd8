@@ -1,0 +1,26 @@
+{
+  "file": "docs/release-gate/mux-video-optimization/artifacts/mux-stability-soak-chromium-1785262910045.json",
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "soakMs": 1800000,
+  "started": true,
+  "samples": 120,
+  "driftMin": null,
+  "driftMax": null,
+  "maxAbs": null,
+  "first": {
+    "at": 1785261109524,
+    "videos": 0
+  },
+  "mid": {
+    "at": 1785262009765,
+    "videos": 0
+  },
+  "last": {
+    "videos": 0,
+    "audios": 1
+  },
+  "afterExit": {
+    "videos": 0,
+    "audios": 1
+  }
+}

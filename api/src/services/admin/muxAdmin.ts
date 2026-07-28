@@ -1,5 +1,14 @@
 import { Mux } from '@mux/mux-node'
 import { env } from '../../env.js'
+import {
+  DEFAULT_MUX_PLAYBACK_TOKEN_TTL_MINUTES,
+  resolveMuxPlaybackTokenTtlMinutes as resolveTtl,
+} from './muxPlaybackTokenTtl.js'
+
+export {
+  DEFAULT_MUX_PLAYBACK_TOKEN_TTL_MINUTES,
+  resolveMuxPlaybackTokenTtlMinutes,
+} from './muxPlaybackTokenTtl.js'
 
 const muxClient =
   env.MUX_TOKEN_ID && env.MUX_TOKEN_SECRET
@@ -110,7 +119,11 @@ async function signPlaybackId(playbackId: string, assetId = playbackId) {
     return null
   }
 
-  const expiresInMinutes = 12 * 60
+  const expiresInMinutes = resolveTtl({
+    allowShortInProduction: env.RAYD8_ALLOW_SHORT_MUX_TTL === 'true',
+    nodeEnv: env.NODE_ENV,
+    requestedMinutes: env.MUX_PLAYBACK_TOKEN_TTL_MINUTES ?? DEFAULT_MUX_PLAYBACK_TOKEN_TTL_MINUTES,
+  })
 
   const token = await muxClient.jwt.signPlaybackId(playbackId, {
     expiration: `${expiresInMinutes}m`,

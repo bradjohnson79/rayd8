@@ -2,6 +2,21 @@ import {
   getPlaybackSoakMetricsSnapshot,
   resetPlaybackSoakMetrics,
 } from '../playback-authority/playbackSoakMetrics'
+import {
+  ensurePlaybackObservability,
+  getObservabilitySnapshot,
+  getPlaybackCorrelationId,
+  recordObservabilityLoadSource,
+  redactPlaybackUrl,
+  resetPlaybackObservability,
+} from './playbackObservability'
+
+type AvSyncSnapshotProvider = () => { maxAbsDriftSeconds: number; totalCorrections: number } | null
+let avSyncSnapshotProvider: AvSyncSnapshotProvider | null = null
+
+export function registerAvSyncSnapshotProvider(provider: AvSyncSnapshotProvider | null) {
+  avSyncSnapshotProvider = provider
+}
 
 type DiagnosticCounter = Record<string, number>
 
@@ -12,6 +27,9 @@ interface PlayerDiagnosticsSnapshot {
   hlsControllers: DiagnosticCounter
   renders: DiagnosticCounter
   soak?: ReturnType<typeof getPlaybackSoakMetricsSnapshot>
+  observability?: ReturnType<typeof getObservabilitySnapshot>
+  correlationId?: string | null
+  avSync?: { maxAbsDriftSeconds: number; totalCorrections: number } | null
   sourceLoads: DiagnosticCounter
   timers: DiagnosticCounter
   videoMounts: DiagnosticCounter
@@ -20,6 +38,7 @@ interface PlayerDiagnosticsSnapshot {
 interface Rayd8PlayerDebugGlobal {
   getSnapshot: () => PlayerDiagnosticsSnapshot
   reset: () => void
+  getCorrelationId: () => string | null
 }
 
 declare global {
@@ -89,10 +108,14 @@ function exposeDebugApi() {
   }
 
   const counters = getCounters()
+  ensurePlaybackObservability()
   window.__RAYD8_PLAYER_DEBUG__ = {
     getSnapshot: () => {
       const base = JSON.parse(JSON.stringify(counters)) as PlayerDiagnosticsSnapshot
       base.soak = getPlaybackSoakMetricsSnapshot()
+      base.observability = getObservabilitySnapshot()
+      base.correlationId = getPlaybackCorrelationId()
+      base.avSync = avSyncSnapshotProvider?.() ?? null
       return base
     },
     reset: () => {
@@ -102,7 +125,9 @@ function exposeDebugApi() {
         })
       })
       resetPlaybackSoakMetrics()
+      resetPlaybackObservability()
     },
+    getCorrelationId: () => getPlaybackCorrelationId(),
   }
 }
 
@@ -144,9 +169,10 @@ export function recordSourceLoad(label: string, sourceUrl: string) {
   exposeDebugApi()
   const counters = getCounters()
   increment(counters.sourceLoads, label)
+  recordObservabilityLoadSource()
 
   if (shouldLogDiagnostics()) {
-    console.info(`[RAYD8 diagnostics] source load: ${label}`, sourceUrl)
+    console.info(`[RAYD8 diagnostics] source load: ${label}`, redactPlaybackUrl(sourceUrl))
   }
 }
 

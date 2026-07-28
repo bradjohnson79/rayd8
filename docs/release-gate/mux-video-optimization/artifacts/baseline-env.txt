@@ -1,0 +1,8 @@
+branch=audit/mux-video-optimization
+sha=c0e6796e80e7fb3bfccd140e0d3d6dd247cbe38b
+tag=audit/mux-baseline-c0e6796
+node=v22.18.0
+npm=10.9.3
+hls=1.6.16
+mux-node=14.0.1
+playwright=1.61.1

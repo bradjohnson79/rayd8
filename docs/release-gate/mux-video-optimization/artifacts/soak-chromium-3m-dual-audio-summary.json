@@ -1,0 +1,40 @@
+{
+  "file": "docs/release-gate/mux-video-optimization/artifacts/mux-stability-soak-chromium-1785265056938.json",
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "soakMs": 180000,
+  "samples": 12,
+  "driftMin": 0.06986499999999296,
+  "driftMax": 0.2777379999999994,
+  "maxAbs": 0.2777379999999994,
+  "first": {
+    "drift": null,
+    "audioBuf": null,
+    "recovery": {},
+    "avSync": {
+      "maxAbsDriftSeconds": 0,
+      "totalCorrections": 0,
+      "thresholdSeconds": 0.5
+    },
+    "engine": "native_hls",
+    "pipeline": "dual"
+  },
+  "last": {
+    "drift": 0.07180800000000431,
+    "maxAbs": 0.9358000000000004,
+    "audioBuf": 4.99356800000001,
+    "videoBuf": 4.913759999999996,
+    "recovery": {
+      "av_sync_audio_resume": 1,
+      "av_sync_seek": 2
+    },
+    "avSync": {
+      "maxAbsDriftSeconds": 1.5262499999999903,
+      "totalCorrections": 3,
+      "thresholdSeconds": 0.5
+    },
+    "eventLoopMax": 2.5999999046325684,
+    "long200": 0,
+    "freezes": 2,
+    "loadSource": 3
+  }
+}

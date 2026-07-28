@@ -1,0 +1,341 @@
+{
+  "soakMode": "audio_only",
+  "soakMs": 90000,
+  "browserName": "chromium",
+  "baseUrl": "http://127.0.0.1:5173",
+  "startedAt": "2026-07-28T19:35:50.390Z",
+  "samples": [
+    {
+      "at": 1785267358865,
+      "soakMode": "audio_only",
+      "runtime": "running",
+      "frameId": null,
+      "canvasCount": 2,
+      "webglContexts": 2,
+      "canvasSizes": [
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        },
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        }
+      ],
+      "devicePixelRatio": 1,
+      "hidden": false,
+      "audioElements": 1,
+      "audioCurrentTime": 1.042789,
+      "audioPaused": false,
+      "audioBufferLength": 8.962544000000001,
+      "audioCurrentSrc": "present",
+      "fps": null
+    },
+    {
+      "at": 1785267367872,
+      "soakMode": "audio_only",
+      "runtime": "running",
+      "frameId": null,
+      "canvasCount": 2,
+      "webglContexts": 2,
+      "canvasSizes": [
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        },
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        }
+      ],
+      "devicePixelRatio": 1,
+      "hidden": false,
+      "audioElements": 1,
+      "audioCurrentTime": 10.059275,
+      "audioPaused": false,
+      "audioBufferLength": 9.951391000000001,
+      "audioCurrentSrc": "present",
+      "fps": null
+    },
+    {
+      "at": 1785267376877,
+      "soakMode": "audio_only",
+      "runtime": "running",
+      "frameId": null,
+      "canvasCount": 2,
+      "webglContexts": 2,
+      "canvasSizes": [
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        },
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        }
+      ],
+      "devicePixelRatio": 1,
+      "hidden": false,
+      "audioElements": 1,
+      "audioCurrentTime": 19.065045,
+      "audioPaused": false,
+      "audioBufferLength": 10.950954,
+      "audioCurrentSrc": "present",
+      "fps": null
+    },
+    {
+      "at": 1785267385885,
+      "soakMode": "audio_only",
+      "runtime": "running",
+      "frameId": null,
+      "canvasCount": 2,
+      "webglContexts": 2,
+      "canvasSizes": [
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        },
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        }
+      ],
+      "devicePixelRatio": 1,
+      "hidden": false,
+      "audioElements": 1,
+      "audioCurrentTime": 28.072287,
+      "audioPaused": false,
+      "audioBufferLength": 11.927712000000003,
+      "audioCurrentSrc": "present",
+      "fps": null
+    },
+    {
+      "at": 1785267394891,
+      "soakMode": "audio_only",
+      "runtime": "running",
+      "frameId": null,
+      "canvasCount": 2,
+      "webglContexts": 2,
+      "canvasSizes": [
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        },
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        }
+      ],
+      "devicePixelRatio": 1,
+      "hidden": false,
+      "audioElements": 1,
+      "audioCurrentTime": 37.078649,
+      "audioPaused": false,
+      "audioBufferLength": 12.926684000000002,
+      "audioCurrentSrc": "present",
+      "fps": null
+    },
+    {
+      "at": 1785267403897,
+      "soakMode": "audio_only",
+      "runtime": "running",
+      "frameId": null,
+      "canvasCount": 2,
+      "webglContexts": 2,
+      "canvasSizes": [
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        },
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        }
+      ],
+      "devicePixelRatio": 1,
+      "hidden": false,
+      "audioElements": 1,
+      "audioCurrentTime": 46.084136,
+      "audioPaused": false,
+      "audioBufferLength": 13.92653,
+      "audioCurrentSrc": "present",
+      "fps": null
+    },
+    {
+      "at": 1785267412903,
+      "soakMode": "audio_only",
+      "runtime": "running",
+      "frameId": null,
+      "canvasCount": 2,
+      "webglContexts": 2,
+      "canvasSizes": [
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        },
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        }
+      ],
+      "devicePixelRatio": 1,
+      "hidden": false,
+      "audioElements": 1,
+      "audioCurrentTime": 55.090423,
+      "audioPaused": false,
+      "audioBufferLength": 14.925575999999992,
+      "audioCurrentSrc": "present",
+      "fps": null
+    },
+    {
+      "at": 1785267421909,
+      "soakMode": "audio_only",
+      "runtime": "running",
+      "frameId": null,
+      "canvasCount": 2,
+      "webglContexts": 2,
+      "canvasSizes": [
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        },
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        }
+      ],
+      "devicePixelRatio": 1,
+      "hidden": false,
+      "audioElements": 1,
+      "audioCurrentTime": 64.09685,
+      "audioPaused": false,
+      "audioBufferLength": 5.91914899999999,
+      "audioCurrentSrc": "present",
+      "fps": null
+    },
+    {
+      "at": 1785267430915,
+      "soakMode": "audio_only",
+      "runtime": "running",
+      "frameId": null,
+      "canvasCount": 2,
+      "webglContexts": 2,
+      "canvasSizes": [
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        },
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        }
+      ],
+      "devicePixelRatio": 1,
+      "hidden": false,
+      "audioElements": 1,
+      "audioCurrentTime": 73.102527,
+      "audioPaused": false,
+      "audioBufferLength": 6.897472000000008,
+      "audioCurrentSrc": "present",
+      "fps": null
+    },
+    {
+      "at": 1785267439921,
+      "soakMode": "audio_only",
+      "runtime": "running",
+      "frameId": null,
+      "canvasCount": 2,
+      "webglContexts": 2,
+      "canvasSizes": [
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        },
+        {
+          "width": 300,
+          "height": 150,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        }
+      ],
+      "devicePixelRatio": 1,
+      "hidden": false,
+      "audioElements": 1,
+      "audioCurrentTime": 82.108391,
+      "audioPaused": false,
+      "audioBufferLength": 7.896941999999996,
+      "audioCurrentSrc": "present",
+      "fps": null
+    }
+  ],
+  "cycles": [],
+  "afterExit": {
+    "soakMode": "audio_only",
+    "runtime": "idle",
+    "frameId": null,
+    "canvasCount": 2,
+    "webglContexts": 2,
+    "canvasSizes": [
+      {
+        "width": 300,
+        "height": 150,
+        "cssWidth": 0,
+        "cssHeight": 0
+      },
+      {
+        "width": 300,
+        "height": 150,
+        "cssWidth": 0,
+        "cssHeight": 0
+      }
+    ],
+    "devicePixelRatio": 1,
+    "hidden": false,
+    "audioElements": 0,
+    "audioCurrentTime": null,
+    "audioPaused": null,
+    "audioBufferLength": null,
+    "audioCurrentSrc": null,
+    "fps": null
+  },
+  "finishedAt": "2026-07-28T19:37:29.935Z",
+  "verdict": "AMRITA_SOAK_COMPLETE"
+}

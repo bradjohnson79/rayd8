@@ -1,0 +1,113 @@
+{
+  "mode": "smoke",
+  "browserName": "chromium",
+  "baseUrl": "http://127.0.0.1:5173",
+  "soakMs": 120000,
+  "authenticated": true,
+  "startedAt": "2026-07-28T17:14:19.409Z",
+  "shell": [
+    {
+      "path": "/",
+      "ok": true
+    },
+    {
+      "path": "/amrita_app/index.html",
+      "ok": true
+    }
+  ],
+  "session": {
+    "started": false,
+    "samples": [
+      {
+        "at": 1785258909520,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 0,
+        "audios": 1,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258921527,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 0,
+        "audios": 1,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258933528,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 0,
+        "audios": 1,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258945532,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 0,
+        "audios": 1,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258957536,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 0,
+        "audios": 1,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258969541,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 0,
+        "audios": 1,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258981548,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 0,
+        "audios": 1,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258993553,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 0,
+        "audios": 1,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785259005560,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 0,
+        "audios": 1,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785259017566,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 0,
+        "audios": 1,
+        "debug": null,
+        "correlationId": null
+      }
+    ],
+    "afterExit": {
+      "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+      "videos": 0,
+      "audios": 1,
+      "debug": null,
+      "correlationId": null
+    },
+    "soakMs": 120000
+  },
+  "finishedAt": "2026-07-28T17:17:09.579Z",
+  "verdict": "AUTH_PRESENT_BUT_SESSION_START_UNCONFIRMED"
+}

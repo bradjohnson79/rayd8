@@ -1,0 +1,113 @@
+{
+  "mode": "smoke",
+  "browserName": "chromium",
+  "baseUrl": "http://127.0.0.1:5173",
+  "soakMs": 90000,
+  "authenticated": true,
+  "startedAt": "2026-07-28T17:08:24.103Z",
+  "shell": [
+    {
+      "path": "/",
+      "ok": true
+    },
+    {
+      "path": "/amrita_app/index.html",
+      "ok": true
+    }
+  ],
+  "session": {
+    "started": false,
+    "samples": [
+      {
+        "at": 1785258553317,
+        "href": "https://proper-ladybug-79.clerk.accounts.dev/v1/tickets/accept?ticket=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlaXMiOjMwMCwiZXhwIjoxNzg1MjU4ODA0LCJpaWQiOiJpbnNfM0NkMTQxQzZmVHpsUEh4VnVKTmsyMFR5TERBIiwic2lkIjoic2l0XzNIOG5MQ3A1MGVFUk1hVlVBYkVZb2tjWWFPNiIsInN0Ijoic2lnbl9pbl90b2tlbiJ9.evwQPtO00qyUwB7tisj4POBszwR5Ph5yzeNX6YdO-HJiBdzpT2utPSBMxKMEgaHCGe1wdmReOLkQLt3KzKLISe9hPazDSC790qvxy60t4iGkql8S8iqVaoXpG3BX8bWi2nCLWt-9qLX5eF_bbE0YubybjfwplcOfV0eO6_wH73nG7QzDiWs5FbvVu5yKfojOF0r0cCbDv36GYvi99EsFK1MbrK_zO6C7skniauan44w_H1ekGZqeFJbiA6fyqZkUGGYWAhnW7v9KuYp4D1jHZbxzYXgqG6Ib1xN9SaZFBM6PPMBsD3gAl-nVku8uyesxzDQlKjGvoPoEfS8bjWOF6w&redirect_url=http%3A%2F%2F127.0.0.1%3A5173%2Fdashboard%3Frayd8PlayerDebug%3Dtrue",
+        "videos": 0,
+        "audios": 0,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258562324,
+        "href": "https://proper-ladybug-79.clerk.accounts.dev/v1/tickets/accept?ticket=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlaXMiOjMwMCwiZXhwIjoxNzg1MjU4ODA0LCJpaWQiOiJpbnNfM0NkMTQxQzZmVHpsUEh4VnVKTmsyMFR5TERBIiwic2lkIjoic2l0XzNIOG5MQ3A1MGVFUk1hVlVBYkVZb2tjWWFPNiIsInN0Ijoic2lnbl9pbl90b2tlbiJ9.evwQPtO00qyUwB7tisj4POBszwR5Ph5yzeNX6YdO-HJiBdzpT2utPSBMxKMEgaHCGe1wdmReOLkQLt3KzKLISe9hPazDSC790qvxy60t4iGkql8S8iqVaoXpG3BX8bWi2nCLWt-9qLX5eF_bbE0YubybjfwplcOfV0eO6_wH73nG7QzDiWs5FbvVu5yKfojOF0r0cCbDv36GYvi99EsFK1MbrK_zO6C7skniauan44w_H1ekGZqeFJbiA6fyqZkUGGYWAhnW7v9KuYp4D1jHZbxzYXgqG6Ib1xN9SaZFBM6PPMBsD3gAl-nVku8uyesxzDQlKjGvoPoEfS8bjWOF6w&redirect_url=http%3A%2F%2F127.0.0.1%3A5173%2Fdashboard%3Frayd8PlayerDebug%3Dtrue",
+        "videos": 0,
+        "audios": 0,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258571330,
+        "href": "https://proper-ladybug-79.clerk.accounts.dev/v1/tickets/accept?ticket=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlaXMiOjMwMCwiZXhwIjoxNzg1MjU4ODA0LCJpaWQiOiJpbnNfM0NkMTQxQzZmVHpsUEh4VnVKTmsyMFR5TERBIiwic2lkIjoic2l0XzNIOG5MQ3A1MGVFUk1hVlVBYkVZb2tjWWFPNiIsInN0Ijoic2lnbl9pbl90b2tlbiJ9.evwQPtO00qyUwB7tisj4POBszwR5Ph5yzeNX6YdO-HJiBdzpT2utPSBMxKMEgaHCGe1wdmReOLkQLt3KzKLISe9hPazDSC790qvxy60t4iGkql8S8iqVaoXpG3BX8bWi2nCLWt-9qLX5eF_bbE0YubybjfwplcOfV0eO6_wH73nG7QzDiWs5FbvVu5yKfojOF0r0cCbDv36GYvi99EsFK1MbrK_zO6C7skniauan44w_H1ekGZqeFJbiA6fyqZkUGGYWAhnW7v9KuYp4D1jHZbxzYXgqG6Ib1xN9SaZFBM6PPMBsD3gAl-nVku8uyesxzDQlKjGvoPoEfS8bjWOF6w&redirect_url=http%3A%2F%2F127.0.0.1%3A5173%2Fdashboard%3Frayd8PlayerDebug%3Dtrue",
+        "videos": 0,
+        "audios": 0,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258580338,
+        "href": "https://proper-ladybug-79.clerk.accounts.dev/v1/tickets/accept?ticket=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlaXMiOjMwMCwiZXhwIjoxNzg1MjU4ODA0LCJpaWQiOiJpbnNfM0NkMTQxQzZmVHpsUEh4VnVKTmsyMFR5TERBIiwic2lkIjoic2l0XzNIOG5MQ3A1MGVFUk1hVlVBYkVZb2tjWWFPNiIsInN0Ijoic2lnbl9pbl90b2tlbiJ9.evwQPtO00qyUwB7tisj4POBszwR5Ph5yzeNX6YdO-HJiBdzpT2utPSBMxKMEgaHCGe1wdmReOLkQLt3KzKLISe9hPazDSC790qvxy60t4iGkql8S8iqVaoXpG3BX8bWi2nCLWt-9qLX5eF_bbE0YubybjfwplcOfV0eO6_wH73nG7QzDiWs5FbvVu5yKfojOF0r0cCbDv36GYvi99EsFK1MbrK_zO6C7skniauan44w_H1ekGZqeFJbiA6fyqZkUGGYWAhnW7v9KuYp4D1jHZbxzYXgqG6Ib1xN9SaZFBM6PPMBsD3gAl-nVku8uyesxzDQlKjGvoPoEfS8bjWOF6w&redirect_url=http%3A%2F%2F127.0.0.1%3A5173%2Fdashboard%3Frayd8PlayerDebug%3Dtrue",
+        "videos": 0,
+        "audios": 0,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258589345,
+        "href": "https://proper-ladybug-79.clerk.accounts.dev/v1/tickets/accept?ticket=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlaXMiOjMwMCwiZXhwIjoxNzg1MjU4ODA0LCJpaWQiOiJpbnNfM0NkMTQxQzZmVHpsUEh4VnVKTmsyMFR5TERBIiwic2lkIjoic2l0XzNIOG5MQ3A1MGVFUk1hVlVBYkVZb2tjWWFPNiIsInN0Ijoic2lnbl9pbl90b2tlbiJ9.evwQPtO00qyUwB7tisj4POBszwR5Ph5yzeNX6YdO-HJiBdzpT2utPSBMxKMEgaHCGe1wdmReOLkQLt3KzKLISe9hPazDSC790qvxy60t4iGkql8S8iqVaoXpG3BX8bWi2nCLWt-9qLX5eF_bbE0YubybjfwplcOfV0eO6_wH73nG7QzDiWs5FbvVu5yKfojOF0r0cCbDv36GYvi99EsFK1MbrK_zO6C7skniauan44w_H1ekGZqeFJbiA6fyqZkUGGYWAhnW7v9KuYp4D1jHZbxzYXgqG6Ib1xN9SaZFBM6PPMBsD3gAl-nVku8uyesxzDQlKjGvoPoEfS8bjWOF6w&redirect_url=http%3A%2F%2F127.0.0.1%3A5173%2Fdashboard%3Frayd8PlayerDebug%3Dtrue",
+        "videos": 0,
+        "audios": 0,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258598351,
+        "href": "https://proper-ladybug-79.clerk.accounts.dev/v1/tickets/accept?ticket=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlaXMiOjMwMCwiZXhwIjoxNzg1MjU4ODA0LCJpaWQiOiJpbnNfM0NkMTQxQzZmVHpsUEh4VnVKTmsyMFR5TERBIiwic2lkIjoic2l0XzNIOG5MQ3A1MGVFUk1hVlVBYkVZb2tjWWFPNiIsInN0Ijoic2lnbl9pbl90b2tlbiJ9.evwQPtO00qyUwB7tisj4POBszwR5Ph5yzeNX6YdO-HJiBdzpT2utPSBMxKMEgaHCGe1wdmReOLkQLt3KzKLISe9hPazDSC790qvxy60t4iGkql8S8iqVaoXpG3BX8bWi2nCLWt-9qLX5eF_bbE0YubybjfwplcOfV0eO6_wH73nG7QzDiWs5FbvVu5yKfojOF0r0cCbDv36GYvi99EsFK1MbrK_zO6C7skniauan44w_H1ekGZqeFJbiA6fyqZkUGGYWAhnW7v9KuYp4D1jHZbxzYXgqG6Ib1xN9SaZFBM6PPMBsD3gAl-nVku8uyesxzDQlKjGvoPoEfS8bjWOF6w&redirect_url=http%3A%2F%2F127.0.0.1%3A5173%2Fdashboard%3Frayd8PlayerDebug%3Dtrue",
+        "videos": 0,
+        "audios": 0,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258607355,
+        "href": "https://proper-ladybug-79.clerk.accounts.dev/v1/tickets/accept?ticket=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlaXMiOjMwMCwiZXhwIjoxNzg1MjU4ODA0LCJpaWQiOiJpbnNfM0NkMTQxQzZmVHpsUEh4VnVKTmsyMFR5TERBIiwic2lkIjoic2l0XzNIOG5MQ3A1MGVFUk1hVlVBYkVZb2tjWWFPNiIsInN0Ijoic2lnbl9pbl90b2tlbiJ9.evwQPtO00qyUwB7tisj4POBszwR5Ph5yzeNX6YdO-HJiBdzpT2utPSBMxKMEgaHCGe1wdmReOLkQLt3KzKLISe9hPazDSC790qvxy60t4iGkql8S8iqVaoXpG3BX8bWi2nCLWt-9qLX5eF_bbE0YubybjfwplcOfV0eO6_wH73nG7QzDiWs5FbvVu5yKfojOF0r0cCbDv36GYvi99EsFK1MbrK_zO6C7skniauan44w_H1ekGZqeFJbiA6fyqZkUGGYWAhnW7v9KuYp4D1jHZbxzYXgqG6Ib1xN9SaZFBM6PPMBsD3gAl-nVku8uyesxzDQlKjGvoPoEfS8bjWOF6w&redirect_url=http%3A%2F%2F127.0.0.1%3A5173%2Fdashboard%3Frayd8PlayerDebug%3Dtrue",
+        "videos": 0,
+        "audios": 0,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258616360,
+        "href": "https://proper-ladybug-79.clerk.accounts.dev/v1/tickets/accept?ticket=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlaXMiOjMwMCwiZXhwIjoxNzg1MjU4ODA0LCJpaWQiOiJpbnNfM0NkMTQxQzZmVHpsUEh4VnVKTmsyMFR5TERBIiwic2lkIjoic2l0XzNIOG5MQ3A1MGVFUk1hVlVBYkVZb2tjWWFPNiIsInN0Ijoic2lnbl9pbl90b2tlbiJ9.evwQPtO00qyUwB7tisj4POBszwR5Ph5yzeNX6YdO-HJiBdzpT2utPSBMxKMEgaHCGe1wdmReOLkQLt3KzKLISe9hPazDSC790qvxy60t4iGkql8S8iqVaoXpG3BX8bWi2nCLWt-9qLX5eF_bbE0YubybjfwplcOfV0eO6_wH73nG7QzDiWs5FbvVu5yKfojOF0r0cCbDv36GYvi99EsFK1MbrK_zO6C7skniauan44w_H1ekGZqeFJbiA6fyqZkUGGYWAhnW7v9KuYp4D1jHZbxzYXgqG6Ib1xN9SaZFBM6PPMBsD3gAl-nVku8uyesxzDQlKjGvoPoEfS8bjWOF6w&redirect_url=http%3A%2F%2F127.0.0.1%3A5173%2Fdashboard%3Frayd8PlayerDebug%3Dtrue",
+        "videos": 0,
+        "audios": 0,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258625364,
+        "href": "https://proper-ladybug-79.clerk.accounts.dev/v1/tickets/accept?ticket=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlaXMiOjMwMCwiZXhwIjoxNzg1MjU4ODA0LCJpaWQiOiJpbnNfM0NkMTQxQzZmVHpsUEh4VnVKTmsyMFR5TERBIiwic2lkIjoic2l0XzNIOG5MQ3A1MGVFUk1hVlVBYkVZb2tjWWFPNiIsInN0Ijoic2lnbl9pbl90b2tlbiJ9.evwQPtO00qyUwB7tisj4POBszwR5Ph5yzeNX6YdO-HJiBdzpT2utPSBMxKMEgaHCGe1wdmReOLkQLt3KzKLISe9hPazDSC790qvxy60t4iGkql8S8iqVaoXpG3BX8bWi2nCLWt-9qLX5eF_bbE0YubybjfwplcOfV0eO6_wH73nG7QzDiWs5FbvVu5yKfojOF0r0cCbDv36GYvi99EsFK1MbrK_zO6C7skniauan44w_H1ekGZqeFJbiA6fyqZkUGGYWAhnW7v9KuYp4D1jHZbxzYXgqG6Ib1xN9SaZFBM6PPMBsD3gAl-nVku8uyesxzDQlKjGvoPoEfS8bjWOF6w&redirect_url=http%3A%2F%2F127.0.0.1%3A5173%2Fdashboard%3Frayd8PlayerDebug%3Dtrue",
+        "videos": 0,
+        "audios": 0,
+        "debug": null,
+        "correlationId": null
+      },
+      {
+        "at": 1785258634369,
+        "href": "https://proper-ladybug-79.clerk.accounts.dev/v1/tickets/accept?ticket=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlaXMiOjMwMCwiZXhwIjoxNzg1MjU4ODA0LCJpaWQiOiJpbnNfM0NkMTQxQzZmVHpsUEh4VnVKTmsyMFR5TERBIiwic2lkIjoic2l0XzNIOG5MQ3A1MGVFUk1hVlVBYkVZb2tjWWFPNiIsInN0Ijoic2lnbl9pbl90b2tlbiJ9.evwQPtO00qyUwB7tisj4POBszwR5Ph5yzeNX6YdO-HJiBdzpT2utPSBMxKMEgaHCGe1wdmReOLkQLt3KzKLISe9hPazDSC790qvxy60t4iGkql8S8iqVaoXpG3BX8bWi2nCLWt-9qLX5eF_bbE0YubybjfwplcOfV0eO6_wH73nG7QzDiWs5FbvVu5yKfojOF0r0cCbDv36GYvi99EsFK1MbrK_zO6C7skniauan44w_H1ekGZqeFJbiA6fyqZkUGGYWAhnW7v9KuYp4D1jHZbxzYXgqG6Ib1xN9SaZFBM6PPMBsD3gAl-nVku8uyesxzDQlKjGvoPoEfS8bjWOF6w&redirect_url=http%3A%2F%2F127.0.0.1%3A5173%2Fdashboard%3Frayd8PlayerDebug%3Dtrue",
+        "videos": 0,
+        "audios": 0,
+        "debug": null,
+        "correlationId": null
+      }
+    ],
+    "afterExit": {
+      "href": "https://proper-ladybug-79.clerk.accounts.dev/v1/tickets/accept?ticket=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlaXMiOjMwMCwiZXhwIjoxNzg1MjU4ODA0LCJpaWQiOiJpbnNfM0NkMTQxQzZmVHpsUEh4VnVKTmsyMFR5TERBIiwic2lkIjoic2l0XzNIOG5MQ3A1MGVFUk1hVlVBYkVZb2tjWWFPNiIsInN0Ijoic2lnbl9pbl90b2tlbiJ9.evwQPtO00qyUwB7tisj4POBszwR5Ph5yzeNX6YdO-HJiBdzpT2utPSBMxKMEgaHCGe1wdmReOLkQLt3KzKLISe9hPazDSC790qvxy60t4iGkql8S8iqVaoXpG3BX8bWi2nCLWt-9qLX5eF_bbE0YubybjfwplcOfV0eO6_wH73nG7QzDiWs5FbvVu5yKfojOF0r0cCbDv36GYvi99EsFK1MbrK_zO6C7skniauan44w_H1ekGZqeFJbiA6fyqZkUGGYWAhnW7v9KuYp4D1jHZbxzYXgqG6Ib1xN9SaZFBM6PPMBsD3gAl-nVku8uyesxzDQlKjGvoPoEfS8bjWOF6w&redirect_url=http%3A%2F%2F127.0.0.1%3A5173%2Fdashboard%3Frayd8PlayerDebug%3Dtrue",
+      "videos": 0,
+      "audios": 0,
+      "debug": null,
+      "correlationId": null
+    },
+    "soakMs": 90000
+  },
+  "finishedAt": "2026-07-28T17:10:43.378Z",
+  "verdict": "AUTH_PRESENT_BUT_SESSION_START_UNCONFIRMED"
+}

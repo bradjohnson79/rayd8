@@ -1,0 +1,34 @@
+{
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "syncAnalysis": {
+    "windows": [
+      {
+        "index": 0,
+        "label": "0-5m",
+        "samples": 20,
+        "correctionDelta": 4,
+        "totalCorrections": 4,
+        "driftMin": -0.25273200000000173,
+        "driftMax": 0.3649210000000096,
+        "maxAbsSampleDrift": 0.3649210000000096,
+        "avgAbsDrift": 0.2066059999999985
+      }
+    ],
+    "risingCorrectionWindows": 0,
+    "maxWindowCorrections": 4,
+    "maxAbsSampleDrift": 0.3649210000000096,
+    "avgAbsDrift": 0.2066059999999985,
+    "totalCorrections": 4,
+    "loadSource": 4,
+    "tokenRefresh": 3,
+    "eventLoopMax": 2.299999713897705,
+    "long200": 0,
+    "budget": {
+      "maxSampleAbsDriftSeconds": 1,
+      "maxCorrectionsPerFiveMinutes": 25,
+      "maxRisingCorrectionWindows": 2
+    },
+    "pass": true,
+    "interpretation": "normal_bounded_drift_management"
+  }
+}

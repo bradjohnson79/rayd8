@@ -32,6 +32,7 @@ const allowedCorsOrigins = Array.from(
     'https://rayd8.app',
     'https://www.rayd8.app',
     'http://localhost:5173',
+    'http://127.0.0.1:5173',
   ]),
 )
 

@@ -1,0 +1,49 @@
+{
+  "file": "closure-lifecycle-5x.json",
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "scenario": "lifecycle",
+  "syncPass": true,
+  "offline": null,
+  "lifecycle": [
+    {
+      "cycle": 1,
+      "midVideos": 1,
+      "midAudios": 1,
+      "afterVideos": 1,
+      "afterAudios": 1,
+      "hlsAfter": {}
+    },
+    {
+      "cycle": 2,
+      "midVideos": 1,
+      "midAudios": 1,
+      "afterVideos": 1,
+      "afterAudios": 1,
+      "hlsAfter": {}
+    },
+    {
+      "cycle": 3,
+      "midVideos": 1,
+      "midAudios": 1,
+      "afterVideos": 1,
+      "afterAudios": 1,
+      "hlsAfter": {}
+    },
+    {
+      "cycle": 4,
+      "midVideos": 1,
+      "midAudios": 1,
+      "afterVideos": 1,
+      "afterAudios": 1,
+      "hlsAfter": {}
+    },
+    {
+      "cycle": 5,
+      "midVideos": 1,
+      "midAudios": 1,
+      "afterVideos": 1,
+      "afterAudios": 1,
+      "hlsAfter": {}
+    }
+  ]
+}

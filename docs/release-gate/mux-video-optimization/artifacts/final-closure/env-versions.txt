@@ -1,0 +1,10 @@
+branch=audit/mux-video-optimization
+final_clean_sha=1cbf2932f720b95b72b93d2d53f625ec6c8a1903
+r1_r7_sha=1df821d7d26b17439aca089132fb2b8cdd1ccd4d
+baseline_tag=audit/mux-baseline-c0e6796
+starting_sha=c0e6796e80e7fb3bfccd140e0d3d6dd247cbe38b
+commits=ea3c081,adbc4ea,1df821d,1cbf293
+node=v22.18.0
+npm=10.9.3
+verdict=CONDITIONAL_GO
+date=2026-07-28T20:26:15Z

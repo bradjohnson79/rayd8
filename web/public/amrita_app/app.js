@@ -15,6 +15,35 @@ import { createRuntimeControls } from './runtime-controls.js';
 
 const AMRITA_DEBUG_STORAGE_KEY = 'rayd8-amrita-debug';
 const AMRITA_DUAL_PASS_DEBUG_STORAGE_KEY = 'rayd8-amrita-dual-pass-debug';
+const AMRITA_SOAK_MODE_KEY = 'rayd8-amrita-soak-mode';
+
+/** Isolation modes for Mux closure soaks: full | audio_only | visuals_only | reduced */
+function getAmritaSoakMode() {
+  try {
+    const fromQuery = new URLSearchParams(window.location.search).get('rayd8AmritaSoak');
+    if (fromQuery) return fromQuery;
+    return window.localStorage.getItem(AMRITA_SOAK_MODE_KEY) || 'full';
+  } catch {
+    return 'full';
+  }
+}
+
+function applyAmritaSoakModeBeforeStart() {
+  const mode = getAmritaSoakMode();
+  if (mode === 'audio_only') {
+    state.filters.add('nightMode');
+    state._soakSkipVisuals = true;
+  } else if (mode === 'visuals_only') {
+    state.audioTrack = 'none';
+    state._soakSkipVisuals = false;
+  } else if (mode === 'reduced') {
+    state.filters.add('nightMode');
+    state._soakSkipVisuals = false;
+  } else {
+    state._soakSkipVisuals = false;
+  }
+  return mode;
+}
 const PASS_COUNT = 2;
 const SECOND_PASS_TRIGGER_PROGRESS = 0.5;
 const FIRST_PASS_ID = 1;
@@ -3396,11 +3425,13 @@ async function toggleFullscreen() {
 
 function startSequence() {
   persistState();
+  const soakMode = applyAmritaSoakModeBeforeStart();
   preloadGlyphs().then(() => {
-    debugAmritaRuntime('startSequence', {
+  debugAmritaRuntime('startSequence', {
       audioTrack: state.audioTrack,
       duration: state.duration,
       filters: [...state.filters],
+      soakMode,
     });
     dom.controlPanel.hidden = true;
     dom.runtime.hidden = false;
@@ -3410,6 +3441,15 @@ function startSequence() {
     state.turnIndex = 0;
     state.currentCycle = null;
     state.lastFrameAt = performance.now();
+    if (state._soakSkipVisuals) {
+      // Audio-only isolation: mount audio experience without WebGL/glyph rAF pressure.
+      applyWellnessFilters();
+      mountRuntimeExperience();
+      state.frameId = null;
+      setRuntimeStatus('Audio-only soak');
+      runtimeControls?.update();
+      return;
+    }
     resizeCanvases();
     setupBackgroundRenderer();
     applyWellnessFilters();
@@ -3784,7 +3824,62 @@ function getDualPassDiagnostics(now = performance.now()) {
   };
 }
 
+function getAmritaSoakSnapshot() {
+  const canvases = Array.from(document.querySelectorAll('canvas'));
+  const audio = document.querySelector('audio');
+  let audioBuffer = null;
+  try {
+    if (audio?.buffered?.length) {
+      audioBuffer = Math.max(0, audio.buffered.end(audio.buffered.length - 1) - audio.currentTime);
+    }
+  } catch {
+    audioBuffer = null;
+  }
+  return {
+    soakMode: getAmritaSoakMode(),
+    runtime: state.runtime,
+    frameId: state.frameId ?? null,
+    canvasCount: canvases.length,
+    webglContexts: canvases.filter((c) => {
+      try {
+        return Boolean(c.getContext('webgl') || c.getContext('webgl2'));
+      } catch {
+        return false;
+      }
+    }).length,
+    canvasSizes: canvases.map((canvas) => ({
+      width: canvas.width,
+      height: canvas.height,
+      cssWidth: canvas.clientWidth,
+      cssHeight: canvas.clientHeight,
+    })),
+    devicePixelRatio: window.devicePixelRatio || 1,
+    hidden: document.hidden,
+    audioElements: document.querySelectorAll('audio').length,
+    audioCurrentTime: audio?.currentTime ?? null,
+    audioPaused: audio?.paused ?? null,
+    audioBufferLength: audioBuffer,
+    audioCurrentSrc: audio?.currentSrc ? 'present' : null,
+    fps: typeof state.lastFps === 'number' ? state.lastFps : null,
+  };
+}
+
 function exposeDualPassDiagnostics() {
+  // Always expose soak snapshot API for closure harness (lightweight).
+  window.__AMRITA_SOAK__ = {
+    getSnapshot: () => getAmritaSoakSnapshot(),
+    getLifecycleSnapshot: () => getAmritaSoakSnapshot(),
+    stop: () => stopSequence(),
+    start: () => startSequence(),
+    setMode(mode) {
+      try {
+        localStorage.setItem(AMRITA_SOAK_MODE_KEY, String(mode || 'full'));
+      } catch {
+        // ignore
+      }
+    },
+  };
+
   if (!isDualPassDebugEnabled()) return;
 
   window.__AMRITA_DUAL_PASS_DIAGNOSTICS__ = {
@@ -3795,6 +3890,9 @@ function exposeDualPassDiagnostics() {
       return true;
     },
     getState: () => getDualPassDiagnostics(),
+    getLifecycleSnapshot() {
+      return getAmritaSoakSnapshot();
+    },
     setSpeed(speed) {
       state.speed = Math.min(10, Math.max(1, Number(speed) || 4));
       state.targetSpeed = state.speed;

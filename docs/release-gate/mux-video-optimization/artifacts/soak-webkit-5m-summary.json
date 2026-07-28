@@ -1,0 +1,14 @@
+{
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "started": true,
+  "samples": 20,
+  "first": {
+    "videos": 1,
+    "drift": 0,
+    "engine": "native_hls",
+    "eventLoop": 0
+  },
+  "last": {
+    "videos": 0
+  }
+}

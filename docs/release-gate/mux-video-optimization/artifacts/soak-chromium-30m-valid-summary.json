@@ -1,0 +1,61 @@
+{
+  "file": "docs/release-gate/mux-video-optimization/artifacts/mux-stability-soak-chromium-1785264773336.json",
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "soakMs": 1800000,
+  "started": true,
+  "samples": 120,
+  "videoCounts": [
+    1
+  ],
+  "driftMin": 1.46488,
+  "driftMax": 740.398583,
+  "maxAbs": 740.398583,
+  "first": {
+    "videos": 1,
+    "drift": 1.46488,
+    "recovery": {},
+    "avSync": {
+      "maxAbsDriftSeconds": 0,
+      "totalCorrections": 0,
+      "thresholdSeconds": 0.5
+    },
+    "audioBuf": null
+  },
+  "mid": {
+    "videos": 1,
+    "drift": 138.27374,
+    "recovery": {},
+    "avSync": {
+      "maxAbsDriftSeconds": 0,
+      "totalCorrections": 0,
+      "thresholdSeconds": 0.5
+    },
+    "audioBuf": null
+  },
+  "last": {
+    "videos": 1,
+    "drift": 259.384932,
+    "maxAbs": 747.397424,
+    "recovery": {
+      "video_major:start_load": 1
+    },
+    "avSync": {
+      "maxAbsDriftSeconds": 0,
+      "totalCorrections": 0,
+      "thresholdSeconds": 0.5
+    },
+    "eventLoopMax": 15.800000190734863,
+    "long200": 0,
+    "long1000": 0,
+    "freezes": 0,
+    "loadSource": 20,
+    "tokenRefresh": 19,
+    "engine": "native_hls",
+    "audioBuf": null,
+    "videoBuf": 5.612401000000034
+  },
+  "afterExit": {
+    "videos": 1,
+    "audios": 1
+  }
+}
