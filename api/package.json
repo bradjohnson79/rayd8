@@ -15,6 +15,8 @@
     "billing:remediation:plan": "tsx scripts/billing-remediation-plan.ts",
     "sync-aweber": "tsx scripts/sync-users-to-aweber.ts",
     "test:smoke": "vitest run src/services/notifications/notifications.smoke.test.ts",
+    "fixture:mux-soak-auth": "tsx scripts/mux-soak-auth-fixture.ts",
+    "test:mux-ttl": "vitest run src/services/admin/muxAdmin.ttl.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
