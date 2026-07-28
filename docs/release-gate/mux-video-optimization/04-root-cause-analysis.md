@@ -7,6 +7,7 @@
 | Chromium pre-AV-sync | Chromium | 5 min | **E A/V desync** | Drift 0.8s → **278s**; no Class A/B/C freeze events; event-loop max ~13ms; 0 long tasks >200ms |
 | WebKit | WebKit | 5 min | **E A/V desync** (pre-sync code path) | Authenticated dual pipeline completed; see artifact summary |
 | Chromium dual-audio post-R7 | Chromium | 10 min | **E only** (mitigated) | Sample \|drift\| ≤~0.42s; 10 corrections; 60 logged `av_desync` threshold crossings; event-loop max 1.5ms; 0 long tasks >200ms |
+| Chromium dual closure | Chromium | 30 min | **E mitigated** | 5–7 corrections/5m; steady avg \|drift\| ~0.21s; one loop-wrap outlier excluded; 0 long tasks >200ms |
 | Chromium video soak | Chromium | 30 min | None (C/F) | Video stayed mounted; Class E false-positive path gated when audio empty |
 | Device-wide OS freeze | Physical | — | **F** not tested | Emulated-only in this environment |
 

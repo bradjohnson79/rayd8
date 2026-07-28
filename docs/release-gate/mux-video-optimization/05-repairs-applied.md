@@ -68,13 +68,21 @@ Repairs are evidence-gated. Hypothesis statuses use: `UNTESTED` | `NOT REPRODUCE
 | Field | Value |
 | --- | --- |
 | Hypothesis | Dual HLS / independent clocks |
-| Status | **CONFIRMED** Class E; **mitigated** in post-repair dual-audio soaks |
+| Status | **CONFIRMED** Class E; **mitigated**; closure refinements applied |
 | Freeze class | **E A/V desynchronization** (not Class C) |
-| Evidence | Pre-repair: drift ~0.8s → **278s** (and false positives when audio empty). Post-R7 10m dual-audio: sample \|drift\| ≤~0.42s, 10 corrections, audio/video buffers ~9–10s, event-loop max 1.5ms |
-| Change | `AvSyncController` resumes paused audio, seeks stalled audio (time frozen while video advances), seeks when `|drift| ≥ 0.5s`, skips video loop wraps; wired into freeze-poll + interval; `data-rayd8-global-audio` marker; debug `avSync` snapshot |
+| Evidence | Pre-repair: drift → **278s**. Closure 30m dual: 5–7 corrections/5m, steady avg \|drift\| ~0.21s, event-loop max ~12.7ms |
+| Change | `AvSyncController` video-master seek/resume; hysteresis 0.5/0.25; startup grace; pause on seek/buffer/hidden; skip loop wraps; wired into freeze-poll + interval |
 | Files | `avSyncController.ts`, `Rayd8PlayerEngine.tsx`, `SessionProvider.tsx` |
-| Regression | `npm --prefix web run test:av-sync`; dual-audio soak harness |
+| Regression | `npm --prefix web run test:av-sync`; 30m dual soak |
 | Rollback | Remove reconcile interval / marker |
+
+## R8 — Umami abnormal incident telemetry (closure)
+
+| Field | Value |
+| --- | --- |
+| Change | `playbackIncidentTelemetry.ts` emits privacy-safe `mux_playback_incident` on abnormal freeze classes |
+| Files | `playbackIncidentTelemetry.ts`, `playbackObservability.ts` |
+| Regression | `npm --prefix web run test:mux-telemetry` |
 
 ## Not applied (awaiting soak disposition)
 

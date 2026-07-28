@@ -1,0 +1,133 @@
+{
+  "file": "/Users/bradjohnson/Documents/RAYD8.Amrita/app/docs/release-gate/mux-video-optimization/artifacts/mux-stability-soak-chromium-1785268601106.json",
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "soakMs": 180000,
+  "scenario": "offline",
+  "syncAnalysis": {
+    "windows": [
+      {
+        "index": 0,
+        "label": "0-5m",
+        "samples": 12,
+        "correctionDelta": 1,
+        "totalCorrections": 1,
+        "driftMin": -0.24624500000000182,
+        "driftMax": 0.47362199999997756,
+        "maxAbsSampleDrift": 0.47362199999997756,
+        "avgAbsDrift": 0.35841016666666387
+      }
+    ],
+    "risingCorrectionWindows": 0,
+    "maxWindowCorrections": 1,
+    "maxAbsSampleDrift": 0.47362199999997756,
+    "avgAbsDrift": 0.35841016666666387,
+    "totalCorrections": 1,
+    "loadSource": 2,
+    "tokenRefresh": 1,
+    "eventLoopMax": 2.6999998092651367,
+    "long200": 0,
+    "budget": {
+      "maxSampleAbsDriftSeconds": 1,
+      "maxCorrectionsPerFiveMinutes": 25,
+      "maxRisingCorrectionWindows": 2
+    },
+    "pass": true,
+    "interpretation": "normal_bounded_drift_management"
+  },
+  "checkpoints": {
+    "start": {
+      "drift": -0.2444310000000005,
+      "maxAbs": 0.2462749999999998,
+      "corrections": 0,
+      "recovery": {},
+      "loadSource": 1,
+      "tokenRefresh": 0,
+      "eventLoopMax": 2.6999998092651367,
+      "long200": 0,
+      "freezeCount": 0,
+      "pipeline": "dual",
+      "engine": "native_hls",
+      "audioBuf": 10.869126,
+      "videoBuf": 6.086224
+    },
+    "end": {
+      "drift": 0.4015449999999987,
+      "maxAbs": 0.4743069999999818,
+      "corrections": 2,
+      "recovery": {
+        "av_sync_audio_resume": 2
+      },
+      "loadSource": 3,
+      "tokenRefresh": 2,
+      "eventLoopMax": 2.6999998092651367,
+      "long200": 0,
+      "freezeCount": 48,
+      "pipeline": "dual",
+      "engine": "native_hls",
+      "audioBuf": 7.692194000000001,
+      "videoBuf": 7.290649000000002
+    },
+    "afterPause": {
+      "drift": -0.5389279999999985,
+      "maxAbs": 0.5389279999999985,
+      "corrections": 2,
+      "recovery": {
+        "av_sync_audio_resume": 2
+      },
+      "loadSource": 3,
+      "tokenRefresh": 2,
+      "eventLoopMax": 2.6999998092651367,
+      "long200": 0,
+      "freezeCount": 49,
+      "pipeline": "dual",
+      "engine": "native_hls",
+      "audioBuf": 6.692896999999988,
+      "videoBuf": 7.231824999999986
+    },
+    "afterExit": {
+      "drift": -1.8593050000000062,
+      "maxAbs": 1.8593050000000062,
+      "corrections": null,
+      "recovery": {
+        "av_sync_audio_resume": 2,
+        "video_major:media_error_recover": 1,
+        "audio_denied:backoff_active": 1
+      },
+      "loadSource": 3,
+      "tokenRefresh": 2,
+      "eventLoopMax": 2.6999998092651367,
+      "long200": 0,
+      "freezeCount": 60,
+      "pipeline": "dual",
+      "engine": "native_hls",
+      "audioBuf": 5.221530000000001,
+      "videoBuf": 7.0808350000000075
+    }
+  },
+  "offlineMatrix": [
+    {
+      "offlineSeconds": 10,
+      "beforeVideos": 1,
+      "afterVideos": 1,
+      "afterAudios": 1,
+      "beforeTime": 187.829942,
+      "afterTime": 187.916498,
+      "positionPreserved": true,
+      "loadSourceBefore": 3,
+      "loadSourceAfter": 3
+    },
+    {
+      "offlineSeconds": 30,
+      "beforeVideos": 1,
+      "afterVideos": 0,
+      "afterAudios": 1,
+      "beforeTime": 187.916498,
+      "afterTime": null,
+      "positionPreserved": false,
+      "loadSourceBefore": 3,
+      "loadSourceAfter": 3
+    }
+  ],
+  "fullscreenMatrix": null,
+  "lifecycleCycles": null
+}

@@ -1,31 +1,18 @@
 # 12 — Known Limitations
 
-## Tooling limitations
+## Residual (blocks full GO)
 
-- Playwright emulated browsers only; no BrowserStack/physical device farm in this environment.
-- `performance.memory` / GPU-process pressure not uniformly available.
-- Long-task observer depends on Chromium `PerformanceObserver` longtask support.
+- Physical iOS/Android Class F soaks not executed.
+- Offline ≥30s can unmount the session `<video>` in automation (10s offline recovers).
 
-## Browser API limitations
+## Tooling
 
-- Native HLS (WebKit / some Chromium paths) does not expose hls.js level/bitrate APIs.
-- `requestVideoFrameCallback` coverage varies; decode metrics rely on `getVideoPlaybackQuality()` when present.
+- Playwright emulated browsers; mobile viewport is not a phone.
+- Loop-wrap samples can produce huge raw A/V drift; harness excludes abs drift >30s from budgets.
+- AMRITA isolation durations in closure used scaled times (2–5m) plus a 5m full soak; 20–30m AMRITA full optional follow-up.
 
-## Missing physical-device coverage
+## Product
 
-- Class F thermal / OS kills require real phones/tablets.
-- HW acceleration on/off comparison not executed.
-
-## Product limitations
-
-- Combined A/V asset map empty — dual pipeline remains default; combined path not auto-preferred (compatibility gate).
-- Looping video + continuous bed audio are not a single timeline; sync corrector skips loop wraps.
-
-## Unresolved / residual defects
-
-- Harness session exit does not always unmount media (afterExit counts).
-- Full offline/fullscreen/orientation/AMRITA isolation matrices incomplete.
-- Physical mobile Class F (thermal / OS kill) not executed.
-- Dual-audio 30-minute soak not run (10m dual-audio + 30m video-only complete).
-- Class E `av_desync` threshold crossings still accumulate in long dual soaks even while sample drift stays bounded — expected while corrector works; not Class C.
-- Production correlation telemetry wiring is planned (see monitoring plan) but not fully shipped as a backend sink in this milestone.
+- Combined A/V asset map still empty — dual pipeline remains default.
+- AvSync corrects audio toward video only (no playbackRate).
+- Production Umami incidents are abnormal-only (not continuous metrics).

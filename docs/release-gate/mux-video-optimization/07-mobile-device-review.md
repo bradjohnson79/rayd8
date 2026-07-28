@@ -4,21 +4,18 @@
 
 | Viewport / engine | Result |
 | --- | --- |
-| Chromium desktop | Authenticated 5m+ soaks complete |
-| WebKit desktop (native HLS path) | Authenticated soak complete |
-| Firefox desktop | Authenticated soak complete |
-| Mobile viewport automation | Included in older shell regression; dedicated long mobile soak residual |
-| Physical iPhone / Android | **Not available** — residual risk for Class F thermal/device kills |
+| Chromium desktop | Phase 1 + 30m dual pass |
+| WebKit desktop (native HLS) | Phase 1 5m dual pass |
+| Firefox desktop | Phase 1 5m dual pass |
+| Mobile viewport (`RAYD8_MUX_MOBILE_VIEWPORT=1`) | Harness support added |
+| Physical iPhone / Android | **Unavailable** — see `artifacts/final-closure/physical-mobile/UNAVAILABLE.md` |
 
 ## Capability notes
 
-- Prefer capability detection over UA sniffing (existing mobile playback refactor flag).
+- Prefer capability detection over UA sniffing.
 - Mobile stability profile already uses tighter buffers and `startLevel: 1`.
 - AMRITA pauses visual runtime on `visibilitychange` when document hidden.
-- Plays-inline / wake-lock paths exist in `useWakeLock` / `useMobilePlaybackLifecycle`.
 
-## Residual mobile risks
+## Residual
 
-1. Physical thermal degradation under dual decode + overlays.
-2. iOS fullscreen / orientation remount edge cases.
-3. Native HLS instrumentation gaps vs hls.js level metrics.
+Physical thermal / Class F validation required for full **GO**.

@@ -1,0 +1,9 @@
+{
+  "file": "closure-fullscreen-dual-3m.json",
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "scenario": "fullscreen",
+  "syncPass": true,
+  "offline": null,
+  "fullscreenNoRemount": true,
+  "lifecycle": null
+}

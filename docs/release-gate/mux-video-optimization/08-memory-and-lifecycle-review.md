@@ -1,25 +1,25 @@
 # 08 — Memory and Lifecycle Review
 
-## Confirmed lifecycle defects
+## Confirmed lifecycle defects (repaired)
 
-1. **Native HLS path** could leave an `hls.js` controller attached → destroyed before native `src` assignment (R2).
-2. **Mux refresh scheduling** never armed for 12h tokens → always schedule (R1).
-3. **Recovery storms** possible after cooldown-only policy → bounded `RecoveryStateMachine` (R3).
+1. Native HLS could leave hls.js attached → R2.
+2. Mux refresh never armed for 12h tokens → R1.
+3. Recovery storms after cooldown-only policy → R3.
 
-## Soak observations (Chromium 5m)
+## Closure lifecycle 5× (dual-HLS)
 
-| Metric | Start | End | After exit attempt |
-| --- | --- | --- | --- |
-| `<video>` count | 1 | 1 | 1 (harness close incomplete) |
-| `<audio>` count | 1 | 1 | 1 |
-| Active HLS instances | 0 (native path) | 0 | 0 |
-| Long tasks >200ms | 0 | 0 | — |
-| Event-loop max | — | ~13ms | — |
+Artifact: `artifacts/final-closure/closure-lifecycle-5x-summary.json`
 
-## Repeated-session cycles
+| Cycle | midVideos | midAudios | afterVideos | afterAudios | HLS after |
+| --- | --- | --- | --- | --- | --- |
+| 1–5 | 1 | 1 | 1 | 1 | empty |
 
-Automated ≥5 enter/exit leak matrix not fully completed in this milestone. Harness close button detection is incomplete (afterExit still shows media elements). Treat progressive multi-cycle leak certification as residual; unit-level destroy paths covered for HLS controller + recovery machine reset.
+No progressive media/HLS growth across five enter/play/exit cycles.
 
-## A/V desync lifecycle
+## AMRITA re-entry
 
-Dual pipeline clocks diverged severely (Class E). Corrector now resumes/seeks stalled audio toward video master, skipping video loop wraps.
+Hidden-tab + 5 cycle soak completed (`amrita-soak-full-*` with cycles). No canvas growth failure verdict.
+
+## Fullscreen
+
+`noRemount: true` after enter/exit fullscreen + visibility pulse.

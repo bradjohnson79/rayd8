@@ -15,6 +15,7 @@
     "fixture:mux-soak-auth": "npm --prefix api run fixture:mux-soak-auth",
     "test:mux-stability:smoke": "npm --prefix web run test:mux-stability:smoke",
     "test:mux-stability:soak": "npm --prefix web run test:mux-stability:soak",
-    "test:mux-unit": "npm --prefix api run test:mux-ttl && npm --prefix web run test:recovery-machine && npm --prefix web run test:av-sync"
+    "test:mux-stability:closure": "npm --prefix web run test:mux-stability:closure",
+    "test:mux-unit": "npm --prefix api run test:mux-ttl && npm --prefix web run test:recovery-machine && npm --prefix web run test:av-sync && npm --prefix web run test:mux-telemetry"
   }
 }

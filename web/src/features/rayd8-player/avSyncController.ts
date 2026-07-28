@@ -2,24 +2,31 @@
  * Bounded dual-pipeline A/V sync corrector.
  * Video is the master clock while both streams are advancing.
  * Handles paused/stalled audio; skips correction across video loop wraps.
+ * Uses hysteresis, startup grace, and pause during seek/buffer/hidden.
  */
 
 export interface AvSyncConfig {
   thresholdSeconds: number
+  /** Release threshold once correcting (hysteresis). */
+  releaseThresholdSeconds: number
   intervalMs: number
   maxCorrectionsPerMinute: number
   minSecondsBetweenCorrections: number
   loopWrapEpsilonSeconds: number
   stallEpsilonSeconds: number
+  /** Ignore drift until both streams have been playing this long. */
+  startupGraceMs: number
 }
 
 export const DEFAULT_AV_SYNC_CONFIG: AvSyncConfig = {
   thresholdSeconds: 0.5,
+  releaseThresholdSeconds: 0.25,
   intervalMs: 2_000,
-  maxCorrectionsPerMinute: 20,
-  minSecondsBetweenCorrections: 1.5,
+  maxCorrectionsPerMinute: 12,
+  minSecondsBetweenCorrections: 2.5,
   loopWrapEpsilonSeconds: 2,
   stallEpsilonSeconds: 0.05,
+  startupGraceMs: 8_000,
 }
 
 export interface AvSyncSample {
@@ -34,6 +41,9 @@ export interface AvSyncSample {
     | 'skipped_loop_wrap'
     | 'budget'
     | 'paused_video'
+    | 'startup_grace'
+    | 'media_not_ready'
+    | 'document_hidden'
   videoTime: number
 }
 
@@ -45,9 +55,22 @@ export class AvSyncController {
   private maxAbsDrift = 0
   private lastVideoTime: number | null = null
   private lastAudioTime: number | null = null
+  private sessionStartedAt: number | null = null
+  private inCorrectionBand = false
 
   constructor(config: Partial<AvSyncConfig> = {}) {
     this.config = { ...DEFAULT_AV_SYNC_CONFIG, ...config }
+  }
+
+  reset() {
+    this.correctionTimestamps = []
+    this.lastCorrectionAt = 0
+    this.totalCorrections = 0
+    this.maxAbsDrift = 0
+    this.lastVideoTime = null
+    this.lastAudioTime = null
+    this.sessionStartedAt = null
+    this.inCorrectionBand = false
   }
 
   getSnapshot() {
@@ -55,6 +78,8 @@ export class AvSyncController {
       maxAbsDriftSeconds: this.maxAbsDrift,
       totalCorrections: this.totalCorrections,
       thresholdSeconds: this.config.thresholdSeconds,
+      releaseThresholdSeconds: this.config.releaseThresholdSeconds,
+      inCorrectionBand: this.inCorrectionBand,
     }
   }
 
@@ -65,6 +90,30 @@ export class AvSyncController {
 
     if (!video.currentSrc || !audio.currentSrc) {
       return null
+    }
+
+    if (typeof document !== 'undefined' && document.hidden) {
+      return {
+        videoTime: video.currentTime,
+        audioTime: audio.currentTime,
+        driftSeconds: video.currentTime - audio.currentTime,
+        corrected: false,
+        reason: 'document_hidden',
+      }
+    }
+
+    if (video.seeking || audio.seeking || video.readyState < 2 || audio.readyState < 2) {
+      return {
+        videoTime: video.currentTime,
+        audioTime: audio.currentTime,
+        driftSeconds: video.currentTime - audio.currentTime,
+        corrected: false,
+        reason: 'media_not_ready',
+      }
+    }
+
+    if (this.sessionStartedAt === null) {
+      this.sessionStartedAt = now
     }
 
     const videoTime = video.currentTime
@@ -85,6 +134,10 @@ export class AvSyncController {
     this.lastVideoTime = videoTime
     this.lastAudioTime = audioTime
 
+    if (now - this.sessionStartedAt < this.config.startupGraceMs) {
+      return { videoTime, audioTime, driftSeconds, corrected: false, reason: 'startup_grace' }
+    }
+
     if (video.paused) {
       return { videoTime, audioTime, driftSeconds, corrected: false, reason: 'paused_video' }
     }
@@ -103,8 +156,17 @@ export class AvSyncController {
       return { videoTime, audioTime, driftSeconds, corrected: false, reason: 'skipped_loop_wrap' }
     }
 
+    const absDrift = Math.abs(driftSeconds)
+    if (this.inCorrectionBand) {
+      if (absDrift <= this.config.releaseThresholdSeconds) {
+        this.inCorrectionBand = false
+      }
+    } else if (absDrift >= this.config.thresholdSeconds) {
+      this.inCorrectionBand = true
+    }
+
     // Audio reports playing but time is frozen while video advances.
-    if (audioStalled && videoAdvancing && Math.abs(driftSeconds) >= this.config.thresholdSeconds) {
+    if (audioStalled && videoAdvancing && absDrift >= this.config.thresholdSeconds) {
       if (!this.canCorrect(now)) {
         return { videoTime, audioTime, driftSeconds, corrected: false, reason: 'budget' }
       }
@@ -119,7 +181,7 @@ export class AvSyncController {
       return { videoTime, audioTime, driftSeconds, corrected: true, reason: 'audio_stall_seek' }
     }
 
-    if (Math.abs(driftSeconds) < this.config.thresholdSeconds) {
+    if (!this.inCorrectionBand || absDrift < this.config.thresholdSeconds) {
       return { videoTime, audioTime, driftSeconds, corrected: false, reason: 'none' }
     }
 

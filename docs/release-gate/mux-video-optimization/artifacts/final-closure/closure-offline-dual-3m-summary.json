@@ -1,0 +1,31 @@
+{
+  "file": "closure-offline-dual-3m.json",
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "scenario": "offline",
+  "syncPass": true,
+  "offline": [
+    {
+      "offlineSeconds": 10,
+      "beforeVideos": 1,
+      "afterVideos": 1,
+      "afterAudios": 1,
+      "beforeTime": 187.829942,
+      "afterTime": 187.916498,
+      "positionPreserved": true,
+      "loadSourceBefore": 3,
+      "loadSourceAfter": 3
+    },
+    {
+      "offlineSeconds": 30,
+      "beforeVideos": 1,
+      "afterVideos": 0,
+      "afterAudios": 1,
+      "beforeTime": 187.916498,
+      "afterTime": null,
+      "positionPreserved": false,
+      "loadSourceBefore": 3,
+      "loadSourceAfter": 3
+    }
+  ],
+  "lifecycle": null
+}

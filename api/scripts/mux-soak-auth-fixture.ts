@@ -1,10 +1,13 @@
 /**
- * Ensures a REGEN-entitled Clerk+DB QA user for authenticated Mux soak tests.
+ * Ensures REGEN and/or AMRITA entitled Clerk+DB QA users for authenticated Mux soak tests.
  *
  * Usage (repo root .env required):
  *   npm --prefix api run fixture:mux-soak-auth
+ *   RAYD8_MUX_SOAK_PLAN=amrita npm --prefix api run fixture:mux-soak-auth
  *
- * Writes gitignored: web/e2e/.auth/mux-soak.env
+ * Writes gitignored:
+ *   web/e2e/.auth/mux-soak.env
+ *   web/e2e/.auth/mux-soak-amrita.env (when plan=amrita or both)
  */
 
 import { createHash, randomBytes } from 'node:crypto'
@@ -19,11 +22,26 @@ import { subscriptions, userSettings, users } from '../src/db/schema.js'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 config({ path: resolve(root, '.env') })
 
-const QA_EMAIL = process.env.RAYD8_MUX_SOAK_EMAIL ?? 'qa.mux.soak@example.com'
-const QA_USERNAME = process.env.RAYD8_MUX_SOAK_USERNAME ?? 'qa_mux_soak'
-const QA_PASSWORD =
-  process.env.RAYD8_MUX_SOAK_PASSWORD ??
-  `Rayd8Soak!${createHash('sha256').update(randomBytes(16)).digest('hex').slice(0, 12)}`
+type Plan = 'regen' | 'amrita'
+
+const PLAN = (process.env.RAYD8_MUX_SOAK_PLAN as Plan | 'both' | undefined) ?? 'both'
+
+function planConfig(plan: Plan) {
+  if (plan === 'amrita') {
+    return {
+      email: process.env.RAYD8_MUX_SOAK_AMRITA_EMAIL ?? 'qa.mux.amrita@example.com',
+      username: process.env.RAYD8_MUX_SOAK_AMRITA_USERNAME ?? 'qa_mux_amrita',
+      envFile: 'mux-soak-amrita.env',
+      plan,
+    }
+  }
+  return {
+    email: process.env.RAYD8_MUX_SOAK_EMAIL ?? 'qa.mux.soak@example.com',
+    username: process.env.RAYD8_MUX_SOAK_USERNAME ?? 'qa_mux_soak',
+    envFile: 'mux-soak.env',
+    plan: 'regen' as const,
+  }
+}
 
 async function clerkFetch(path: string, init: RequestInit = {}) {
   const secret = process.env.CLERK_SECRET_KEY
@@ -47,66 +65,66 @@ async function clerkFetch(path: string, init: RequestInit = {}) {
   return body
 }
 
-async function ensureClerkUser() {
-  const existing = await clerkFetch(`/users?email_address=${encodeURIComponent(QA_EMAIL)}&limit=1`)
+async function ensureClerkUser(email: string, username: string, plan: Plan, password: string) {
+  const existing = await clerkFetch(`/users?email_address=${encodeURIComponent(email)}&limit=1`)
   const user = Array.isArray(existing) ? existing[0] : null
 
   if (!user) {
     const created = await clerkFetch('/users', {
       method: 'POST',
       body: JSON.stringify({
-        email_address: [QA_EMAIL],
-        username: QA_USERNAME,
-        password: QA_PASSWORD,
+        email_address: [email],
+        username,
+        password,
         skip_password_checks: true,
-        public_metadata: { plan: 'regen', role: 'member' },
+        public_metadata: { plan, role: 'member' },
       }),
     })
-    console.log(`Created Clerk user ${created.id}`)
+    console.log(`Created Clerk user ${created.id} plan=${plan}`)
     return created.id as string
   }
 
   await clerkFetch(`/users/${user.id}`, {
     method: 'PATCH',
     body: JSON.stringify({
-      password: QA_PASSWORD,
+      password,
       skip_password_checks: true,
-      username: user.username || QA_USERNAME,
+      username: user.username || username,
       public_metadata: {
         ...(user.public_metadata ?? {}),
-        plan: 'regen',
+        plan,
         role: 'member',
       },
     }),
   })
-  console.log(`Updated Clerk user ${user.id}`)
+  console.log(`Updated Clerk user ${user.id} plan=${plan}`)
   return user.id as string
 }
 
-async function ensureDbEntitlement(userId: string) {
+async function ensureDbEntitlement(userId: string, email: string, plan: Plan) {
   if (!db) {
     throw new Error('DATABASE_URL / db client unavailable')
   }
 
-  const normalized = QA_EMAIL.trim().toLowerCase()
+  const normalized = email.trim().toLowerCase()
   const referral = `MUXSOAK${randomBytes(3).toString('hex').toUpperCase()}`
   const [existing] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
 
   if (!existing) {
     await db.insert(users).values({
       id: userId,
-      email: QA_EMAIL,
+      email,
       normalizedEmail: normalized,
       referralCode: referral,
       role: 'member',
-      plan: 'regen',
+      plan,
     })
   } else {
-    await db.update(users).set({ plan: 'regen', email: QA_EMAIL, normalizedEmail: normalized }).where(eq(users.id, userId))
+    await db.update(users).set({ plan, email, normalizedEmail: normalized }).where(eq(users.id, userId))
   }
 
-  const stripeCustomerId = `cus_manual_mux_soak_${userId.slice(-8)}`
-  const stripeSubscriptionId = `manual_comp_regen_mux_soak_${userId.slice(-10)}`
+  const stripeCustomerId = `cus_manual_mux_soak_${plan}_${userId.slice(-8)}`
+  const stripeSubscriptionId = `manual_comp_${plan}_mux_soak_${userId.slice(-10)}`
   const periodEnd = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
 
   const [existingSub] = await db
@@ -121,7 +139,7 @@ async function ensureDbEntitlement(userId: string) {
       stripeCustomerId,
       stripeSubscriptionId,
       status: 'active',
-      plan: 'regen',
+      plan,
       planType: 'single',
       cancelAtPeriodEnd: false,
       currentPeriodStart: new Date(),
@@ -130,7 +148,7 @@ async function ensureDbEntitlement(userId: string) {
   } else {
     await db
       .update(subscriptions)
-      .set({ status: 'active', plan: 'regen', currentPeriodEnd: periodEnd })
+      .set({ status: 'active', plan, currentPeriodEnd: periodEnd })
       .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId))
   }
 
@@ -161,26 +179,37 @@ async function ensureDbEntitlement(userId: string) {
   console.log('DB entitlement', JSON.stringify(row))
 }
 
-async function main() {
-  const userId = await ensureClerkUser()
-  await ensureDbEntitlement(userId)
+async function provision(plan: Plan) {
+  const cfg = planConfig(plan)
+  const password =
+    process.env.RAYD8_MUX_SOAK_PASSWORD ??
+    `Rayd8Soak!${createHash('sha256').update(randomBytes(16)).digest('hex').slice(0, 12)}`
+  const userId = await ensureClerkUser(cfg.email, cfg.username, cfg.plan, password)
+  await ensureDbEntitlement(userId, cfg.email, cfg.plan)
 
   const outDir = resolve(root, 'web/e2e/.auth')
   await mkdir(outDir, { recursive: true })
-  const envPath = resolve(outDir, 'mux-soak.env')
+  const envPath = resolve(outDir, cfg.envFile)
   await writeFile(
     envPath,
     [
-      '# Generated by api/scripts/mux-soak-auth-fixture.ts — do not commit',
-      `RAYD8_QA_EMAIL=${QA_EMAIL}`,
-      `RAYD8_QA_PASSWORD=${QA_PASSWORD}`,
+      `# Generated by api/scripts/mux-soak-auth-fixture.ts — do not commit`,
+      `RAYD8_QA_EMAIL=${cfg.email}`,
+      `RAYD8_QA_PASSWORD=${password}`,
       `RAYD8_MUX_SOAK_USER_ID=${userId}`,
+      `RAYD8_MUX_SOAK_PLAN=${cfg.plan}`,
       '',
     ].join('\n'),
     { mode: 0o600 },
   )
-
   console.log(`Wrote ${envPath}`)
+}
+
+async function main() {
+  const plans: Plan[] = PLAN === 'both' ? ['regen', 'amrita'] : [PLAN === 'amrita' ? 'amrita' : 'regen']
+  for (const plan of plans) {
+    await provision(plan)
+  }
   console.log('Fixture ready.')
 }
 

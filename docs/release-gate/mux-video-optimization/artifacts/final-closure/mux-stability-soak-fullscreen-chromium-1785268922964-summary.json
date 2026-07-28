@@ -1,0 +1,113 @@
+{
+  "file": "/Users/bradjohnson/Documents/RAYD8.Amrita/app/docs/release-gate/mux-video-optimization/artifacts/mux-stability-soak-chromium-1785268922964.json",
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "soakMs": 180000,
+  "scenario": "fullscreen",
+  "syncAnalysis": {
+    "windows": [
+      {
+        "index": 0,
+        "label": "0-5m",
+        "samples": 12,
+        "correctionDelta": 2,
+        "totalCorrections": 2,
+        "driftMin": -0.04500099999999918,
+        "driftMax": 0.07082499999998504,
+        "maxAbsSampleDrift": 0.07082499999998504,
+        "avgAbsDrift": 0.05680741666666359
+      }
+    ],
+    "risingCorrectionWindows": 0,
+    "maxWindowCorrections": 2,
+    "maxAbsSampleDrift": 0.07082499999998504,
+    "avgAbsDrift": 0.05680741666666359,
+    "totalCorrections": 2,
+    "loadSource": 2,
+    "tokenRefresh": 1,
+    "eventLoopMax": 2.5999999046325684,
+    "long200": 0,
+    "budget": {
+      "maxSampleAbsDriftSeconds": 1,
+      "maxCorrectionsPerFiveMinutes": 25,
+      "maxRisingCorrectionWindows": 2
+    },
+    "pass": true,
+    "interpretation": "normal_bounded_drift_management"
+  },
+  "checkpoints": {
+    "start": {
+      "drift": -0.04235500000000059,
+      "maxAbs": 0.04579700000000031,
+      "corrections": 0,
+      "recovery": {},
+      "loadSource": 1,
+      "tokenRefresh": 0,
+      "eventLoopMax": 1.6999998092651367,
+      "long200": 0,
+      "freezeCount": 0,
+      "pipeline": "dual",
+      "engine": "native_hls",
+      "audioBuf": 10.593088,
+      "videoBuf": 5.60811
+    },
+    "end": {
+      "drift": 0.095673000000005,
+      "maxAbs": 0.8263430000000085,
+      "corrections": 3,
+      "recovery": {
+        "av_sync_audio_resume": 2,
+        "av_sync_seek": 1
+      },
+      "loadSource": 3,
+      "tokenRefresh": 2,
+      "eventLoopMax": 2.5999999046325684,
+      "long200": 0,
+      "freezeCount": 1,
+      "pipeline": "dual",
+      "engine": "native_hls",
+      "audioBuf": 8.065584000000001,
+      "videoBuf": 7.969910999999996
+    },
+    "afterPause": {
+      "drift": -0.20699500000000626,
+      "maxAbs": 0.8263430000000085,
+      "corrections": 3,
+      "recovery": {
+        "av_sync_audio_resume": 2,
+        "av_sync_seek": 1
+      },
+      "loadSource": 3,
+      "tokenRefresh": 2,
+      "eventLoopMax": 2.5999999046325684,
+      "long200": 0,
+      "freezeCount": 1,
+      "pipeline": "dual",
+      "engine": "native_hls",
+      "audioBuf": 7.0649429999999995,
+      "videoBuf": 7.271938000000006
+    },
+    "afterExit": {
+      "drift": 0.07173700000001304,
+      "maxAbs": 0.9003579999999829,
+      "corrections": 4,
+      "recovery": {
+        "av_sync_audio_resume": 2,
+        "av_sync_seek": 2
+      },
+      "loadSource": 3,
+      "tokenRefresh": 2,
+      "eventLoopMax": 2.5999999046325684,
+      "long200": 0,
+      "freezeCount": 1,
+      "pipeline": "dual",
+      "engine": "native_hls",
+      "audioBuf": 13.033704,
+      "videoBuf": 12.961966999999987
+    }
+  },
+  "offlineMatrix": null,
+  "fullscreenMatrix": {
+    "noRemount": true
+  },
+  "lifecycleCycles": null
+}

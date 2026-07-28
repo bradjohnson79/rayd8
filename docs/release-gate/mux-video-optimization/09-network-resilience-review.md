@@ -9,13 +9,22 @@
 | Refresh uses pause + restore time | Implemented |
 | Bounded refresh failures | Max 3 |
 | Tokens redacted from artifacts | Yes |
-| Staggered A/V expiry matrix | Partial — both rails share TTL helper; dedicated stagger test residual |
-| Offline during refresh | Residual automated case |
+| Offline during refresh | Residual dedicated case |
+
+## Closure offline matrix (dual-HLS Chromium)
+
+Artifact: `artifacts/final-closure/closure-offline-dual-3m-summary.json`
+
+| Scenario | Result |
+| --- | --- |
+| Offline 10s → online | Pass — video mounted; position preserved |
+| Offline 30s → online | **Residual** — `afterVideos: 0` (video unmounted) |
+| loadSource storm | Not observed across offline steps |
 
 ## Soak evidence
 
-Chromium short-TTL soak recorded `loadSourceCount: 4` over ~5 minutes without Class C unresponsiveness. Refresh no longer depends on the broken “only if <30m remaining” gate.
+Short-TTL soaks show expected `loadSource` / token refresh counts without Class C unresponsiveness. 30m dual recorded 19 token refreshes under 3-minute TTL.
 
-## Player recovery vs network
+## Residual
 
-Major recovery is budgeted (R3). Infinite `loadSource` / HLS recreate storms fail unit regression (`test:recovery-machine`).
+Harden offline ≥30s so the player remains mounted or restores without full session teardown. This residual contributes to **CONDITIONAL GO**.

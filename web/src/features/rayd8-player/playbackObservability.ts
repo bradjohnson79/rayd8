@@ -5,6 +5,7 @@
 
 import { isPlaybackSoakMetricsEnabled } from '../playback-authority/playbackSoakMetrics'
 import type { FreezeClass } from '../playback-authority/recoveryStateMachine'
+import { emitPlaybackIncident, isAbnormalPlaybackIncident } from './playbackIncidentTelemetry'
 
 export type HypothesisStatus =
   | 'UNTESTED'
@@ -391,6 +392,17 @@ export function recordFreezeEvent(input: Omit<FreezeEventRecord, 'at'> & { at?: 
   })
   if (freezeEvents.length > RING) {
     freezeEvents.splice(0, freezeEvents.length - RING)
+  }
+
+  // Production telemetry: abnormal freezes only (not every Class E sample).
+  if (isAbnormalPlaybackIncident(input.class)) {
+    emitPlaybackIncident({
+      correlationId,
+      freezeClass: input.class,
+      reason: input.reason,
+      pipelineMode: decode?.pipelineMode ?? null,
+      playbackEngine: decode?.playbackEngine ?? null,
+    })
   }
 }
 

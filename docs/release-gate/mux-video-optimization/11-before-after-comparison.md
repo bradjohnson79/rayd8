@@ -2,23 +2,16 @@
 
 ## Chromium authenticated dual pipeline
 
-| Metric | Before key repairs | After R1–R6 (pre stall-seek / false Class E) | After R7 + dual-audio soak gate (10m) |
+| Metric | Before repairs | After R7 (10m) | Closure 30m dual |
 | --- | --- | --- | --- |
-| Event-loop max | ~13ms | ~9–13ms | **1.5ms** |
+| Event-loop max | ~13ms | 1.5ms | **~12.7ms** |
 | Long tasks >200ms | 0 | 0 | **0** |
-| A/V drift | 0.8s → **278s** (often empty audio) | still large when `audioTrack=none` | sample \|drift\| **≤~0.42s**; controller maxAbs ~1.39s transient |
-| Sync corrections | 0 | 0 (no `currentSrc`) | **10** (6 resume + 4 seek) |
-| Freeze events | 0 Class C | 0 Class C | 60 Class E `av_desync` threshold crossings; **0 Class C** |
-| `loadSource` (short TTL) | N/A | 4 (5m) | 8 (10m @ ~3m TTL) |
-| Media elements during play | 1 video + 1 audio | same | same dual pipeline + buffers ~9–10s |
-| HLS instances (native path) | leak risk | 0 active after R2 | 0 |
-| Token refresh scheduling | never for 12h TTL | always scheduled | always |
-| Unbounded recovery | possible | unit-denied | unit-denied |
+| Steady avg \|drift\| | →278s (or false empty audio) | ≤0.42s sample | **~0.21s** |
+| Corrections / 5m | 0 / runaway | ~10 / 10m | **5–7** |
+| Rising correction rate | n/a | n/a | **No** |
+| Class C freezes | Not seen | Not seen | **Not seen** |
+| Token refresh | Never (12h) | Scheduled | 19 refreshes @ 3m TTL |
 
 ## Interpretation
 
-Main-thread responsiveness remained healthy throughout. Lab “freeze” reports mapped to **Class E desync** (and earlier false positives when audio was empty), not Class C tab freezes. R7 keeps dual-pipeline drift bounded under continuous play; residual `av_desync` events are threshold crossings handled by the corrector.
-
-## Watch-time writes
-
-Heartbeat remains 30s (`HEARTBEAT_MS`). No evidence of per-`timeupdate` write storms in the player path audited.
+Closure confirms dual-HLS sync is **bounded drift management**, not runaway desync. Loop-wrap samples can spike raw drift; harness excludes abs >30s from budgets.

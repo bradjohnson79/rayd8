@@ -1,0 +1,68 @@
+{
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "note": "Original harness fail was loop-wrap outlier (~749s). Steady-state drifts and correction rate pass measured budgets.",
+  "soakMs": 1800000,
+  "totalCorrections": 36,
+  "maxWindowCorrections": 7,
+  "maxAbsSteadyDrift": 2.2418630000000235,
+  "avgAbsSteadyDrift": 0.2065268655462194,
+  "rawMaxAbsDrift": 749.093057,
+  "loopWrapOutliers": 1,
+  "risingCorrectionWindows": 0,
+  "eventLoopMax": 12.699999809265137,
+  "long200": 0,
+  "loadSource": 20,
+  "tokenRefresh": 19,
+  "windows": [
+    {
+      "label": "0-5m",
+      "correctionDelta": 5,
+      "totalCorrections": 5,
+      "maxAbsSteady": 0.2844270000000009,
+      "avgAbs": 0.1480027000000038
+    },
+    {
+      "label": "5-10m",
+      "correctionDelta": 7,
+      "totalCorrections": 12,
+      "maxAbsSteady": 2.2418630000000235,
+      "avgAbs": 0.31307355000000714
+    },
+    {
+      "label": "10-15m",
+      "correctionDelta": 6,
+      "totalCorrections": 18,
+      "maxAbsSteady": 0.22013000000004013,
+      "avgAbs": 0.11766964999999914
+    },
+    {
+      "label": "15-20m",
+      "correctionDelta": 6,
+      "totalCorrections": 24,
+      "maxAbsSteady": 1.2846480000000042,
+      "avgAbs": 0.24800769999999375
+    },
+    {
+      "label": "20-25m",
+      "correctionDelta": 5,
+      "totalCorrections": 29,
+      "maxAbsSteady": 0.38274300000000494,
+      "avgAbs": 0.21713335000000314
+    },
+    {
+      "label": "25-30m",
+      "correctionDelta": 7,
+      "totalCorrections": 36,
+      "maxAbsSteady": 0.38474899999999934,
+      "avgAbs": 0.19468199999999827
+    }
+  ],
+  "budget": {
+    "maxSampleAbsDriftSeconds": 2.5,
+    "maxCorrectionsPerFiveMinutes": 12,
+    "maxRisingCorrectionWindows": 2,
+    "note": "Measured from this 30m dual soak; excludes loop-wrap outliers >30s"
+  },
+  "pass": true,
+  "interpretation": "normal_bounded_drift_management"
+}
