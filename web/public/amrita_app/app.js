@@ -3795,6 +3795,23 @@ function exposeDualPassDiagnostics() {
       return true;
     },
     getState: () => getDualPassDiagnostics(),
+    getLifecycleSnapshot() {
+      const canvases = Array.from(document.querySelectorAll('canvas'));
+      return {
+        runtime: state.runtime,
+        frameId: state.frameId ?? null,
+        canvasCount: canvases.length,
+        canvasSizes: canvases.map((canvas) => ({
+          width: canvas.width,
+          height: canvas.height,
+          cssWidth: canvas.clientWidth,
+          cssHeight: canvas.clientHeight,
+        })),
+        devicePixelRatio: window.devicePixelRatio || 1,
+        hidden: document.hidden,
+        audioElements: document.querySelectorAll('audio').length,
+      };
+    },
     setSpeed(speed) {
       state.speed = Math.min(10, Math.max(1, Number(speed) || 4));
       state.targetSpeed = state.speed;

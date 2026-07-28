@@ -88,7 +88,19 @@ import {
   recordPlayerRender,
   recordSourceLoad,
   recordVideoMount,
+  registerAvSyncSnapshotProvider,
 } from './playerDiagnostics'
+import {
+  classifyFreezeEvent,
+  ensurePlaybackObservability,
+  markFreezePollExecuted,
+  markFreezePollScheduled,
+  recordFreezeEvent,
+  recordRecoveryAction,
+  recordTokenRefresh,
+  sampleMediaMetrics,
+} from './playbackObservability'
+import { AvSyncController } from './avSyncController'
 import type { SessionPlaybackStatus } from '../playback-authority/playbackPresentation'
 import { useMobilePlaybackLifecycle } from './useMobilePlaybackLifecycle'
 import { useAudioUnlockGesture } from './useAudioUnlockGesture'
@@ -209,7 +221,7 @@ const RECOVERY_COOLDOWN_MS = 30_000
 const BUFFER_HEALTH_CHECK_MS = 60_000
 /** Refresh Mux signed URLs this long before JWT expiry so playback never hits 403 mid-stream. */
 const MUX_REFRESH_LEAD_MS = 90_000
-const MUX_REFRESH_MIN_DELAY_MS = 30 * 60 * 1000
+const MUX_REFRESH_MAX_FAILURES = 3
 const FULLSCREEN_EXIT_HINT_MS = 2500
 const DOUBLE_TAP_EXIT_WINDOW_MS = 300
 const VIDEO_REF_RETRY_FRAMES = [1, 2, 4] as const
@@ -649,6 +661,11 @@ export function Rayd8PlayerEngine({
   const systemPausedRef = useRef(false)
   const playbackStateRef = useRef<SessionPlaybackStatus>('preloading')
   const singleAvAudioActiveRef = useRef(false)
+  const avSyncControllerRef = useRef(new AvSyncController())
+  useEffect(() => {
+    registerAvSyncSnapshotProvider(() => avSyncControllerRef.current.getSnapshot())
+    return () => registerAvSyncSnapshotProvider(null)
+  }, [])
   const audioMutedRef = useRef(audioMuted)
   const audioVolumeRef = useRef(audioVolume)
   const [sessionConfig, setSessionConfig] = useState<LastSessionConfig>(() => readLastSessionConfig())
@@ -1497,21 +1514,17 @@ export function Rayd8PlayerEngine({
           return
         }
 
+        let muxRefreshFailures = 0
+
         function scheduleMuxRefreshFromPayload(payload: MuxPlaybackPayload) {
           clearMuxRefreshTimer()
           const msUntilExpiry = computeMuxPlaybackExpiryMs(payload) - Date.now()
-
-          if (msUntilExpiry > MUX_REFRESH_MIN_DELAY_MS) {
-            if (import.meta.env.DEV) {
-              console.info('[RAYD8] Skipping Mux refresh during active playback; token has ample lifetime.')
-            }
-            return
-          }
-
+          // Always schedule ahead of expiry (including long-lived 12h tokens).
+          // Previously tokens with >30m remaining never scheduled a refresh at all.
           const delay = Math.max(4000, msUntilExpiry - MUX_REFRESH_LEAD_MS)
 
           if (import.meta.env.DEV) {
-            console.info(`[RAYD8] Scheduling emergency Mux refresh in ${Math.round(delay / 1000)}s.`)
+            console.info(`[RAYD8] Scheduling Mux token refresh in ${Math.round(delay / 1000)}s.`)
           }
 
           muxRefreshTimerRef.current = playbackScheduler.setTimeout('video-mux-refresh', () => {
@@ -1524,8 +1537,9 @@ export function Rayd8PlayerEngine({
             void (async () => {
               try {
                 if (import.meta.env.DEV) {
-                  console.info('[RAYD8] Running emergency Mux refresh for active video.')
+                  console.info('[RAYD8] Refreshing Mux playback token for active video.')
                 }
+                recordTokenRefresh()
                 const tokenResult = await getTokenSafe()
 
                 if (!tokenResult.token || requestId !== videoRequestRef.current) {
@@ -1553,6 +1567,7 @@ export function Rayd8PlayerEngine({
                   return
                 }
 
+                const storedTime = Number.isFinite(activeVideo.currentTime) ? activeVideo.currentTime : 0
                 const refreshDiagnosticsLabel = `primary:mux-refresh:${experience}:${sessionConfig.videoMode}`
                 const refreshed = await setMediaSource({
                   controllerProfileRef: primaryVideoControllerProfileRef,
@@ -1563,7 +1578,7 @@ export function Rayd8PlayerEngine({
                   },
                   generationRef: videoRequestRef,
                   media: activeVideo,
-                  options: { pauseBeforeLoad: false },
+                  options: { pauseBeforeLoad: true },
                   profileKey: playbackStabilityProfileRef.current.mobileOptimized ? 'mobile' : 'desktop',
                   requestGeneration: requestId,
                   sourceUrl: nextPlayback.signed_url,
@@ -1571,13 +1586,45 @@ export function Rayd8PlayerEngine({
                 })
 
                 if (!refreshed || requestId !== videoRequestRef.current) {
+                  muxRefreshFailures += 1
+                  if (muxRefreshFailures < MUX_REFRESH_MAX_FAILURES) {
+                    muxRefreshTimerRef.current = playbackScheduler.setTimeout(
+                      'video-mux-refresh-retry',
+                      () => {
+                        muxRefreshTimerRef.current = null
+                        scheduleMuxRefreshFromPayload(payload)
+                      },
+                      4000,
+                    )
+                  }
                   return
                 }
 
+                muxRefreshFailures = 0
+
+                try {
+                  if (storedTime > 0.25) {
+                    activeVideo.currentTime = storedTime
+                  }
+                } catch {
+                  // Ignore seek failures during token swap.
+                }
+
+                void tryPlayVideo(activeVideo)
                 setCurrentVideoSignedUrl(nextPlayback.signed_url)
                 scheduleMuxRefreshFromPayload(nextPlayback)
               } catch {
-                // Best-effort refresh; next mode change or recovery path may reload.
+                muxRefreshFailures += 1
+                if (muxRefreshFailures < MUX_REFRESH_MAX_FAILURES) {
+                  muxRefreshTimerRef.current = playbackScheduler.setTimeout(
+                    'video-mux-refresh-retry',
+                    () => {
+                      muxRefreshTimerRef.current = null
+                      scheduleMuxRefreshFromPayload(payload)
+                    },
+                    4000,
+                  )
+                }
               }
             })()
           }, delay)
@@ -1697,14 +1744,38 @@ export function Rayd8PlayerEngine({
       return
     }
 
+    ensurePlaybackObservability()
+
     playbackScheduler.setInterval('video-freeze-check', () => {
+      markFreezePollScheduled()
+      markFreezePollExecuted()
+
       const activeVideo = getVideoElement()
+      const audioElement =
+        typeof document !== 'undefined'
+          ? ((document.querySelector('audio[data-rayd8-global-audio="true"]') as HTMLAudioElement | null) ??
+            (document.querySelector('audio') as HTMLAudioElement | null))
+          : null
 
       if (!activeVideo) {
         freezeCounterRef.current = 0
         lastObservedVideoTimeRef.current = null
         return
       }
+
+      if (!singleAvAudioActiveRef.current && !systemPausedRef.current) {
+        const syncSample = avSyncControllerRef.current.reconcile(activeVideo, audioElement)
+        if (syncSample?.corrected) {
+          recordRecoveryAction(`av_sync_${syncSample.reason}`)
+        }
+      }
+
+      sampleMediaMetrics({
+        video: activeVideo,
+        audio: audioElement,
+        pipelineMode: singleAvAudioActiveRef.current ? 'combined' : 'dual',
+        playbackEngine: primaryVideoControllerRef.current ? 'hls.js' : 'native_hls',
+      })
 
       if (!shouldVideoBePlaying(activeVideo) || activeVideo.paused || orientationSettlingRef.current) {
         freezeCounterRef.current = 0
@@ -1714,6 +1785,7 @@ export function Rayd8PlayerEngine({
 
       const currentTime = activeVideo.currentTime
       const previousTime = lastObservedVideoTimeRef.current
+      const mediaTimeAdvancing = previousTime === null || currentTime !== previousTime
 
       if (
         previousTime !== null &&
@@ -1727,10 +1799,31 @@ export function Rayd8PlayerEngine({
             : FREEZE_THRESHOLD
 
         if (freezeCounterRef.current >= freezeThreshold) {
+          const snapshot = typeof window !== 'undefined' ? window.__RAYD8_PLAYER_DEBUG__?.getSnapshot() : null
+          const pollDelay = snapshot?.observability?.responsiveness.freezePollDelayMs ?? 0
+          const eventLoopDelay = snapshot?.observability?.responsiveness.eventLoopDelayMs ?? 0
+          const drift = snapshot?.observability?.avSync.driftSeconds ?? null
+          const freezeClass = classifyFreezeEvent({
+            mediaTimeAdvancing: false,
+            controlsResponsive: eventLoopDelay < 200,
+            eventLoopDelayMs: Math.max(eventLoopDelay, pollDelay ?? 0),
+            graphicsUpdating: true,
+            avDriftSeconds: drift,
+          })
+          recordFreezeEvent({
+            class: freezeClass,
+            reason: 'stalled',
+            mediaTimeAdvancing: false,
+            mainThreadResponsive: eventLoopDelay < 200,
+            freezePollDelayed: (pollDelay ?? 0) > 250,
+          })
           playbackAuthority?.dispatch({ type: 'video_persistent_freeze', reason: 'stalled' })
         }
       } else {
         freezeCounterRef.current = 0
+        if (!mediaTimeAdvancing) {
+          // no-op: advancing path resets counter above
+        }
       }
 
       lastObservedVideoTimeRef.current = currentTime
@@ -1747,6 +1840,55 @@ export function Rayd8PlayerEngine({
     shouldUsePlaybackStability,
     shouldVideoBePlaying,
   ])
+
+  useEffect(() => {
+    if (!shouldUsePlaybackStability || singleAvAudioActiveRef.current) {
+      return
+    }
+
+    playbackScheduler.setInterval('av-sync-reconcile', () => {
+      if (singleAvAudioActiveRef.current || systemPausedRef.current) {
+        return
+      }
+
+      const video = getVideoElement()
+      const audio =
+        typeof document !== 'undefined'
+          ? (document.querySelector('audio[data-rayd8-global-audio="true"]') as HTMLAudioElement | null)
+          : null
+
+      const sample = avSyncControllerRef.current.reconcile(video, audio)
+
+      if (!sample) {
+        return
+      }
+
+      sampleMediaMetrics({
+        video,
+        audio,
+        pipelineMode: 'dual',
+        playbackEngine: primaryVideoControllerRef.current ? 'hls.js' : 'native_hls',
+      })
+
+      if (sample.corrected) {
+        recordRecoveryAction('av_sync_correction')
+      }
+
+      if (Math.abs(sample.driftSeconds) >= 0.35) {
+        recordFreezeEvent({
+          class: 'av_desync',
+          reason: sample.corrected ? 'corrected' : 'observed',
+          mediaTimeAdvancing: true,
+          mainThreadResponsive: true,
+          freezePollDelayed: false,
+        })
+      }
+    }, 2_000)
+
+    return () => {
+      playbackScheduler.clear('av-sync-reconcile')
+    }
+  }, [getVideoElement, playbackScheduler, shouldUsePlaybackStability])
 
   useEffect(() => {
     if (!shouldUsePlaybackStability) {

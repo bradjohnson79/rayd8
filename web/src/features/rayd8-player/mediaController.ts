@@ -98,6 +98,21 @@ export async function setMediaSource(input: {
       return false
     }
 
+    // Native HLS: ensure any prior hls.js controller is destroyed so MSE
+    // buffers and workers cannot accumulate across profile/path flips.
+    if (controllerRef.current) {
+      diagnostics?.recordController?.('destroy')
+      try {
+        controllerRef.current.destroy()
+      } catch {
+        // Best-effort teardown.
+      }
+      controllerRef.current = null
+      if (controllerProfileRef) {
+        controllerProfileRef.current = null
+      }
+    }
+
     media.src = sourceUrl
     media.load()
     return true

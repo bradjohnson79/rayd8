@@ -19,6 +19,8 @@ import {
   soakFreezeStart,
   soakMarkPlayingState,
 } from './playbackSoakMetrics'
+import { RecoveryStateMachine } from './recoveryStateMachine'
+import { recordRecoveryAction } from '../rayd8-player/playbackObservability'
 
 export type PlaybackKind = 'dual' | 'combined'
 
@@ -55,10 +57,19 @@ export class PlaybackAuthorityController {
   private majorVideoRecoveryInFlight = false
   private majorAudioRecoveryInFlight = false
   private resumeOperationInFlight = false
+  private readonly recoveryMachine = new RecoveryStateMachine()
 
   constructor(initialProfile: PlaybackPolicyProfile) {
     this.profile = initialProfile
     this.timings = getPlaybackPolicyTimings(this.profile)
+  }
+
+  getRecoverySnapshot() {
+    return this.recoveryMachine.getSnapshot()
+  }
+
+  isRecoveryTerminal() {
+    return this.recoveryMachine.isTerminal
   }
 
   subscribe = (listener: () => void) => {
@@ -78,6 +89,7 @@ export class PlaybackAuthorityController {
     this.majorVideoRecoveryInFlight = false
     this.majorAudioRecoveryInFlight = false
     this.resumeOperationInFlight = false
+    this.recoveryMachine.reset()
     soakMarkPlayingState(false)
     this.snapshot = createInitialPresentationSnapshot()
   }
@@ -125,6 +137,7 @@ export class PlaybackAuthorityController {
     }
 
     if (signal.type === 'lifecycle_fatal') {
+      this.recoveryMachine.request('video', 'terminal', 'lifecycle_fatal')
       this.commitPresentation('FATAL_ERROR')
       return
     }
@@ -301,22 +314,39 @@ export class PlaybackAuthorityController {
     }
 
     const now = Date.now()
+    const policyCooldownOk = now - this.lastMajorRecoveryAt >= this.timings.majorRecoveryCooldownMs
+    const preferred = reason === 'error' ? 'media_error_recover' : 'start_load'
+    const permit = this.recoveryMachine.request('video', preferred, reason, now)
 
-    if (now - this.lastMajorRecoveryAt < this.timings.majorRecoveryCooldownMs) {
+    if (!permit.allowed) {
+      recordRecoveryAction(`video_denied:${permit.reason}`)
+      if (permit.terminal) {
+        this.commitPresentation('FATAL_ERROR')
+      }
+      return
+    }
+
+    if (!policyCooldownOk) {
+      recordRecoveryAction('video_denied:policy_cooldown')
       return
     }
 
     this.lastMajorRecoveryAt = now
     this.majorVideoRecoveryInFlight = true
+    this.recoveryMachine.begin('video', preferred, reason, now)
+    recordRecoveryAction(`video_major:${preferred}`)
 
     soakFreezeStart()
     this.commitPresentation('PASSIVE_RECOVERY')
 
     try {
       const ok = await d.video.attemptMajorRecovery(reason)
+      this.recoveryMachine.complete(ok)
 
       if (ok) {
         this.commitPresentation('PLAYING')
+      } else if (this.recoveryMachine.isTerminal) {
+        this.commitPresentation('FATAL_ERROR')
       } else {
         this.commitPresentation('READY')
       }
@@ -342,19 +372,37 @@ export class PlaybackAuthorityController {
     }
 
     const now = Date.now()
+    const policyCooldownOk = now - this.lastMajorRecoveryAt >= this.timings.majorRecoveryCooldownMs
+    const permit = this.recoveryMachine.request('audio', 'start_load', reason, now)
 
-    if (now - this.lastMajorRecoveryAt < this.timings.majorRecoveryCooldownMs) {
+    if (!permit.allowed) {
+      recordRecoveryAction(`audio_denied:${permit.reason}`)
+      if (permit.terminal) {
+        this.commitPresentation('FATAL_ERROR')
+      }
+      return
+    }
+
+    if (!policyCooldownOk) {
+      recordRecoveryAction('audio_denied:policy_cooldown')
       return
     }
 
     this.lastMajorRecoveryAt = now
     this.majorAudioRecoveryInFlight = true
+    this.recoveryMachine.begin('audio', 'start_load', reason, now)
+    recordRecoveryAction('audio_major:start_load')
 
     try {
       const ok = await d.audio.attemptMajorRecovery(reason)
+      this.recoveryMachine.complete(ok)
 
       if (!ok) {
-        this.commitPresentation('READY')
+        if (this.recoveryMachine.isTerminal) {
+          this.commitPresentation('FATAL_ERROR')
+        } else {
+          this.commitPresentation('READY')
+        }
       }
     } finally {
       this.majorAudioRecoveryInFlight = false

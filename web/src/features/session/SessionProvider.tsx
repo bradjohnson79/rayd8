@@ -116,7 +116,7 @@ const AUDIO_RECOVERY_COOLDOWN_MS = 30_000
 const AUDIO_HEALTH_CHECK_MS = 60_000
 /** Align with primary video: refresh Mux JWT before streaming endpoints reject the old token. */
 const MUX_AUDIO_REFRESH_LEAD_MS = 90_000
-const MUX_AUDIO_REFRESH_MIN_DELAY_MS = 30 * 60 * 1000
+const MUX_AUDIO_REFRESH_MAX_FAILURES = 3
 const USAGE_WARNING_STORAGE_KEY = 'rayd8_usage_warning_milestones_v1'
 const AUDIO_STABILITY_PROFILE = {
   backBufferLength: 90,
@@ -1180,21 +1180,16 @@ function GlobalAudioRail({
           return
         }
 
+        let muxAudioRefreshFailures = 0
+
         function scheduleMuxAudioRefreshFromPayload(nextPayload: MuxPlaybackPayload) {
           clearMuxAudioRefreshTimer()
           const msUntilExpiry = computeMuxPlaybackExpiryMs(nextPayload) - Date.now()
-
-          if (msUntilExpiry > MUX_AUDIO_REFRESH_MIN_DELAY_MS) {
-            if (import.meta.env.DEV) {
-              console.info('[RAYD8] Skipping audio Mux refresh; token has ample lifetime.')
-            }
-            return
-          }
-
+          // Always schedule ahead of expiry (including long-lived tokens).
           const delay = Math.max(4000, msUntilExpiry - MUX_AUDIO_REFRESH_LEAD_MS)
 
           if (import.meta.env.DEV) {
-            console.info(`[RAYD8] Scheduling emergency audio Mux refresh in ${Math.round(delay / 1000)}s.`)
+            console.info(`[RAYD8] Scheduling audio Mux token refresh in ${Math.round(delay / 1000)}s.`)
           }
 
           muxAudioRefreshTimerRef.current = audioScheduler.setTimeout('audio-mux-refresh', () => {
@@ -1207,7 +1202,7 @@ function GlobalAudioRail({
             void (async () => {
               try {
                 if (import.meta.env.DEV) {
-                  console.info('[RAYD8] Running emergency Mux refresh for active audio.')
+                  console.info('[RAYD8] Refreshing Mux playback token for active audio.')
                 }
                 const refreshTokenResult = await getTokenSafe()
 
@@ -1242,24 +1237,56 @@ function GlobalAudioRail({
                   return
                 }
 
+                const storedTime = Number.isFinite(audioElement.currentTime) ? audioElement.currentTime : 0
                 const refreshed = await setMediaSource({
                   controllerRef: audioControllerRef,
                   generationRef: audioRequestRef,
                   media: audioElement,
-                  options: { pauseBeforeLoad: false },
+                  options: { pauseBeforeLoad: true },
                   requestGeneration: requestId,
                   sourceUrl: refreshedPayload.signed_url,
                   stabilityProfile: AUDIO_STABILITY_PROFILE,
                 })
 
                 if (!refreshed || cancelled || audioRequestRef.current !== requestId) {
+                  muxAudioRefreshFailures += 1
+                  if (muxAudioRefreshFailures < MUX_AUDIO_REFRESH_MAX_FAILURES) {
+                    muxAudioRefreshTimerRef.current = audioScheduler.setTimeout(
+                      'audio-mux-refresh-retry',
+                      () => {
+                        muxAudioRefreshTimerRef.current = null
+                        scheduleMuxAudioRefreshFromPayload(nextPayload)
+                      },
+                      4000,
+                    )
+                  }
                   return
+                }
+
+                muxAudioRefreshFailures = 0
+
+                try {
+                  if (storedTime > 0.25) {
+                    audioElement.currentTime = storedTime
+                  }
+                } catch {
+                  // Ignore seek failures during token swap.
                 }
 
                 currentAudioSourceUrlRef.current = refreshedPayload.signed_url
                 scheduleMuxAudioRefreshFromPayload(refreshedPayload)
               } catch {
-                // Best-effort; session audio may recover on next user interaction.
+                muxAudioRefreshFailures += 1
+                if (muxAudioRefreshFailures < MUX_AUDIO_REFRESH_MAX_FAILURES) {
+                  muxAudioRefreshTimerRef.current = audioScheduler.setTimeout(
+                    'audio-mux-refresh-retry',
+                    () => {
+                      muxAudioRefreshTimerRef.current = null
+                      scheduleMuxAudioRefreshFromPayload(nextPayload)
+                    },
+                    4000,
+                  )
+                }
               }
             })()
           }, delay)
@@ -1437,7 +1464,7 @@ function GlobalAudioRail({
     [audioScheduler],
   )
 
-  return <audio aria-hidden className="hidden" ref={audioRef} />
+  return <audio aria-hidden className="hidden" data-rayd8-global-audio="true" ref={audioRef} />
 }
 
 export function useSession() {

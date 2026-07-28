@@ -27,6 +27,10 @@ const envSchema = z.object({
   MUX_SIGNING_KEY_ID: z.string().optional(),
   MUX_SIGNING_KEY_PRIVATE: z.string().optional(),
   MUX_ENV_KEY: z.string().optional(),
+  /** Non-production / QA soak only. Minutes until Mux playback JWT expiry (default 720). */
+  MUX_PLAYBACK_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().max(720).optional(),
+  /** Must be "true" to allow short TTL in production-like NODE_ENV=production for staged soak. */
+  RAYD8_ALLOW_SHORT_MUX_TTL: z.string().optional(),
   UMAMI_API_KEY: z.string().optional(),
   UMAMI_BASE_URL: z.string().optional(),
   UMAMI_WEBSITE_ID: z.string().optional(),
