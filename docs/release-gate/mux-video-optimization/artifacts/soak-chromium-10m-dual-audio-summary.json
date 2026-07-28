@@ -1,0 +1,27 @@
+{
+  "file": "docs/release-gate/mux-video-optimization/artifacts/mux-stability-soak-chromium-1785265684917.json",
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "soakMs": 600000,
+  "samples": 40,
+  "pipeline": "dual",
+  "engine": "native_hls",
+  "driftMin": -0.4168590000000165,
+  "driftMax": 0.07767300000000432,
+  "maxAbsSampleDrift": 0.4168590000000165,
+  "controllerMaxAbsDrift": 1.3946339999999964,
+  "totalCorrections": 10,
+  "recovery": {
+    "av_sync_audio_resume": 6,
+    "av_sync_seek": 4
+  },
+  "audioBuf": 9.385354000000007,
+  "videoBuf": 9.328240999999935,
+  "eventLoopMax": 1.5,
+  "longTasksOver200ms": 0,
+  "freezeEventCount": 60,
+  "freezeClassHistogram": {
+    "av_desync": 60
+  },
+  "loadSourceCount": 8,
+  "note": "All freezeEvents in this run are Class E av_desync samples (threshold crossings), not Class C tab freezes. Event-loop remained healthy."
+}

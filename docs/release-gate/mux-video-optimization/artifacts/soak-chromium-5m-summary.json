@@ -1,0 +1,46 @@
+{
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "soakMs": 300000,
+  "started": true,
+  "sampleCount": 20,
+  "first": {
+    "videos": 1,
+    "audios": 1,
+    "corr": "rayd8-pb-6afeef07-f2f7-462c-afbc-35eb6e0b3298",
+    "obs": {
+      "elapsed": 5516,
+      "pipeline": "dual",
+      "engine": "native_hls",
+      "drift": 0.796744,
+      "dropped": 0,
+      "eventLoop": 0,
+      "long200": 0,
+      "freezeEvents": 0,
+      "recovery": {}
+    }
+  },
+  "last": {
+    "videos": 1,
+    "audios": 1,
+    "obs": {
+      "elapsed": 290613,
+      "drift": 278.210869,
+      "maxDrift": 278.210869,
+      "dropped": 0,
+      "totalFrames": 608,
+      "eventLoopMax": 13.199999809265137,
+      "long200": 0,
+      "long1000": 0,
+      "freezeEvents": [],
+      "recovery": {},
+      "tokenRefresh": "[redacted]",
+      "loadSource": 4,
+      "heartbeats": 0
+    }
+  },
+  "afterExit": {
+    "videos": 1,
+    "audios": 1,
+    "hls": {}
+  }
+}

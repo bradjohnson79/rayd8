@@ -1,0 +1,9 @@
+branch=audit/mux-video-optimization
+head=c0e6796e80e7fb3bfccd140e0d3d6dd247cbe38b
+baseline_tag=audit/mux-baseline-c0e6796
+node=v22.18.0
+npm=10.9.3
+hls.js=^1.6.16
+playwright=^1.61.1
+mux-node=^14.0.1
+date=2026-07-28T19:29:13Z

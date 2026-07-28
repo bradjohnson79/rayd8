@@ -1,0 +1,2263 @@
+{
+  "mode": "smoke",
+  "browserName": "chromium",
+  "baseUrl": "http://127.0.0.1:5173",
+  "soakMs": 45000,
+  "authenticated": true,
+  "startedAt": "2026-07-28T19:29:27.149Z",
+  "shell": [
+    {
+      "path": "/",
+      "ok": true
+    },
+    {
+      "path": "/amrita_app/index.html",
+      "ok": true
+    }
+  ],
+  "session": {
+    "started": true,
+    "samples": [
+      {
+        "at": 1785266982545,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "debug": {
+          "activeHlsInstances": {},
+          "activeVideoLayers": {
+            "primary": 1
+          },
+          "eventListeners": {
+            "document:fullscreenchange": 1,
+            "video:webkitbeginfullscreen": 1,
+            "video:webkitendfullscreen": 1,
+            "video:webkitpresentationmodechanged": 1,
+            "video:metadata:express-playback-debug": 1,
+            "window:resize:viewport": 1,
+            "window:orientationchange:viewport": 1,
+            "window:keydown:fullscreen": 1,
+            "window:mousemove": 1,
+            "window:click": 1,
+            "window:pointerdown": 1,
+            "window:keydown:activity": 1,
+            "window:touchstart": 1,
+            "window:focus": 1,
+            "video:primary:playing:wake-lock": 1,
+            "video:primary:pause:wake-lock": 1,
+            "video:primary:ended:wake-lock": 1,
+            "document:visibilitychange:wake-lock": 1,
+            "window:pagehide:wake-lock": 1,
+            "document:visibilitychange:mobile-playback": 1,
+            "window:pagehide:mobile-playback": 1,
+            "window:pageshow:mobile-playback": 1,
+            "window:focus:mobile-playback": 1,
+            "video:primary:waiting": 1,
+            "video:primary:stalled": 1,
+            "video:primary:pause": 1,
+            "video:primary:error": 1,
+            "video:primary:ended": 1,
+            "window:pointermove:brightness": 1,
+            "window:pointerup:brightness": 1,
+            "window:pointercancel:brightness": 1,
+            "video:ready:canplay": 0,
+            "video:ready:progress": 0,
+            "video:ready:loadedmetadata": 0,
+            "video:ready:durationchange": 0,
+            "video:ready:error": 0,
+            "window:pointerdown:panel": 0,
+            "window:keydown:panel": 0,
+            "window:pointerdown:audio-unlock": 1,
+            "window:touchstart:audio-unlock": 1,
+            "window:keydown:audio-unlock": 1
+          },
+          "hlsControllers": {},
+          "renders": {
+            "Rayd8PlayerEngine": 66
+          },
+          "sourceLoads": {
+            "primary:expansion:standard": 2
+          },
+          "timers": {},
+          "videoMounts": {
+            "primary:mount": 2,
+            "primary:unmount": 1
+          },
+          "soak": {
+            "authorityDecisions": {
+              "lifecycle_preloading": 4,
+              "lifecycle_ready": 2,
+              "lifecycle_play_attempt_finished": 2
+            },
+            "interruptionsBySignal": {},
+            "playingUptimeMs": 2001,
+            "lastFreezeStartedAt": null,
+            "cumulativeFreezeMs": 0,
+            "decisionLog": [
+              {
+                "at": 1785266974836,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974839,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974843,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978005,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978017,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              },
+              {
+                "at": 1785266980018,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PLAYING"
+              },
+              {
+                "at": 1785266982336,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266982351,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              }
+            ]
+          },
+          "observability": {
+            "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+            "startedAt": 1785266974814,
+            "elapsedMs": 7728,
+            "responsiveness": {
+              "eventLoopDelayMs": 0,
+              "maxEventLoopDelayMs": 14.199999809265137,
+              "longTasks": {
+                "over50ms": 0,
+                "over200ms": 0,
+                "over1000ms": 0,
+                "longestMs": 0
+              },
+              "rafCadenceMs": 9.299999999999272,
+              "missedFrames": 2,
+              "consecutiveMissedFrames": 0,
+              "freezePollScheduledAt": 12699.599999904633,
+              "freezePollExecutedAt": 12699.599999904633,
+              "freezePollDelayMs": 0,
+              "heartbeatScheduledAt": null,
+              "heartbeatCompletedAt": null,
+              "heartbeatLagMs": null,
+              "reactCommits": 0,
+              "expensiveReactCommits": 0
+            },
+            "decode": {
+              "totalVideoFrames": 232,
+              "droppedVideoFrames": 0,
+              "corruptedVideoFrames": 0,
+              "displayWidth": 1280,
+              "displayHeight": 720,
+              "videoWidth": 480,
+              "videoHeight": 270,
+              "hlsLevel": null,
+              "estimatedBandwidth": null,
+              "videoBufferLength": 11.203537,
+              "audioBufferLength": null,
+              "pipelineMode": "dual",
+              "playbackEngine": "native_hls"
+            },
+            "avSync": {
+              "videoCurrentTime": 3.779796,
+              "audioCurrentTime": null,
+              "driftSeconds": null,
+              "maxAbsDriftSeconds": 0,
+              "samples": 0
+            },
+            "hardware": {
+              "browserName": "Google Chrome",
+              "browserVersion": "150",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+              "language": "en-US",
+              "hardwareConcurrency": 12,
+              "deviceMemoryGb": 32,
+              "screenWidth": 1280,
+              "screenHeight": 720,
+              "devicePixelRatio": 1,
+              "reducedMotion": false,
+              "saveData": false,
+              "visibilityState": "visible",
+              "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+              "webglSoftware": false,
+              "batteryCharging": null,
+              "batteryLevel": null,
+              "zoomApprox": 1
+            },
+            "freezeEvents": [],
+            "recovery": {},
+            "tokenRefreshCount": 0,
+            "loadSourceCount": 2,
+            "heartbeatCount": 0,
+            "mediaElementCounts": {
+              "video": 1,
+              "audio": 1
+            }
+          },
+          "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+          "avSync": {
+            "maxAbsDriftSeconds": 0,
+            "totalCorrections": 0,
+            "thresholdSeconds": 0.5
+          }
+        },
+        "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213"
+      },
+      {
+        "at": 1785266987050,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "debug": {
+          "activeHlsInstances": {},
+          "activeVideoLayers": {
+            "primary": 1
+          },
+          "eventListeners": {
+            "document:fullscreenchange": 1,
+            "video:webkitbeginfullscreen": 1,
+            "video:webkitendfullscreen": 1,
+            "video:webkitpresentationmodechanged": 1,
+            "video:metadata:express-playback-debug": 1,
+            "window:resize:viewport": 1,
+            "window:orientationchange:viewport": 1,
+            "window:keydown:fullscreen": 1,
+            "window:mousemove": 1,
+            "window:click": 1,
+            "window:pointerdown": 1,
+            "window:keydown:activity": 1,
+            "window:touchstart": 1,
+            "window:focus": 1,
+            "video:primary:playing:wake-lock": 1,
+            "video:primary:pause:wake-lock": 1,
+            "video:primary:ended:wake-lock": 1,
+            "document:visibilitychange:wake-lock": 1,
+            "window:pagehide:wake-lock": 1,
+            "document:visibilitychange:mobile-playback": 1,
+            "window:pagehide:mobile-playback": 1,
+            "window:pageshow:mobile-playback": 1,
+            "window:focus:mobile-playback": 1,
+            "video:primary:waiting": 1,
+            "video:primary:stalled": 1,
+            "video:primary:pause": 1,
+            "video:primary:error": 1,
+            "video:primary:ended": 1,
+            "window:pointermove:brightness": 1,
+            "window:pointerup:brightness": 1,
+            "window:pointercancel:brightness": 1,
+            "video:ready:canplay": 0,
+            "video:ready:progress": 0,
+            "video:ready:loadedmetadata": 0,
+            "video:ready:durationchange": 0,
+            "video:ready:error": 0,
+            "window:pointerdown:panel": 0,
+            "window:keydown:panel": 0,
+            "window:pointerdown:audio-unlock": 1,
+            "window:touchstart:audio-unlock": 1,
+            "window:keydown:audio-unlock": 1
+          },
+          "hlsControllers": {},
+          "renders": {
+            "Rayd8PlayerEngine": 68
+          },
+          "sourceLoads": {
+            "primary:expansion:standard": 2
+          },
+          "timers": {},
+          "videoMounts": {
+            "primary:mount": 2,
+            "primary:unmount": 1
+          },
+          "soak": {
+            "authorityDecisions": {
+              "lifecycle_preloading": 4,
+              "lifecycle_ready": 2,
+              "lifecycle_play_attempt_finished": 2
+            },
+            "interruptionsBySignal": {},
+            "playingUptimeMs": 2001,
+            "lastFreezeStartedAt": null,
+            "cumulativeFreezeMs": 0,
+            "decisionLog": [
+              {
+                "at": 1785266974836,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974839,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974843,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978005,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978017,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              },
+              {
+                "at": 1785266980018,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PLAYING"
+              },
+              {
+                "at": 1785266982336,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266982351,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              }
+            ]
+          },
+          "observability": {
+            "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+            "startedAt": 1785266974814,
+            "elapsedMs": 12234,
+            "responsiveness": {
+              "eventLoopDelayMs": 0.09999990463256836,
+              "maxEventLoopDelayMs": 14.199999809265137,
+              "longTasks": {
+                "over50ms": 0,
+                "over200ms": 0,
+                "over1000ms": 0,
+                "longestMs": 0
+              },
+              "rafCadenceMs": 9.200000000000728,
+              "missedFrames": 2,
+              "consecutiveMissedFrames": 0,
+              "freezePollScheduledAt": 17699.599999904633,
+              "freezePollExecutedAt": 17699.599999904633,
+              "freezePollDelayMs": 0,
+              "heartbeatScheduledAt": null,
+              "heartbeatCompletedAt": null,
+              "heartbeatLagMs": null,
+              "reactCommits": 0,
+              "expensiveReactCommits": 0
+            },
+            "decode": {
+              "totalVideoFrames": 272,
+              "droppedVideoFrames": 0,
+              "corruptedVideoFrames": 0,
+              "displayWidth": 1280,
+              "displayHeight": 720,
+              "videoWidth": 480,
+              "videoHeight": 270,
+              "hlsLevel": null,
+              "estimatedBandwidth": null,
+              "videoBufferLength": 10.538809,
+              "audioBufferLength": 5.88007,
+              "pipelineMode": "dual",
+              "playbackEngine": "native_hls"
+            },
+            "avSync": {
+              "videoCurrentTime": 4.444524,
+              "audioCurrentTime": 4.125263,
+              "driftSeconds": 0.319261,
+              "maxAbsDriftSeconds": 0.32005399999999984,
+              "samples": 8
+            },
+            "hardware": {
+              "browserName": "Google Chrome",
+              "browserVersion": "150",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+              "language": "en-US",
+              "hardwareConcurrency": 12,
+              "deviceMemoryGb": 32,
+              "screenWidth": 1280,
+              "screenHeight": 720,
+              "devicePixelRatio": 1,
+              "reducedMotion": false,
+              "saveData": false,
+              "visibilityState": "visible",
+              "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+              "webglSoftware": false,
+              "batteryCharging": null,
+              "batteryLevel": null,
+              "zoomApprox": 1
+            },
+            "freezeEvents": [],
+            "recovery": {},
+            "tokenRefreshCount": 0,
+            "loadSourceCount": 2,
+            "heartbeatCount": 0,
+            "mediaElementCounts": {
+              "video": 1,
+              "audio": 1
+            }
+          },
+          "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+          "avSync": {
+            "maxAbsDriftSeconds": 0.32005399999999984,
+            "totalCorrections": 0,
+            "thresholdSeconds": 0.5
+          }
+        },
+        "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213"
+      },
+      {
+        "at": 1785266991556,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "debug": {
+          "activeHlsInstances": {},
+          "activeVideoLayers": {
+            "primary": 1
+          },
+          "eventListeners": {
+            "document:fullscreenchange": 1,
+            "video:webkitbeginfullscreen": 1,
+            "video:webkitendfullscreen": 1,
+            "video:webkitpresentationmodechanged": 1,
+            "video:metadata:express-playback-debug": 1,
+            "window:resize:viewport": 1,
+            "window:orientationchange:viewport": 1,
+            "window:keydown:fullscreen": 1,
+            "window:mousemove": 1,
+            "window:click": 1,
+            "window:pointerdown": 1,
+            "window:keydown:activity": 1,
+            "window:touchstart": 1,
+            "window:focus": 1,
+            "video:primary:playing:wake-lock": 1,
+            "video:primary:pause:wake-lock": 1,
+            "video:primary:ended:wake-lock": 1,
+            "document:visibilitychange:wake-lock": 1,
+            "window:pagehide:wake-lock": 1,
+            "document:visibilitychange:mobile-playback": 1,
+            "window:pagehide:mobile-playback": 1,
+            "window:pageshow:mobile-playback": 1,
+            "window:focus:mobile-playback": 1,
+            "video:primary:waiting": 1,
+            "video:primary:stalled": 1,
+            "video:primary:pause": 1,
+            "video:primary:error": 1,
+            "video:primary:ended": 1,
+            "window:pointermove:brightness": 1,
+            "window:pointerup:brightness": 1,
+            "window:pointercancel:brightness": 1,
+            "video:ready:canplay": 0,
+            "video:ready:progress": 0,
+            "video:ready:loadedmetadata": 0,
+            "video:ready:durationchange": 0,
+            "video:ready:error": 0,
+            "window:pointerdown:panel": 0,
+            "window:keydown:panel": 0,
+            "window:pointerdown:audio-unlock": 1,
+            "window:touchstart:audio-unlock": 1,
+            "window:keydown:audio-unlock": 1
+          },
+          "hlsControllers": {},
+          "renders": {
+            "Rayd8PlayerEngine": 68
+          },
+          "sourceLoads": {
+            "primary:expansion:standard": 2
+          },
+          "timers": {},
+          "videoMounts": {
+            "primary:mount": 2,
+            "primary:unmount": 1
+          },
+          "soak": {
+            "authorityDecisions": {
+              "lifecycle_preloading": 4,
+              "lifecycle_ready": 2,
+              "lifecycle_play_attempt_finished": 2
+            },
+            "interruptionsBySignal": {},
+            "playingUptimeMs": 2001,
+            "lastFreezeStartedAt": null,
+            "cumulativeFreezeMs": 0,
+            "decisionLog": [
+              {
+                "at": 1785266974836,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974839,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974843,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978005,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978017,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              },
+              {
+                "at": 1785266980018,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PLAYING"
+              },
+              {
+                "at": 1785266982336,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266982351,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              }
+            ]
+          },
+          "observability": {
+            "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+            "startedAt": 1785266974814,
+            "elapsedMs": 16740,
+            "responsiveness": {
+              "eventLoopDelayMs": 0,
+              "maxEventLoopDelayMs": 14.199999809265137,
+              "longTasks": {
+                "over50ms": 0,
+                "over200ms": 0,
+                "over1000ms": 0,
+                "longestMs": 0
+              },
+              "rafCadenceMs": 8.299999999999272,
+              "missedFrames": 2,
+              "consecutiveMissedFrames": 0,
+              "freezePollScheduledAt": 21699.599999904633,
+              "freezePollExecutedAt": 21699.599999904633,
+              "freezePollDelayMs": 0,
+              "heartbeatScheduledAt": null,
+              "heartbeatCompletedAt": null,
+              "heartbeatLagMs": null,
+              "reactCommits": 0,
+              "expensiveReactCommits": 0
+            },
+            "decode": {
+              "totalVideoFrames": 512,
+              "droppedVideoFrames": 0,
+              "corruptedVideoFrames": 0,
+              "displayWidth": 1280,
+              "displayHeight": 720,
+              "videoWidth": 1920,
+              "videoHeight": 1080,
+              "hlsLevel": null,
+              "estimatedBandwidth": null,
+              "videoBufferLength": 6.538755,
+              "audioBufferLength": 11.885319,
+              "pipelineMode": "dual",
+              "playbackEngine": "native_hls"
+            },
+            "avSync": {
+              "videoCurrentTime": 8.444578,
+              "audioCurrentTime": 8.125347,
+              "driftSeconds": 0.31923100000000026,
+              "maxAbsDriftSeconds": 0.32026799999999955,
+              "samples": 14
+            },
+            "hardware": {
+              "browserName": "Google Chrome",
+              "browserVersion": "150",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+              "language": "en-US",
+              "hardwareConcurrency": 12,
+              "deviceMemoryGb": 32,
+              "screenWidth": 1280,
+              "screenHeight": 720,
+              "devicePixelRatio": 1,
+              "reducedMotion": false,
+              "saveData": false,
+              "visibilityState": "visible",
+              "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+              "webglSoftware": false,
+              "batteryCharging": null,
+              "batteryLevel": null,
+              "zoomApprox": 1
+            },
+            "freezeEvents": [],
+            "recovery": {},
+            "tokenRefreshCount": 0,
+            "loadSourceCount": 2,
+            "heartbeatCount": 0,
+            "mediaElementCounts": {
+              "video": 1,
+              "audio": 1
+            }
+          },
+          "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+          "avSync": {
+            "maxAbsDriftSeconds": 0.32026799999999955,
+            "totalCorrections": 0,
+            "thresholdSeconds": 0.5
+          }
+        },
+        "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213"
+      },
+      {
+        "at": 1785266996062,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "debug": {
+          "activeHlsInstances": {},
+          "activeVideoLayers": {
+            "primary": 1
+          },
+          "eventListeners": {
+            "document:fullscreenchange": 1,
+            "video:webkitbeginfullscreen": 1,
+            "video:webkitendfullscreen": 1,
+            "video:webkitpresentationmodechanged": 1,
+            "video:metadata:express-playback-debug": 1,
+            "window:resize:viewport": 1,
+            "window:orientationchange:viewport": 1,
+            "window:keydown:fullscreen": 1,
+            "window:mousemove": 1,
+            "window:click": 1,
+            "window:pointerdown": 1,
+            "window:keydown:activity": 1,
+            "window:touchstart": 1,
+            "window:focus": 1,
+            "video:primary:playing:wake-lock": 1,
+            "video:primary:pause:wake-lock": 1,
+            "video:primary:ended:wake-lock": 1,
+            "document:visibilitychange:wake-lock": 1,
+            "window:pagehide:wake-lock": 1,
+            "document:visibilitychange:mobile-playback": 1,
+            "window:pagehide:mobile-playback": 1,
+            "window:pageshow:mobile-playback": 1,
+            "window:focus:mobile-playback": 1,
+            "video:primary:waiting": 1,
+            "video:primary:stalled": 1,
+            "video:primary:pause": 1,
+            "video:primary:error": 1,
+            "video:primary:ended": 1,
+            "window:pointermove:brightness": 1,
+            "window:pointerup:brightness": 1,
+            "window:pointercancel:brightness": 1,
+            "video:ready:canplay": 0,
+            "video:ready:progress": 0,
+            "video:ready:loadedmetadata": 0,
+            "video:ready:durationchange": 0,
+            "video:ready:error": 0,
+            "window:pointerdown:panel": 0,
+            "window:keydown:panel": 0,
+            "window:pointerdown:audio-unlock": 1,
+            "window:touchstart:audio-unlock": 1,
+            "window:keydown:audio-unlock": 1
+          },
+          "hlsControllers": {},
+          "renders": {
+            "Rayd8PlayerEngine": 68
+          },
+          "sourceLoads": {
+            "primary:expansion:standard": 2
+          },
+          "timers": {},
+          "videoMounts": {
+            "primary:mount": 2,
+            "primary:unmount": 1
+          },
+          "soak": {
+            "authorityDecisions": {
+              "lifecycle_preloading": 4,
+              "lifecycle_ready": 2,
+              "lifecycle_play_attempt_finished": 2
+            },
+            "interruptionsBySignal": {},
+            "playingUptimeMs": 2001,
+            "lastFreezeStartedAt": null,
+            "cumulativeFreezeMs": 0,
+            "decisionLog": [
+              {
+                "at": 1785266974836,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974839,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974843,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978005,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978017,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              },
+              {
+                "at": 1785266980018,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PLAYING"
+              },
+              {
+                "at": 1785266982336,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266982351,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              }
+            ]
+          },
+          "observability": {
+            "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+            "startedAt": 1785266974814,
+            "elapsedMs": 21246,
+            "responsiveness": {
+              "eventLoopDelayMs": 0,
+              "maxEventLoopDelayMs": 14.199999809265137,
+              "longTasks": {
+                "over50ms": 0,
+                "over200ms": 0,
+                "over1000ms": 0,
+                "longestMs": 0
+              },
+              "rafCadenceMs": 8.299999999999272,
+              "missedFrames": 2,
+              "consecutiveMissedFrames": 0,
+              "freezePollScheduledAt": 26699.599999904633,
+              "freezePollExecutedAt": 26699.599999904633,
+              "freezePollDelayMs": 0,
+              "heartbeatScheduledAt": null,
+              "heartbeatCompletedAt": null,
+              "heartbeatLagMs": null,
+              "reactCommits": 0,
+              "expensiveReactCommits": 0
+            },
+            "decode": {
+              "totalVideoFrames": 812,
+              "droppedVideoFrames": 0,
+              "corruptedVideoFrames": 0,
+              "displayWidth": 1280,
+              "displayHeight": 720,
+              "videoWidth": 1920,
+              "videoHeight": 1080,
+              "hlsLevel": null,
+              "estimatedBandwidth": null,
+              "videoBufferLength": 11.537313999999999,
+              "audioBufferLength": 6.885496,
+              "pipelineMode": "dual",
+              "playbackEngine": "native_hls"
+            },
+            "avSync": {
+              "videoCurrentTime": 13.446019,
+              "audioCurrentTime": 13.12517,
+              "driftSeconds": 0.32084899999999905,
+              "maxAbsDriftSeconds": 0.32084899999999905,
+              "samples": 21
+            },
+            "hardware": {
+              "browserName": "Google Chrome",
+              "browserVersion": "150",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+              "language": "en-US",
+              "hardwareConcurrency": 12,
+              "deviceMemoryGb": 32,
+              "screenWidth": 1280,
+              "screenHeight": 720,
+              "devicePixelRatio": 1,
+              "reducedMotion": false,
+              "saveData": false,
+              "visibilityState": "visible",
+              "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+              "webglSoftware": false,
+              "batteryCharging": null,
+              "batteryLevel": null,
+              "zoomApprox": 1
+            },
+            "freezeEvents": [],
+            "recovery": {},
+            "tokenRefreshCount": 0,
+            "loadSourceCount": 2,
+            "heartbeatCount": 0,
+            "mediaElementCounts": {
+              "video": 1,
+              "audio": 1
+            }
+          },
+          "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+          "avSync": {
+            "maxAbsDriftSeconds": 0.32084899999999905,
+            "totalCorrections": 0,
+            "thresholdSeconds": 0.5
+          }
+        },
+        "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213"
+      },
+      {
+        "at": 1785267000568,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "debug": {
+          "activeHlsInstances": {},
+          "activeVideoLayers": {
+            "primary": 1
+          },
+          "eventListeners": {
+            "document:fullscreenchange": 1,
+            "video:webkitbeginfullscreen": 1,
+            "video:webkitendfullscreen": 1,
+            "video:webkitpresentationmodechanged": 1,
+            "video:metadata:express-playback-debug": 1,
+            "window:resize:viewport": 1,
+            "window:orientationchange:viewport": 1,
+            "window:keydown:fullscreen": 1,
+            "window:mousemove": 1,
+            "window:click": 1,
+            "window:pointerdown": 1,
+            "window:keydown:activity": 1,
+            "window:touchstart": 1,
+            "window:focus": 1,
+            "video:primary:playing:wake-lock": 1,
+            "video:primary:pause:wake-lock": 1,
+            "video:primary:ended:wake-lock": 1,
+            "document:visibilitychange:wake-lock": 1,
+            "window:pagehide:wake-lock": 1,
+            "document:visibilitychange:mobile-playback": 1,
+            "window:pagehide:mobile-playback": 1,
+            "window:pageshow:mobile-playback": 1,
+            "window:focus:mobile-playback": 1,
+            "video:primary:waiting": 1,
+            "video:primary:stalled": 1,
+            "video:primary:pause": 1,
+            "video:primary:error": 1,
+            "video:primary:ended": 1,
+            "window:pointermove:brightness": 1,
+            "window:pointerup:brightness": 1,
+            "window:pointercancel:brightness": 1,
+            "video:ready:canplay": 0,
+            "video:ready:progress": 0,
+            "video:ready:loadedmetadata": 0,
+            "video:ready:durationchange": 0,
+            "video:ready:error": 0,
+            "window:pointerdown:panel": 0,
+            "window:keydown:panel": 0,
+            "window:pointerdown:audio-unlock": 1,
+            "window:touchstart:audio-unlock": 1,
+            "window:keydown:audio-unlock": 1
+          },
+          "hlsControllers": {},
+          "renders": {
+            "Rayd8PlayerEngine": 68
+          },
+          "sourceLoads": {
+            "primary:expansion:standard": 2
+          },
+          "timers": {},
+          "videoMounts": {
+            "primary:mount": 2,
+            "primary:unmount": 1
+          },
+          "soak": {
+            "authorityDecisions": {
+              "lifecycle_preloading": 4,
+              "lifecycle_ready": 2,
+              "lifecycle_play_attempt_finished": 2
+            },
+            "interruptionsBySignal": {},
+            "playingUptimeMs": 2001,
+            "lastFreezeStartedAt": null,
+            "cumulativeFreezeMs": 0,
+            "decisionLog": [
+              {
+                "at": 1785266974836,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974839,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974843,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978005,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978017,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              },
+              {
+                "at": 1785266980018,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PLAYING"
+              },
+              {
+                "at": 1785266982336,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266982351,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              }
+            ]
+          },
+          "observability": {
+            "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+            "startedAt": 1785266974814,
+            "elapsedMs": 25752,
+            "responsiveness": {
+              "eventLoopDelayMs": 0,
+              "maxEventLoopDelayMs": 14.199999809265137,
+              "longTasks": {
+                "over50ms": 0,
+                "over200ms": 0,
+                "over1000ms": 0,
+                "longestMs": 0
+              },
+              "rafCadenceMs": 8.100000000002183,
+              "missedFrames": 2,
+              "consecutiveMissedFrames": 0,
+              "freezePollScheduledAt": 30699.800000190735,
+              "freezePollExecutedAt": 30699.800000190735,
+              "freezePollDelayMs": 0,
+              "heartbeatScheduledAt": null,
+              "heartbeatCompletedAt": null,
+              "heartbeatLagMs": null,
+              "reactCommits": 0,
+              "expensiveReactCommits": 0
+            },
+            "decode": {
+              "totalVideoFrames": 1052,
+              "droppedVideoFrames": 0,
+              "corruptedVideoFrames": 0,
+              "displayWidth": 1280,
+              "displayHeight": 720,
+              "videoWidth": 1920,
+              "videoHeight": 1080,
+              "hlsLevel": null,
+              "estimatedBandwidth": null,
+              "videoBufferLength": 7.5387299999999975,
+              "audioBufferLength": 12.890679000000002,
+              "pipelineMode": "dual",
+              "playbackEngine": "native_hls"
+            },
+            "avSync": {
+              "videoCurrentTime": 17.444603,
+              "audioCurrentTime": 17.12532,
+              "driftSeconds": 0.3192830000000022,
+              "maxAbsDriftSeconds": 0.32084899999999905,
+              "samples": 27
+            },
+            "hardware": {
+              "browserName": "Google Chrome",
+              "browserVersion": "150",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+              "language": "en-US",
+              "hardwareConcurrency": 12,
+              "deviceMemoryGb": 32,
+              "screenWidth": 1280,
+              "screenHeight": 720,
+              "devicePixelRatio": 1,
+              "reducedMotion": false,
+              "saveData": false,
+              "visibilityState": "visible",
+              "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+              "webglSoftware": false,
+              "batteryCharging": null,
+              "batteryLevel": null,
+              "zoomApprox": 1
+            },
+            "freezeEvents": [],
+            "recovery": {},
+            "tokenRefreshCount": 0,
+            "loadSourceCount": 2,
+            "heartbeatCount": 0,
+            "mediaElementCounts": {
+              "video": 1,
+              "audio": 1
+            }
+          },
+          "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+          "avSync": {
+            "maxAbsDriftSeconds": 0.32084899999999905,
+            "totalCorrections": 0,
+            "thresholdSeconds": 0.5
+          }
+        },
+        "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213"
+      },
+      {
+        "at": 1785267005074,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "debug": {
+          "activeHlsInstances": {},
+          "activeVideoLayers": {
+            "primary": 1
+          },
+          "eventListeners": {
+            "document:fullscreenchange": 1,
+            "video:webkitbeginfullscreen": 1,
+            "video:webkitendfullscreen": 1,
+            "video:webkitpresentationmodechanged": 1,
+            "video:metadata:express-playback-debug": 1,
+            "window:resize:viewport": 1,
+            "window:orientationchange:viewport": 1,
+            "window:keydown:fullscreen": 1,
+            "window:mousemove": 1,
+            "window:click": 1,
+            "window:pointerdown": 1,
+            "window:keydown:activity": 1,
+            "window:touchstart": 1,
+            "window:focus": 1,
+            "video:primary:playing:wake-lock": 1,
+            "video:primary:pause:wake-lock": 1,
+            "video:primary:ended:wake-lock": 1,
+            "document:visibilitychange:wake-lock": 1,
+            "window:pagehide:wake-lock": 1,
+            "document:visibilitychange:mobile-playback": 1,
+            "window:pagehide:mobile-playback": 1,
+            "window:pageshow:mobile-playback": 1,
+            "window:focus:mobile-playback": 1,
+            "video:primary:waiting": 1,
+            "video:primary:stalled": 1,
+            "video:primary:pause": 1,
+            "video:primary:error": 1,
+            "video:primary:ended": 1,
+            "window:pointermove:brightness": 1,
+            "window:pointerup:brightness": 1,
+            "window:pointercancel:brightness": 1,
+            "video:ready:canplay": 0,
+            "video:ready:progress": 0,
+            "video:ready:loadedmetadata": 0,
+            "video:ready:durationchange": 0,
+            "video:ready:error": 0,
+            "window:pointerdown:panel": 0,
+            "window:keydown:panel": 0,
+            "window:pointerdown:audio-unlock": 1,
+            "window:touchstart:audio-unlock": 1,
+            "window:keydown:audio-unlock": 1
+          },
+          "hlsControllers": {},
+          "renders": {
+            "Rayd8PlayerEngine": 68
+          },
+          "sourceLoads": {
+            "primary:expansion:standard": 2
+          },
+          "timers": {},
+          "videoMounts": {
+            "primary:mount": 2,
+            "primary:unmount": 1
+          },
+          "soak": {
+            "authorityDecisions": {
+              "lifecycle_preloading": 4,
+              "lifecycle_ready": 2,
+              "lifecycle_play_attempt_finished": 2
+            },
+            "interruptionsBySignal": {},
+            "playingUptimeMs": 2001,
+            "lastFreezeStartedAt": null,
+            "cumulativeFreezeMs": 0,
+            "decisionLog": [
+              {
+                "at": 1785266974836,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974839,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974843,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978005,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978017,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              },
+              {
+                "at": 1785266980018,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PLAYING"
+              },
+              {
+                "at": 1785266982336,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266982351,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              }
+            ]
+          },
+          "observability": {
+            "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+            "startedAt": 1785266974814,
+            "elapsedMs": 30258,
+            "responsiveness": {
+              "eventLoopDelayMs": 0,
+              "maxEventLoopDelayMs": 14.199999809265137,
+              "longTasks": {
+                "over50ms": 0,
+                "over200ms": 0,
+                "over1000ms": 0,
+                "longestMs": 0
+              },
+              "rafCadenceMs": 8.30000000000291,
+              "missedFrames": 2,
+              "consecutiveMissedFrames": 0,
+              "freezePollScheduledAt": 35699.800000190735,
+              "freezePollExecutedAt": 35699.800000190735,
+              "freezePollDelayMs": 0,
+              "heartbeatScheduledAt": null,
+              "heartbeatCompletedAt": null,
+              "heartbeatLagMs": null,
+              "reactCommits": 0,
+              "expensiveReactCommits": 0
+            },
+            "decode": {
+              "totalVideoFrames": 1352,
+              "droppedVideoFrames": 0,
+              "corruptedVideoFrames": 0,
+              "displayWidth": 1280,
+              "displayHeight": 720,
+              "videoWidth": 1920,
+              "videoHeight": 1080,
+              "hlsLevel": null,
+              "estimatedBandwidth": null,
+              "videoBufferLength": 12.538174000000001,
+              "audioBufferLength": 7.890617000000002,
+              "pipelineMode": "dual",
+              "playbackEngine": "native_hls"
+            },
+            "avSync": {
+              "videoCurrentTime": 22.445159,
+              "audioCurrentTime": 22.125382,
+              "driftSeconds": 0.319777000000002,
+              "maxAbsDriftSeconds": 0.32084899999999905,
+              "samples": 35
+            },
+            "hardware": {
+              "browserName": "Google Chrome",
+              "browserVersion": "150",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+              "language": "en-US",
+              "hardwareConcurrency": 12,
+              "deviceMemoryGb": 32,
+              "screenWidth": 1280,
+              "screenHeight": 720,
+              "devicePixelRatio": 1,
+              "reducedMotion": false,
+              "saveData": false,
+              "visibilityState": "visible",
+              "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+              "webglSoftware": false,
+              "batteryCharging": null,
+              "batteryLevel": null,
+              "zoomApprox": 1
+            },
+            "freezeEvents": [],
+            "recovery": {},
+            "tokenRefreshCount": 0,
+            "loadSourceCount": 2,
+            "heartbeatCount": 0,
+            "mediaElementCounts": {
+              "video": 1,
+              "audio": 1
+            }
+          },
+          "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+          "avSync": {
+            "maxAbsDriftSeconds": 0.32084899999999905,
+            "totalCorrections": 0,
+            "thresholdSeconds": 0.5
+          }
+        },
+        "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213"
+      },
+      {
+        "at": 1785267009580,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "debug": {
+          "activeHlsInstances": {},
+          "activeVideoLayers": {
+            "primary": 1
+          },
+          "eventListeners": {
+            "document:fullscreenchange": 1,
+            "video:webkitbeginfullscreen": 1,
+            "video:webkitendfullscreen": 1,
+            "video:webkitpresentationmodechanged": 1,
+            "video:metadata:express-playback-debug": 1,
+            "window:resize:viewport": 1,
+            "window:orientationchange:viewport": 1,
+            "window:keydown:fullscreen": 1,
+            "window:mousemove": 1,
+            "window:click": 1,
+            "window:pointerdown": 1,
+            "window:keydown:activity": 1,
+            "window:touchstart": 1,
+            "window:focus": 1,
+            "video:primary:playing:wake-lock": 1,
+            "video:primary:pause:wake-lock": 1,
+            "video:primary:ended:wake-lock": 1,
+            "document:visibilitychange:wake-lock": 1,
+            "window:pagehide:wake-lock": 1,
+            "document:visibilitychange:mobile-playback": 1,
+            "window:pagehide:mobile-playback": 1,
+            "window:pageshow:mobile-playback": 1,
+            "window:focus:mobile-playback": 1,
+            "video:primary:waiting": 1,
+            "video:primary:stalled": 1,
+            "video:primary:pause": 1,
+            "video:primary:error": 1,
+            "video:primary:ended": 1,
+            "window:pointermove:brightness": 1,
+            "window:pointerup:brightness": 1,
+            "window:pointercancel:brightness": 1,
+            "video:ready:canplay": 0,
+            "video:ready:progress": 0,
+            "video:ready:loadedmetadata": 0,
+            "video:ready:durationchange": 0,
+            "video:ready:error": 0,
+            "window:pointerdown:panel": 0,
+            "window:keydown:panel": 0,
+            "window:pointerdown:audio-unlock": 1,
+            "window:touchstart:audio-unlock": 1,
+            "window:keydown:audio-unlock": 1
+          },
+          "hlsControllers": {},
+          "renders": {
+            "Rayd8PlayerEngine": 74
+          },
+          "sourceLoads": {
+            "primary:expansion:standard": 2
+          },
+          "timers": {},
+          "videoMounts": {
+            "primary:mount": 2,
+            "primary:unmount": 1
+          },
+          "soak": {
+            "authorityDecisions": {
+              "lifecycle_preloading": 4,
+              "lifecycle_ready": 2,
+              "lifecycle_play_attempt_finished": 2
+            },
+            "interruptionsBySignal": {},
+            "playingUptimeMs": 2001,
+            "lastFreezeStartedAt": null,
+            "cumulativeFreezeMs": 0,
+            "decisionLog": [
+              {
+                "at": 1785266974836,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974839,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974843,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978005,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978017,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              },
+              {
+                "at": 1785266980018,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PLAYING"
+              },
+              {
+                "at": 1785266982336,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266982351,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              }
+            ]
+          },
+          "observability": {
+            "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+            "startedAt": 1785266974814,
+            "elapsedMs": 34764,
+            "responsiveness": {
+              "eventLoopDelayMs": 0,
+              "maxEventLoopDelayMs": 14.199999809265137,
+              "longTasks": {
+                "over50ms": 0,
+                "over200ms": 0,
+                "over1000ms": 0,
+                "longestMs": 0
+              },
+              "rafCadenceMs": 8.39999999999418,
+              "missedFrames": 2,
+              "consecutiveMissedFrames": 0,
+              "freezePollScheduledAt": 39699.699999809265,
+              "freezePollExecutedAt": 39699.699999809265,
+              "freezePollDelayMs": 0,
+              "heartbeatScheduledAt": null,
+              "heartbeatCompletedAt": null,
+              "heartbeatLagMs": null,
+              "reactCommits": 0,
+              "expensiveReactCommits": 0
+            },
+            "decode": {
+              "totalVideoFrames": 1592,
+              "droppedVideoFrames": 0,
+              "corruptedVideoFrames": 0,
+              "displayWidth": 1280,
+              "displayHeight": 720,
+              "videoWidth": 1920,
+              "videoHeight": 1080,
+              "hlsLevel": null,
+              "estimatedBandwidth": null,
+              "videoBufferLength": 8.538089000000003,
+              "audioBufferLength": 13.874725000000002,
+              "pipelineMode": "dual",
+              "playbackEngine": "native_hls"
+            },
+            "avSync": {
+              "videoCurrentTime": 26.445244,
+              "audioCurrentTime": 26.125274,
+              "driftSeconds": 0.31996999999999787,
+              "maxAbsDriftSeconds": 0.32084899999999905,
+              "samples": 41
+            },
+            "hardware": {
+              "browserName": "Google Chrome",
+              "browserVersion": "150",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+              "language": "en-US",
+              "hardwareConcurrency": 12,
+              "deviceMemoryGb": 32,
+              "screenWidth": 1280,
+              "screenHeight": 720,
+              "devicePixelRatio": 1,
+              "reducedMotion": false,
+              "saveData": false,
+              "visibilityState": "visible",
+              "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+              "webglSoftware": false,
+              "batteryCharging": null,
+              "batteryLevel": null,
+              "zoomApprox": 1
+            },
+            "freezeEvents": [],
+            "recovery": {},
+            "tokenRefreshCount": 0,
+            "loadSourceCount": 2,
+            "heartbeatCount": 0,
+            "mediaElementCounts": {
+              "video": 1,
+              "audio": 1
+            }
+          },
+          "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+          "avSync": {
+            "maxAbsDriftSeconds": 0.32084899999999905,
+            "totalCorrections": 0,
+            "thresholdSeconds": 0.5
+          }
+        },
+        "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213"
+      },
+      {
+        "at": 1785267014086,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "debug": {
+          "activeHlsInstances": {},
+          "activeVideoLayers": {
+            "primary": 1
+          },
+          "eventListeners": {
+            "document:fullscreenchange": 1,
+            "video:webkitbeginfullscreen": 1,
+            "video:webkitendfullscreen": 1,
+            "video:webkitpresentationmodechanged": 1,
+            "video:metadata:express-playback-debug": 1,
+            "window:resize:viewport": 1,
+            "window:orientationchange:viewport": 1,
+            "window:keydown:fullscreen": 1,
+            "window:mousemove": 1,
+            "window:click": 1,
+            "window:pointerdown": 1,
+            "window:keydown:activity": 1,
+            "window:touchstart": 1,
+            "window:focus": 1,
+            "video:primary:playing:wake-lock": 1,
+            "video:primary:pause:wake-lock": 1,
+            "video:primary:ended:wake-lock": 1,
+            "document:visibilitychange:wake-lock": 1,
+            "window:pagehide:wake-lock": 1,
+            "document:visibilitychange:mobile-playback": 1,
+            "window:pagehide:mobile-playback": 1,
+            "window:pageshow:mobile-playback": 1,
+            "window:focus:mobile-playback": 1,
+            "video:primary:waiting": 1,
+            "video:primary:stalled": 1,
+            "video:primary:pause": 1,
+            "video:primary:error": 1,
+            "video:primary:ended": 1,
+            "window:pointermove:brightness": 1,
+            "window:pointerup:brightness": 1,
+            "window:pointercancel:brightness": 1,
+            "video:ready:canplay": 0,
+            "video:ready:progress": 0,
+            "video:ready:loadedmetadata": 0,
+            "video:ready:durationchange": 0,
+            "video:ready:error": 0,
+            "window:pointerdown:panel": 0,
+            "window:keydown:panel": 0,
+            "window:pointerdown:audio-unlock": 1,
+            "window:touchstart:audio-unlock": 1,
+            "window:keydown:audio-unlock": 1
+          },
+          "hlsControllers": {},
+          "renders": {
+            "Rayd8PlayerEngine": 74
+          },
+          "sourceLoads": {
+            "primary:expansion:standard": 2
+          },
+          "timers": {},
+          "videoMounts": {
+            "primary:mount": 2,
+            "primary:unmount": 1
+          },
+          "soak": {
+            "authorityDecisions": {
+              "lifecycle_preloading": 4,
+              "lifecycle_ready": 2,
+              "lifecycle_play_attempt_finished": 2
+            },
+            "interruptionsBySignal": {},
+            "playingUptimeMs": 2001,
+            "lastFreezeStartedAt": null,
+            "cumulativeFreezeMs": 0,
+            "decisionLog": [
+              {
+                "at": 1785266974836,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974839,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974843,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978005,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978017,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              },
+              {
+                "at": 1785266980018,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PLAYING"
+              },
+              {
+                "at": 1785266982336,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266982351,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              }
+            ]
+          },
+          "observability": {
+            "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+            "startedAt": 1785266974814,
+            "elapsedMs": 39270,
+            "responsiveness": {
+              "eventLoopDelayMs": 0.09999990463256836,
+              "maxEventLoopDelayMs": 14.199999809265137,
+              "longTasks": {
+                "over50ms": 0,
+                "over200ms": 0,
+                "over1000ms": 0,
+                "longestMs": 0
+              },
+              "rafCadenceMs": 8.19999999999709,
+              "missedFrames": 2,
+              "consecutiveMissedFrames": 0,
+              "freezePollScheduledAt": 44699.699999809265,
+              "freezePollExecutedAt": 44699.699999809265,
+              "freezePollDelayMs": 0,
+              "heartbeatScheduledAt": null,
+              "heartbeatCompletedAt": null,
+              "heartbeatLagMs": null,
+              "reactCommits": 0,
+              "expensiveReactCommits": 0
+            },
+            "decode": {
+              "totalVideoFrames": 1892,
+              "droppedVideoFrames": 0,
+              "corruptedVideoFrames": 0,
+              "displayWidth": 1280,
+              "displayHeight": 720,
+              "videoWidth": 1920,
+              "videoHeight": 1080,
+              "hlsLevel": null,
+              "estimatedBandwidth": null,
+              "videoBufferLength": 13.537874000000002,
+              "audioBufferLength": 8.874797000000001,
+              "pipelineMode": "dual",
+              "playbackEngine": "native_hls"
+            },
+            "avSync": {
+              "videoCurrentTime": 31.445459,
+              "audioCurrentTime": 31.125202,
+              "driftSeconds": 0.320256999999998,
+              "maxAbsDriftSeconds": 0.32084899999999905,
+              "samples": 48
+            },
+            "hardware": {
+              "browserName": "Google Chrome",
+              "browserVersion": "150",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+              "language": "en-US",
+              "hardwareConcurrency": 12,
+              "deviceMemoryGb": 32,
+              "screenWidth": 1280,
+              "screenHeight": 720,
+              "devicePixelRatio": 1,
+              "reducedMotion": false,
+              "saveData": false,
+              "visibilityState": "visible",
+              "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+              "webglSoftware": false,
+              "batteryCharging": null,
+              "batteryLevel": null,
+              "zoomApprox": 1
+            },
+            "freezeEvents": [],
+            "recovery": {},
+            "tokenRefreshCount": 0,
+            "loadSourceCount": 2,
+            "heartbeatCount": 0,
+            "mediaElementCounts": {
+              "video": 1,
+              "audio": 1
+            }
+          },
+          "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+          "avSync": {
+            "maxAbsDriftSeconds": 0.32084899999999905,
+            "totalCorrections": 0,
+            "thresholdSeconds": 0.5
+          }
+        },
+        "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213"
+      },
+      {
+        "at": 1785267018592,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "debug": {
+          "activeHlsInstances": {},
+          "activeVideoLayers": {
+            "primary": 1
+          },
+          "eventListeners": {
+            "document:fullscreenchange": 1,
+            "video:webkitbeginfullscreen": 1,
+            "video:webkitendfullscreen": 1,
+            "video:webkitpresentationmodechanged": 1,
+            "video:metadata:express-playback-debug": 1,
+            "window:resize:viewport": 1,
+            "window:orientationchange:viewport": 1,
+            "window:keydown:fullscreen": 1,
+            "window:mousemove": 1,
+            "window:click": 1,
+            "window:pointerdown": 1,
+            "window:keydown:activity": 1,
+            "window:touchstart": 1,
+            "window:focus": 1,
+            "video:primary:playing:wake-lock": 1,
+            "video:primary:pause:wake-lock": 1,
+            "video:primary:ended:wake-lock": 1,
+            "document:visibilitychange:wake-lock": 1,
+            "window:pagehide:wake-lock": 1,
+            "document:visibilitychange:mobile-playback": 1,
+            "window:pagehide:mobile-playback": 1,
+            "window:pageshow:mobile-playback": 1,
+            "window:focus:mobile-playback": 1,
+            "video:primary:waiting": 1,
+            "video:primary:stalled": 1,
+            "video:primary:pause": 1,
+            "video:primary:error": 1,
+            "video:primary:ended": 1,
+            "window:pointermove:brightness": 1,
+            "window:pointerup:brightness": 1,
+            "window:pointercancel:brightness": 1,
+            "video:ready:canplay": 0,
+            "video:ready:progress": 0,
+            "video:ready:loadedmetadata": 0,
+            "video:ready:durationchange": 0,
+            "video:ready:error": 0,
+            "window:pointerdown:panel": 0,
+            "window:keydown:panel": 0,
+            "window:pointerdown:audio-unlock": 1,
+            "window:touchstart:audio-unlock": 1,
+            "window:keydown:audio-unlock": 1
+          },
+          "hlsControllers": {},
+          "renders": {
+            "Rayd8PlayerEngine": 74
+          },
+          "sourceLoads": {
+            "primary:expansion:standard": 2
+          },
+          "timers": {},
+          "videoMounts": {
+            "primary:mount": 2,
+            "primary:unmount": 1
+          },
+          "soak": {
+            "authorityDecisions": {
+              "lifecycle_preloading": 4,
+              "lifecycle_ready": 2,
+              "lifecycle_play_attempt_finished": 2
+            },
+            "interruptionsBySignal": {},
+            "playingUptimeMs": 2001,
+            "lastFreezeStartedAt": null,
+            "cumulativeFreezeMs": 0,
+            "decisionLog": [
+              {
+                "at": 1785266974836,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974839,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974843,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978005,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978017,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              },
+              {
+                "at": 1785266980018,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PLAYING"
+              },
+              {
+                "at": 1785266982336,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266982351,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              }
+            ]
+          },
+          "observability": {
+            "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+            "startedAt": 1785266974814,
+            "elapsedMs": 43776,
+            "responsiveness": {
+              "eventLoopDelayMs": 0,
+              "maxEventLoopDelayMs": 14.199999809265137,
+              "longTasks": {
+                "over50ms": 0,
+                "over200ms": 0,
+                "over1000ms": 0,
+                "longestMs": 0
+              },
+              "rafCadenceMs": 8.30000000000291,
+              "missedFrames": 2,
+              "consecutiveMissedFrames": 0,
+              "freezePollScheduledAt": 48700,
+              "freezePollExecutedAt": 48700,
+              "freezePollDelayMs": 0,
+              "heartbeatScheduledAt": null,
+              "heartbeatCompletedAt": null,
+              "heartbeatLagMs": null,
+              "reactCommits": 0,
+              "expensiveReactCommits": 0
+            },
+            "decode": {
+              "totalVideoFrames": 2132,
+              "droppedVideoFrames": 0,
+              "corruptedVideoFrames": 0,
+              "displayWidth": 1280,
+              "displayHeight": 720,
+              "videoWidth": 1920,
+              "videoHeight": 1080,
+              "hlsLevel": null,
+              "estimatedBandwidth": null,
+              "videoBufferLength": 9.537686999999998,
+              "audioBufferLength": 14.879807999999997,
+              "pipelineMode": "dual",
+              "playbackEngine": "native_hls"
+            },
+            "avSync": {
+              "videoCurrentTime": 35.445646,
+              "audioCurrentTime": 35.125525,
+              "driftSeconds": 0.3201210000000003,
+              "maxAbsDriftSeconds": 0.32084899999999905,
+              "samples": 54
+            },
+            "hardware": {
+              "browserName": "Google Chrome",
+              "browserVersion": "150",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+              "language": "en-US",
+              "hardwareConcurrency": 12,
+              "deviceMemoryGb": 32,
+              "screenWidth": 1280,
+              "screenHeight": 720,
+              "devicePixelRatio": 1,
+              "reducedMotion": false,
+              "saveData": false,
+              "visibilityState": "visible",
+              "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+              "webglSoftware": false,
+              "batteryCharging": null,
+              "batteryLevel": null,
+              "zoomApprox": 1
+            },
+            "freezeEvents": [],
+            "recovery": {},
+            "tokenRefreshCount": 0,
+            "loadSourceCount": 2,
+            "heartbeatCount": 0,
+            "mediaElementCounts": {
+              "video": 1,
+              "audio": 1
+            }
+          },
+          "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+          "avSync": {
+            "maxAbsDriftSeconds": 0.32084899999999905,
+            "totalCorrections": 0,
+            "thresholdSeconds": 0.5
+          }
+        },
+        "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213"
+      },
+      {
+        "at": 1785267023098,
+        "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "debug": {
+          "activeHlsInstances": {},
+          "activeVideoLayers": {
+            "primary": 1
+          },
+          "eventListeners": {
+            "document:fullscreenchange": 1,
+            "video:webkitbeginfullscreen": 1,
+            "video:webkitendfullscreen": 1,
+            "video:webkitpresentationmodechanged": 1,
+            "video:metadata:express-playback-debug": 1,
+            "window:resize:viewport": 1,
+            "window:orientationchange:viewport": 1,
+            "window:keydown:fullscreen": 1,
+            "window:mousemove": 1,
+            "window:click": 1,
+            "window:pointerdown": 1,
+            "window:keydown:activity": 1,
+            "window:touchstart": 1,
+            "window:focus": 1,
+            "video:primary:playing:wake-lock": 1,
+            "video:primary:pause:wake-lock": 1,
+            "video:primary:ended:wake-lock": 1,
+            "document:visibilitychange:wake-lock": 1,
+            "window:pagehide:wake-lock": 1,
+            "document:visibilitychange:mobile-playback": 1,
+            "window:pagehide:mobile-playback": 1,
+            "window:pageshow:mobile-playback": 1,
+            "window:focus:mobile-playback": 1,
+            "video:primary:waiting": 1,
+            "video:primary:stalled": 1,
+            "video:primary:pause": 1,
+            "video:primary:error": 1,
+            "video:primary:ended": 1,
+            "window:pointermove:brightness": 1,
+            "window:pointerup:brightness": 1,
+            "window:pointercancel:brightness": 1,
+            "video:ready:canplay": 0,
+            "video:ready:progress": 0,
+            "video:ready:loadedmetadata": 0,
+            "video:ready:durationchange": 0,
+            "video:ready:error": 0,
+            "window:pointerdown:panel": 0,
+            "window:keydown:panel": 0,
+            "window:pointerdown:audio-unlock": 1,
+            "window:touchstart:audio-unlock": 1,
+            "window:keydown:audio-unlock": 1
+          },
+          "hlsControllers": {},
+          "renders": {
+            "Rayd8PlayerEngine": 74
+          },
+          "sourceLoads": {
+            "primary:expansion:standard": 2
+          },
+          "timers": {},
+          "videoMounts": {
+            "primary:mount": 2,
+            "primary:unmount": 1
+          },
+          "soak": {
+            "authorityDecisions": {
+              "lifecycle_preloading": 4,
+              "lifecycle_ready": 2,
+              "lifecycle_play_attempt_finished": 2
+            },
+            "interruptionsBySignal": {},
+            "playingUptimeMs": 2001,
+            "lastFreezeStartedAt": null,
+            "cumulativeFreezeMs": 0,
+            "decisionLog": [
+              {
+                "at": 1785266974836,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974839,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266974843,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978005,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266978017,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              },
+              {
+                "at": 1785266980018,
+                "signalType": "lifecycle_preloading",
+                "machineAfter": "PLAYING"
+              },
+              {
+                "at": 1785266982336,
+                "signalType": "lifecycle_ready",
+                "machineAfter": "PRELOADING"
+              },
+              {
+                "at": 1785266982351,
+                "signalType": "lifecycle_play_attempt_finished",
+                "machineAfter": "READY"
+              }
+            ]
+          },
+          "observability": {
+            "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+            "startedAt": 1785266974814,
+            "elapsedMs": 48282,
+            "responsiveness": {
+              "eventLoopDelayMs": 0,
+              "maxEventLoopDelayMs": 14.199999809265137,
+              "longTasks": {
+                "over50ms": 0,
+                "over200ms": 0,
+                "over1000ms": 0,
+                "longestMs": 0
+              },
+              "rafCadenceMs": 8.400000000001455,
+              "missedFrames": 2,
+              "consecutiveMissedFrames": 0,
+              "freezePollScheduledAt": 53699.59999990463,
+              "freezePollExecutedAt": 53699.59999990463,
+              "freezePollDelayMs": 0,
+              "heartbeatScheduledAt": null,
+              "heartbeatCompletedAt": null,
+              "heartbeatLagMs": null,
+              "reactCommits": 0,
+              "expensiveReactCommits": 0
+            },
+            "decode": {
+              "totalVideoFrames": 2432,
+              "droppedVideoFrames": 0,
+              "corruptedVideoFrames": 0,
+              "displayWidth": 1280,
+              "displayHeight": 720,
+              "videoWidth": 1920,
+              "videoHeight": 1080,
+              "hlsLevel": null,
+              "estimatedBandwidth": null,
+              "videoBufferLength": 14.538943000000003,
+              "audioBufferLength": 9.880164999999998,
+              "pipelineMode": "dual",
+              "playbackEngine": "native_hls"
+            },
+            "avSync": {
+              "videoCurrentTime": 40.44439,
+              "audioCurrentTime": 40.125168,
+              "driftSeconds": 0.31922199999999634,
+              "maxAbsDriftSeconds": 0.32084899999999905,
+              "samples": 62
+            },
+            "hardware": {
+              "browserName": "Google Chrome",
+              "browserVersion": "150",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+              "language": "en-US",
+              "hardwareConcurrency": 12,
+              "deviceMemoryGb": 32,
+              "screenWidth": 1280,
+              "screenHeight": 720,
+              "devicePixelRatio": 1,
+              "reducedMotion": false,
+              "saveData": false,
+              "visibilityState": "visible",
+              "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+              "webglSoftware": false,
+              "batteryCharging": null,
+              "batteryLevel": null,
+              "zoomApprox": 1
+            },
+            "freezeEvents": [],
+            "recovery": {},
+            "tokenRefreshCount": 0,
+            "loadSourceCount": 2,
+            "heartbeatCount": 0,
+            "mediaElementCounts": {
+              "video": 1,
+              "audio": 1
+            }
+          },
+          "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+          "avSync": {
+            "maxAbsDriftSeconds": 0.32084899999999905,
+            "totalCorrections": 0,
+            "thresholdSeconds": 0.5
+          }
+        },
+        "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213"
+      }
+    ],
+    "afterExit": {
+      "href": "http://127.0.0.1:5173/dashboard?rayd8PlayerDebug=true",
+      "videos": 1,
+      "audios": 1,
+      "debug": {
+        "activeHlsInstances": {},
+        "activeVideoLayers": {
+          "primary": 1
+        },
+        "eventListeners": {
+          "document:fullscreenchange": 1,
+          "video:webkitbeginfullscreen": 1,
+          "video:webkitendfullscreen": 1,
+          "video:webkitpresentationmodechanged": 1,
+          "video:metadata:express-playback-debug": 1,
+          "window:resize:viewport": 1,
+          "window:orientationchange:viewport": 1,
+          "window:keydown:fullscreen": 1,
+          "window:mousemove": 1,
+          "window:click": 1,
+          "window:pointerdown": 1,
+          "window:keydown:activity": 1,
+          "window:touchstart": 1,
+          "window:focus": 1,
+          "video:primary:playing:wake-lock": 1,
+          "video:primary:pause:wake-lock": 1,
+          "video:primary:ended:wake-lock": 1,
+          "document:visibilitychange:wake-lock": 1,
+          "window:pagehide:wake-lock": 1,
+          "document:visibilitychange:mobile-playback": 1,
+          "window:pagehide:mobile-playback": 1,
+          "window:pageshow:mobile-playback": 1,
+          "window:focus:mobile-playback": 1,
+          "video:primary:waiting": 1,
+          "video:primary:stalled": 1,
+          "video:primary:pause": 1,
+          "video:primary:error": 1,
+          "video:primary:ended": 1,
+          "window:pointermove:brightness": 1,
+          "window:pointerup:brightness": 1,
+          "window:pointercancel:brightness": 1,
+          "video:ready:canplay": 0,
+          "video:ready:progress": 0,
+          "video:ready:loadedmetadata": 0,
+          "video:ready:durationchange": 0,
+          "video:ready:error": 0,
+          "window:pointerdown:panel": 0,
+          "window:keydown:panel": 0,
+          "window:pointerdown:audio-unlock": 1,
+          "window:touchstart:audio-unlock": 1,
+          "window:keydown:audio-unlock": 1
+        },
+        "hlsControllers": {},
+        "renders": {
+          "Rayd8PlayerEngine": 84
+        },
+        "sourceLoads": {
+          "primary:expansion:standard": 2
+        },
+        "timers": {},
+        "videoMounts": {
+          "primary:mount": 2,
+          "primary:unmount": 1
+        },
+        "soak": {
+          "authorityDecisions": {
+            "lifecycle_preloading": 4,
+            "lifecycle_ready": 2,
+            "lifecycle_play_attempt_finished": 3
+          },
+          "interruptionsBySignal": {},
+          "playingUptimeMs": 2001,
+          "lastFreezeStartedAt": null,
+          "cumulativeFreezeMs": 0,
+          "decisionLog": [
+            {
+              "at": 1785266974836,
+              "signalType": "lifecycle_preloading",
+              "machineAfter": "PRELOADING"
+            },
+            {
+              "at": 1785266974839,
+              "signalType": "lifecycle_preloading",
+              "machineAfter": "PRELOADING"
+            },
+            {
+              "at": 1785266974843,
+              "signalType": "lifecycle_preloading",
+              "machineAfter": "PRELOADING"
+            },
+            {
+              "at": 1785266978005,
+              "signalType": "lifecycle_ready",
+              "machineAfter": "PRELOADING"
+            },
+            {
+              "at": 1785266978017,
+              "signalType": "lifecycle_play_attempt_finished",
+              "machineAfter": "READY"
+            },
+            {
+              "at": 1785266980018,
+              "signalType": "lifecycle_preloading",
+              "machineAfter": "PLAYING"
+            },
+            {
+              "at": 1785266982336,
+              "signalType": "lifecycle_ready",
+              "machineAfter": "PRELOADING"
+            },
+            {
+              "at": 1785266982351,
+              "signalType": "lifecycle_play_attempt_finished",
+              "machineAfter": "READY"
+            },
+            {
+              "at": 1785267027924,
+              "signalType": "lifecycle_play_attempt_finished",
+              "machineAfter": "PLAYING"
+            }
+          ]
+        },
+        "observability": {
+          "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+          "startedAt": 1785266974814,
+          "elapsedMs": 54325,
+          "responsiveness": {
+            "eventLoopDelayMs": 0.09999990463256836,
+            "maxEventLoopDelayMs": 14.199999809265137,
+            "longTasks": {
+              "over50ms": 0,
+              "over200ms": 0,
+              "over1000ms": 0,
+              "longestMs": 0
+            },
+            "rafCadenceMs": 8.299999999995634,
+            "missedFrames": 2,
+            "consecutiveMissedFrames": 0,
+            "freezePollScheduledAt": 59699.90000009537,
+            "freezePollExecutedAt": 59699.90000009537,
+            "freezePollDelayMs": 0,
+            "heartbeatScheduledAt": null,
+            "heartbeatCompletedAt": null,
+            "heartbeatLagMs": null,
+            "reactCommits": 0,
+            "expensiveReactCommits": 0
+          },
+          "decode": {
+            "totalVideoFrames": 2792,
+            "droppedVideoFrames": 0,
+            "corruptedVideoFrames": 0,
+            "displayWidth": 1280,
+            "displayHeight": 720,
+            "videoWidth": 1920,
+            "videoHeight": 1080,
+            "hlsLevel": null,
+            "estimatedBandwidth": null,
+            "videoBufferLength": 8.538239000000004,
+            "audioBufferLength": 13.885404999999999,
+            "pipelineMode": "dual",
+            "playbackEngine": "native_hls"
+          },
+          "avSync": {
+            "videoCurrentTime": 46.445094,
+            "audioCurrentTime": 46.125261,
+            "driftSeconds": 0.3198329999999956,
+            "maxAbsDriftSeconds": 0.321191000000006,
+            "samples": 71
+          },
+          "hardware": {
+            "browserName": "Google Chrome",
+            "browserVersion": "150",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+            "language": "en-US",
+            "hardwareConcurrency": 12,
+            "deviceMemoryGb": 32,
+            "screenWidth": 1280,
+            "screenHeight": 720,
+            "devicePixelRatio": 1,
+            "reducedMotion": false,
+            "saveData": false,
+            "visibilityState": "visible",
+            "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+            "webglSoftware": false,
+            "batteryCharging": null,
+            "batteryLevel": null,
+            "zoomApprox": 1
+          },
+          "freezeEvents": [],
+          "recovery": {},
+          "tokenRefreshCount": 0,
+          "loadSourceCount": 2,
+          "heartbeatCount": 0,
+          "mediaElementCounts": {
+            "video": 1,
+            "audio": 1
+          }
+        },
+        "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213",
+        "avSync": {
+          "maxAbsDriftSeconds": 0.321191000000006,
+          "totalCorrections": 0,
+          "thresholdSeconds": 0.5
+        }
+      },
+      "correlationId": "rayd8-pb-6edfdb33-7f9f-4b86-8865-45ebf64ac213"
+    },
+    "soakMs": 45000
+  },
+  "finishedAt": "2026-07-28T19:30:29.140Z",
+  "verdict": "AUTHENTICATED_RUN_COMPLETE"
+}

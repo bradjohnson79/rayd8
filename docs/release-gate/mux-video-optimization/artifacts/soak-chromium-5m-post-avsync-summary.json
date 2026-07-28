@@ -1,0 +1,17 @@
+{
+  "file": "docs/release-gate/mux-video-optimization/artifacts/mux-stability-soak-chromium-1785260532177.json",
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "started": true,
+  "driftMin": 1.245402,
+  "driftMax": 280.119529,
+  "maxAbsDrift": 280.119529,
+  "lastMaxAbs": 280.119529,
+  "lastDrift": 280.119529,
+  "correctionsLast": {},
+  "freezeEvents": 0,
+  "long200": 0,
+  "eventLoopMax": 9,
+  "loadSource": 4,
+  "pipeline": "dual",
+  "engine": "native_hls"
+}

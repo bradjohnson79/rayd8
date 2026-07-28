@@ -1,0 +1,26 @@
+{
+  "verdict": "AUTHENTICATED_RUN_COMPLETE",
+  "started": true,
+  "n": 12,
+  "drifts": [
+    1.570333,
+    16.567993,
+    31.569103,
+    46.570018,
+    61.569257,
+    76.569011,
+    90.2026,
+    105.202287,
+    120.201873,
+    135.20293,
+    150.202759,
+    165.201489
+  ],
+  "maxAbs": 165.201489,
+  "lastMaxAbs": 165.201489,
+  "recovery": {},
+  "freezeEvents": [],
+  "eventLoopMax": 1.1000003814697266,
+  "audioBuf": null,
+  "videoBuf": 9.798509999999993
+}
