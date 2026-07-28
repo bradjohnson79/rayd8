@@ -4,6 +4,7 @@
 **Branch:** `audit/mux-video-optimization`  
 **Starting SHA:** `c0e6796e80e7fb3bfccd140e0d3d6dd247cbe38b`  
 **R1–R7 clean SHA:** `1df821d7d26b17439aca089132fb2b8cdd1ccd4d`  
+**Closure follow-up SHA:** `1cbf2932f720b95b72b93d2d53f625ec6c8a1903`  
 **Final verdict:** **CONDITIONAL GO**
 
 ## Previous conditional gaps → this milestone
