@@ -4,7 +4,8 @@
 |------|-------|
 | Branch | `feat/rayd8-adaptive-performance` |
 | Base SHA | `53336bc780ce2613ff1ff1635035091fcbfb6975` |
-| Clean cert SHA | `da9373368b8a6b24fd46a4166e29f540ca4e27e4` |
+| Clean cert SHA (code) | `da9373368b8a6b24fd46a4166e29f540ca4e27e4` |
+| Docs tip SHA | `1c7d0e7461bead546862887de2ced4be6a8ad23e` |
 | Host | Apple Silicon arm64 · macOS 15.6.1 · Safari 18.6 |
 | Recorded | 2026-08-01T18:31:48Z |
 | Unit smoke | `artifacts/adaptive-unit-smoke.json` (17/17 PASS) |
