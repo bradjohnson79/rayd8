@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-08-01T16:59:20.829Z",
+  "passed": true,
+  "heroBytes": 52700,
+  "markBytes": 65396,
+  "checks": [
+    {
+      "name": "hero-budget-100kb",
+      "ok": true,
+      "detail": "hero=52700 bytes (max 102400)"
+    },
+    {
+      "name": "mark-budget-80kb",
+      "ok": true,
+      "detail": "mark=65396 bytes (max 81920)"
+    },
+    {
+      "name": "hamsa-lazy-webgl-init",
+      "ok": true,
+      "detail": "Aura WebGL only after START via ensureGl"
+    },
+    {
+      "name": "amrita-paused-raf-zero",
+      "ok": true,
+      "detail": "Amrita exposes loop counters + double-start guard"
+    },
+    {
+      "name": "hidden-media-pause",
+      "ok": true,
+      "detail": "Hidden-tab media pause for all active sessions"
+    },
+    {
+      "name": "runtime-registry-present",
+      "ok": true,
+      "detail": "Runtime registry + adaptive controller interfaces present"
+    },
+    {
+      "name": "public-route-hamsa-amrita-isolation",
+      "ok": true,
+      "detail": "LandingPage does not import Hamsa/Amrita runtime"
+    }
+  ]
+}

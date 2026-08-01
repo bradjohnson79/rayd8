@@ -1,0 +1,279 @@
+{
+  "generatedAt": "2026-08-01T16:59:24.924Z",
+  "passed": true,
+  "results": [
+    {
+      "name": "idle-zero-loops",
+      "ok": true,
+      "snap": {
+        "soakMode": "full",
+        "runtime": "idle",
+        "frameId": 0,
+        "activeVisualLoops": 0,
+        "resumeCount": 0,
+        "phase": null,
+        "lastFrameAt": null,
+        "canvasCount": 2,
+        "webglContexts": 0,
+        "canvasSizes": [
+          {
+            "width": 300,
+            "height": 150,
+            "cssWidth": 0,
+            "cssHeight": 0
+          },
+          {
+            "width": 300,
+            "height": 150,
+            "cssWidth": 0,
+            "cssHeight": 0
+          }
+        ],
+        "devicePixelRatio": 1,
+        "hidden": false,
+        "audioElements": 0,
+        "audioCurrentTime": null,
+        "audioPaused": null,
+        "audioBufferLength": null,
+        "audioCurrentSrc": null,
+        "fps": null,
+        "targetFps": 60,
+        "renderScaleOverride": null
+      }
+    },
+    {
+      "name": "running-one-loop",
+      "ok": true,
+      "snap": {
+        "soakMode": "full",
+        "runtime": "running",
+        "frameId": 39,
+        "activeVisualLoops": 1,
+        "resumeCount": 0,
+        "phase": "down-pass-1",
+        "lastFrameAt": 904.8,
+        "canvasCount": 2,
+        "webglContexts": 1,
+        "canvasSizes": [
+          {
+            "width": 1280,
+            "height": 720,
+            "cssWidth": 1280,
+            "cssHeight": 720
+          },
+          {
+            "width": 1280,
+            "height": 720,
+            "cssWidth": 1280,
+            "cssHeight": 720
+          }
+        ],
+        "devicePixelRatio": 1,
+        "hidden": false,
+        "audioElements": 1,
+        "audioCurrentTime": 0,
+        "audioPaused": true,
+        "audioBufferLength": null,
+        "audioCurrentSrc": null,
+        "fps": null,
+        "targetFps": 60,
+        "renderScaleOverride": null
+      }
+    },
+    {
+      "name": "paused-zero-loops",
+      "ok": true,
+      "snap": {
+        "soakMode": "full",
+        "runtime": "paused",
+        "frameId": null,
+        "activeVisualLoops": 0,
+        "resumeCount": 0,
+        "phase": "down-pass-1",
+        "lastFrameAt": 921.5,
+        "canvasCount": 2,
+        "webglContexts": 1,
+        "canvasSizes": [
+          {
+            "width": 1280,
+            "height": 720,
+            "cssWidth": 1280,
+            "cssHeight": 720
+          },
+          {
+            "width": 1280,
+            "height": 720,
+            "cssWidth": 1280,
+            "cssHeight": 720
+          }
+        ],
+        "devicePixelRatio": 1,
+        "hidden": false,
+        "audioElements": 1,
+        "audioCurrentTime": 0,
+        "audioPaused": true,
+        "audioBufferLength": null,
+        "audioCurrentSrc": null,
+        "fps": null,
+        "targetFps": 60,
+        "renderScaleOverride": null
+      }
+    },
+    {
+      "name": "resumed-one-loop",
+      "ok": true,
+      "snap": {
+        "soakMode": "full",
+        "runtime": "running",
+        "frameId": 75,
+        "activeVisualLoops": 1,
+        "resumeCount": 1,
+        "phase": "down-pass-1",
+        "lastFrameAt": 1846.4,
+        "canvasCount": 2,
+        "webglContexts": 1,
+        "canvasSizes": [
+          {
+            "width": 1280,
+            "height": 720,
+            "cssWidth": 1280,
+            "cssHeight": 720
+          },
+          {
+            "width": 1280,
+            "height": 720,
+            "cssWidth": 1280,
+            "cssHeight": 720
+          }
+        ],
+        "devicePixelRatio": 1,
+        "hidden": false,
+        "audioElements": 1,
+        "audioCurrentTime": 0,
+        "audioPaused": true,
+        "audioBufferLength": null,
+        "audioCurrentSrc": null,
+        "fps": null,
+        "targetFps": 60,
+        "renderScaleOverride": null
+      }
+    },
+    {
+      "name": "double-start-single-loop",
+      "ok": true,
+      "snap": {
+        "soakMode": "full",
+        "runtime": "running",
+        "frameId": 100,
+        "activeVisualLoops": 1,
+        "resumeCount": 1,
+        "phase": "down-pass-1",
+        "lastFrameAt": 2175.7,
+        "canvasCount": 2,
+        "webglContexts": 1,
+        "canvasSizes": [
+          {
+            "width": 1280,
+            "height": 720,
+            "cssWidth": 1280,
+            "cssHeight": 720
+          },
+          {
+            "width": 1280,
+            "height": 720,
+            "cssWidth": 1280,
+            "cssHeight": 720
+          }
+        ],
+        "devicePixelRatio": 1,
+        "hidden": false,
+        "audioElements": 1,
+        "audioCurrentTime": 0,
+        "audioPaused": true,
+        "audioBufferLength": null,
+        "audioCurrentSrc": null,
+        "fps": null,
+        "targetFps": 60,
+        "renderScaleOverride": null
+      }
+    },
+    {
+      "name": "stopped-zero-loops",
+      "ok": true,
+      "snap": {
+        "soakMode": "full",
+        "runtime": "idle",
+        "frameId": 101,
+        "activeVisualLoops": 0,
+        "resumeCount": 1,
+        "phase": null,
+        "lastFrameAt": 2192.4,
+        "canvasCount": 2,
+        "webglContexts": 0,
+        "canvasSizes": [
+          {
+            "width": 1280,
+            "height": 720,
+            "cssWidth": 0,
+            "cssHeight": 0
+          },
+          {
+            "width": 1280,
+            "height": 720,
+            "cssWidth": 0,
+            "cssHeight": 0
+          }
+        ],
+        "devicePixelRatio": 1,
+        "hidden": false,
+        "audioElements": 0,
+        "audioCurrentTime": null,
+        "audioPaused": null,
+        "audioBufferLength": null,
+        "audioCurrentSrc": null,
+        "fps": null,
+        "targetFps": 60,
+        "renderScaleOverride": null
+      }
+    },
+    {
+      "name": "hidden-pauses-loops",
+      "ok": true,
+      "snap": {
+        "soakMode": "full",
+        "runtime": "paused",
+        "frameId": null,
+        "activeVisualLoops": 0,
+        "resumeCount": 1,
+        "phase": "down-pass-1",
+        "lastFrameAt": 3000.6,
+        "canvasCount": 2,
+        "webglContexts": 1,
+        "canvasSizes": [
+          {
+            "width": 1280,
+            "height": 720,
+            "cssWidth": 1280,
+            "cssHeight": 720
+          },
+          {
+            "width": 1280,
+            "height": 720,
+            "cssWidth": 1280,
+            "cssHeight": 720
+          }
+        ],
+        "devicePixelRatio": 1,
+        "hidden": true,
+        "audioElements": 1,
+        "audioCurrentTime": 0,
+        "audioPaused": true,
+        "audioBufferLength": null,
+        "audioCurrentSrc": null,
+        "fps": null,
+        "targetFps": 60,
+        "renderScaleOverride": null
+      }
+    }
+  ]
+}

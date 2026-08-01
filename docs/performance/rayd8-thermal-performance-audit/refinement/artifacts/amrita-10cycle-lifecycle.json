@@ -1,0 +1,98 @@
+{
+  "generatedAt": "2026-08-01T16:59:07.352Z",
+  "cycles": 10,
+  "samples": [
+    {
+      "cycle": 1,
+      "activeVisualLoops": 0,
+      "runtime": "idle",
+      "mem": {
+        "used": 10000000,
+        "total": 10000000
+      }
+    },
+    {
+      "cycle": 2,
+      "activeVisualLoops": 0,
+      "runtime": "idle",
+      "mem": {
+        "used": 10000000,
+        "total": 10000000
+      }
+    },
+    {
+      "cycle": 3,
+      "activeVisualLoops": 0,
+      "runtime": "idle",
+      "mem": {
+        "used": 10000000,
+        "total": 10000000
+      }
+    },
+    {
+      "cycle": 4,
+      "activeVisualLoops": 0,
+      "runtime": "idle",
+      "mem": {
+        "used": 10000000,
+        "total": 10000000
+      }
+    },
+    {
+      "cycle": 5,
+      "activeVisualLoops": 0,
+      "runtime": "idle",
+      "mem": {
+        "used": 10000000,
+        "total": 10000000
+      }
+    },
+    {
+      "cycle": 6,
+      "activeVisualLoops": 0,
+      "runtime": "idle",
+      "mem": {
+        "used": 10000000,
+        "total": 10000000
+      }
+    },
+    {
+      "cycle": 7,
+      "activeVisualLoops": 0,
+      "runtime": "idle",
+      "mem": {
+        "used": 10000000,
+        "total": 10000000
+      }
+    },
+    {
+      "cycle": 8,
+      "activeVisualLoops": 0,
+      "runtime": "idle",
+      "mem": {
+        "used": 10000000,
+        "total": 10000000
+      }
+    },
+    {
+      "cycle": 9,
+      "activeVisualLoops": 0,
+      "runtime": "idle",
+      "mem": {
+        "used": 10000000,
+        "total": 10000000
+      }
+    },
+    {
+      "cycle": 10,
+      "activeVisualLoops": 0,
+      "runtime": "idle",
+      "mem": {
+        "used": 10000000,
+        "total": 10000000
+      }
+    }
+  ],
+  "growthRatio": 1,
+  "finalLoopsZero": true
+}

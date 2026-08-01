@@ -1,11 +1,16 @@
 {
-  "generatedAt": "2026-08-01T16:39:25.869Z",
+  "generatedAt": "2026-08-01T16:57:43.517Z",
   "passed": true,
   "checks": [
     {
       "name": "hamsa-webgl-gate-exists",
       "ok": true,
       "detail": "shared 30 FPS gate helper"
+    },
+    {
+      "name": "hamsa-lazy-webgl",
+      "ok": true,
+      "detail": "Hamsa Aura defers WebGL until START"
     },
     {
       "name": "hamsa-aura-uses-gate",
@@ -60,7 +65,7 @@
     {
       "name": "auth-token-uses-cache",
       "ok": true,
-      "detail": "getTokenSafe uses Clerk cache by default"
+      "detail": "getTokenSafe uses Clerk cache by default; skipCache only via forceRefresh"
     },
     {
       "name": "heartbeat-skips-when-hidden",
