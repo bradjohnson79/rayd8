@@ -7,13 +7,15 @@
 | Starting branch | `main` |
 | Starting SHA | `fb9ed241e4f480f86cfcf0983028fa826909076c` |
 | Final branch | `audit/rayd8-performance-thermal` |
-| Final SHA | *(set at commit time)* |
+| Final code SHA | `b59343902c3f443fb8dc50e2d5df37ef36c05fc3` |
+| Branch tip | `audit/rayd8-performance-thermal` (includes docs metadata commit) |
 | Baseline tag | `audit/perf-thermal-baseline-fb9ed241e4f480f86cfcf0983028fa826909076c` |
-| Production build tested | `web` Vite production build + `vite preview :4173` |
+| Production build tested | `web` Vite production build + `vite preview :4173` from repaired tree |
 
 ## Audit commits
 
-Recorded after commit in git log on this branch.
+- `b59343902c3f443fb8dc50e2d5df37ef36c05fc3` — thermal Priority 0–1 repairs + audit docs pack
+- `1253c96eccb3177ecc0d88ed0ea1ea8c959631bb` — closure report identity metadata
 
 ## Browser / hardware
 
