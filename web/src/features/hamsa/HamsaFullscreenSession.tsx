@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import {
+  useAdaptiveIframeTarget,
+  useAdaptiveSessionLifecycle,
+} from '../performance/useAdaptiveSessionLifecycle'
 import { ImmersiveViewport } from '../rayd8-player/ImmersiveViewport'
 import { detectHamsaAppUrl } from './hamsaContent'
 
@@ -9,6 +13,10 @@ export function HamsaFullscreenSession({ onClose }: { onClose: () => void }) {
   const [iframeLoadState, setIframeLoadState] = useState<'loading' | 'ready' | 'slow'>('loading')
   const [retryKey, setRetryKey] = useState(0)
   const [shellElement, setShellElement] = useState<HTMLDivElement | null>(null)
+  const [iframeElement, setIframeElement] = useState<HTMLIFrameElement | null>(null)
+
+  useAdaptiveSessionLifecycle(true)
+  useAdaptiveIframeTarget(iframeElement)
 
   useEffect(() => {
     setIframeLoadState('loading')
@@ -71,6 +79,7 @@ export function HamsaFullscreenSession({ onClose }: { onClose: () => void }) {
           key={retryKey}
           onError={() => setIframeLoadState('slow')}
           onLoad={() => setIframeLoadState('ready')}
+          ref={setIframeElement}
           src={hamsaSrc}
           title="HAMSA virtual healing hand"
         />

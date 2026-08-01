@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { ClerkProvider } from '@clerk/react'
 import './index.css'
 import App from './App.tsx'
+import { installAdaptivePerformance } from './features/performance/adaptivePerformanceManager'
 import {
   installRuntimeProbe,
   recordRuntimeTimeline,
@@ -18,6 +19,7 @@ if (!publishableKey) {
 }
 
 installRuntimeProbe()
+installAdaptivePerformance()
 recordRuntimeTimeline('load')
 initializeUmami()
 registerRayd8ExpressServiceWorker()

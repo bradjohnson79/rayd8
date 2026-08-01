@@ -7,6 +7,7 @@ import {
   shouldRunHamsaWebglLoop,
 } from "../../utils/webglRenderLoop";
 import {
+  getHamsaRenderScale,
   installHamsaPerfProbe,
   markHamsaDraw,
   setHamsaSurfaceContext,
@@ -170,9 +171,10 @@ export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
       if (!ensureGl()) return;
       const gl = glRef.current!;
       const p = programRef.current!;
-      const displayWidth = canvas.clientWidth;
-      const displayHeight = canvas.clientHeight;
-      if (displayWidth === 0 || displayHeight === 0) return;
+      const scale = Math.max(0.5, Math.min(1.5, getHamsaRenderScale()));
+      const displayWidth = Math.max(1, Math.floor(canvas.clientWidth * scale));
+      const displayHeight = Math.max(1, Math.floor(canvas.clientHeight * scale));
+      if (canvas.clientWidth === 0 || canvas.clientHeight === 0) return;
       if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
         canvas.width = displayWidth;
         canvas.height = displayHeight;

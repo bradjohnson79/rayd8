@@ -11,11 +11,19 @@ import {
   SESSION_EXPIRED_MESSAGE,
   useAuthReadiness,
 } from '../auth/useAuthReadiness'
+import {
+  useAdaptiveIframeTarget,
+  useAdaptiveSessionLifecycle,
+} from '../performance/useAdaptiveSessionLifecycle'
 
 const AMRITA_APP_URL = '/amrita_app/index.html'
 
 function AmritaLaunchScreen() {
   const trackedRef = useRef(false)
+  const [iframeElement, setIframeElement] = useState<HTMLIFrameElement | null>(null)
+
+  useAdaptiveSessionLifecycle(true)
+  useAdaptiveIframeTarget(iframeElement)
 
   useEffect(() => {
     if (trackedRef.current) {
@@ -33,6 +41,7 @@ function AmritaLaunchScreen() {
       <iframe
         allow="autoplay; fullscreen; clipboard-read; clipboard-write; screen-wake-lock"
         className="block h-full w-full border-0 bg-[#02030a]"
+        ref={setIframeElement}
         src={AMRITA_APP_URL}
         title="RAYD8 Amrita main menu"
       />

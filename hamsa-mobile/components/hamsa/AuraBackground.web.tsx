@@ -5,6 +5,7 @@ import {
   shouldRunHamsaWebglLoop,
 } from "../../utils/webglRenderLoop";
 import {
+  getHamsaRenderScale,
   installHamsaPerfProbe,
   markHamsaDraw,
   setHamsaPlaying,
@@ -170,9 +171,10 @@ export const AuraBackground = ({
         elapsedTimeRef.current += dt * speedRef.current;
       }
 
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
-      if (width === 0 || height === 0) return;
+      const scale = Math.max(0.5, Math.min(1.5, getHamsaRenderScale()));
+      const width = Math.max(1, Math.floor(canvas.clientWidth * scale));
+      const height = Math.max(1, Math.floor(canvas.clientHeight * scale));
+      if (canvas.clientWidth === 0 || canvas.clientHeight === 0) return;
 
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;

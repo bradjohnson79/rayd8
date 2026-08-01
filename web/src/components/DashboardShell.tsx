@@ -1,8 +1,15 @@
 import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
-import type { PropsWithChildren, ReactNode } from 'react'
+import { useEffect, useState, type PropsWithChildren, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import type { AuthUser } from '../app/types'
 import type { ExpressShellMode } from '../features/dashboard/useExpressNavigation'
+import { AdaptiveQuietStatus } from '../features/performance/AdaptiveQuietStatus'
+import { getAdaptivePerformanceManager } from '../features/performance/adaptivePerformanceManager'
+import {
+  AMBIENT_PROFILE_CHANGE_EVENT,
+  getAmbientVisualTier,
+  type AmbientVisualTier,
+} from '../features/performance/ambientRuntimeController'
 import { RuntimePerformanceSnapshotPanel } from '../features/performance/RuntimePerformanceSnapshotPanel'
 import { useVisualPerformanceMode } from '../features/performance/useVisualPerformanceMode'
 import { resolveVisualPerformanceProfile } from '../features/performance/visualPerformancePreference'
@@ -46,9 +53,38 @@ export function DashboardShell({
 }: DashboardShellProps) {
   const location = useLocation()
   const { mode: visualPerformanceMode } = useVisualPerformanceMode()
+  const [adaptiveAmbient, setAdaptiveAmbient] = useState<AmbientVisualTier>(() =>
+    getAmbientVisualTier(),
+  )
+
+  useEffect(() => {
+    const onAmbient = (event: Event) => {
+      const detail = (event as CustomEvent<{ ambientProfile?: AmbientVisualTier }>).detail
+      if (detail?.ambientProfile) {
+        setAdaptiveAmbient(detail.ambientProfile)
+      } else {
+        setAdaptiveAmbient(getAmbientVisualTier())
+      }
+    }
+    window.addEventListener(AMBIENT_PROFILE_CHANGE_EVENT, onAmbient)
+    setAdaptiveAmbient(getAmbientVisualTier())
+    getAdaptivePerformanceManager()?.notifyRouteActive(true)
+    return () => {
+      window.removeEventListener(AMBIENT_PROFILE_CHANGE_EVENT, onAmbient)
+      getAdaptivePerformanceManager()?.notifyRouteActive(false)
+    }
+  }, [])
+
+  const preferenceAmbient = resolveVisualPerformanceProfile(visualPerformanceMode, 'balanced')
   const ambientProfile = isSessionActive
     ? 'minimal'
-    : resolveVisualPerformanceProfile(visualPerformanceMode, 'balanced')
+    : adaptiveAmbient === 'cinematic' && preferenceAmbient !== 'minimal'
+      ? adaptiveAmbient
+      : preferenceAmbient === 'minimal'
+        ? 'minimal'
+        : adaptiveAmbient === 'minimal'
+          ? 'minimal'
+          : preferenceAmbient
   const accentCopy =
     accent === 'emerald'
       ? {
@@ -74,6 +110,7 @@ export function DashboardShell({
       reducedEffects={isSessionActive || ambientProfile !== 'cinematic'}
     >
       {sidebar}
+      <AdaptiveQuietStatus />
       <RuntimePerformanceSnapshotPanel enabled={showPerfSnapshot} />
 
       <div

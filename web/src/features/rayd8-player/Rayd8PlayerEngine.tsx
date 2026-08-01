@@ -12,6 +12,10 @@ import {
 } from 'react'
 import type { SessionType } from '../../app/types'
 import { ConfirmModal } from '../../components/ConfirmModal'
+import {
+  getExpressMediaNetworkState,
+  mediaStabilityBiasForPolicy,
+} from '../performance/expressMediaNetworkPolicy'
 import { GuideModal } from './GuideModal'
 import { PlayerPerformanceNotice } from './PlayerPerformanceNotice'
 import {
@@ -270,13 +274,15 @@ interface PlayerControlSizing {
 }
 
 function getPlaybackStabilityProfile(mobileOptimized: boolean): PlaybackStabilityProfile {
+  const mediaBias = mediaStabilityBiasForPolicy(getExpressMediaNetworkState().policy)
+
   if (mobileOptimized) {
     return {
       backBufferLength: 60,
       mobileOptimized: true,
       maxBufferLength: 24,
-      maxMaxBufferLength: 72,
-      startLevel: 1,
+      maxMaxBufferLength: mediaBias.maxMaxBufferLength,
+      startLevel: mediaBias.startLevel < 0 ? 1 : mediaBias.startLevel,
     }
   }
 
@@ -286,8 +292,8 @@ function getPlaybackStabilityProfile(mobileOptimized: boolean): PlaybackStabilit
     backBufferLength: 30,
     mobileOptimized: false,
     maxBufferLength: 24,
-    maxMaxBufferLength: 60,
-    startLevel: -1,
+    maxMaxBufferLength: mediaBias.maxMaxBufferLength,
+    startLevel: mediaBias.startLevel,
   }
 }
 

@@ -309,20 +309,25 @@ function SidebarPanelContent({
       <div className={footerClassName}>
         <label className="mb-3 block rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
           <span className="block text-[10px] uppercase tracking-[0.24em] text-slate-400">
-            Visual Performance
+            Performance
           </span>
           <select
-            aria-label="Visual performance"
-            className="mt-2 w-full rounded-lg border border-white/10 bg-black/40 px-2 py-2 text-xs uppercase tracking-[0.18em] text-white"
+            aria-label="Performance mode"
+            className="mt-2 w-full rounded-lg border border-white/10 bg-black/40 px-2 py-2 text-xs text-white"
             onChange={(event) =>
               setVisualPerformanceMode(event.target.value as VisualPerformanceMode)
             }
             value={visualPerformanceMode}
           >
-            <option value="automatic">Automatic</option>
+            <option value="automatic">Automatic (Recommended)</option>
             <option value="standard">Standard</option>
             <option value="reduced">Reduced</option>
           </select>
+          {visualPerformanceMode === 'automatic' ? (
+            <p className="mt-2 text-[11px] leading-5 text-slate-400">
+              RAYD8 can optimize visual performance for this device when needed.
+            </p>
+          ) : null}
         </label>
         <button
           className="flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs uppercase tracking-[0.24em] text-white transition-colors hover:bg-white/[0.08]"

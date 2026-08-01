@@ -3908,7 +3908,41 @@ function getAmritaSoakSnapshot() {
   };
 }
 
+function applyAmritaAdaptiveProfile(profile) {
+  if (!profile || profile.version !== 1) return;
+  if (typeof profile.targetFps === 'number') {
+    CONFIG.renderProfile.targetFps = Math.max(10, Math.min(60, profile.targetFps));
+  }
+  if (typeof profile.renderScale === 'number') {
+    state.renderScaleOverride = Math.max(0.5, Math.min(1.5, profile.renderScale));
+    if (state.runtime === 'running') resizeCanvases();
+  }
+  if (typeof profile.maxDevicePixelRatio === 'number') {
+    CONFIG.renderProfile.maxDevicePixelRatio = profile.maxDevicePixelRatio;
+  }
+  // Visual pause only — session clock continues via elapsed-time rules.
+  if (profile.pauseHiddenTabRendering && document.hidden) {
+    state.renderingPausedByController = true;
+  } else if (state.renderingPausedByController && !document.hidden) {
+    state.renderingPausedByController = false;
+  }
+}
+
+function installAmritaAdaptiveBridge() {
+  if (window.__RAYD8_AMRITA_ADAPTIVE_BRIDGE__) return;
+  window.__RAYD8_AMRITA_ADAPTIVE_BRIDGE__ = true;
+  window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin) return;
+    const data = event.data;
+    if (!data || data.type !== 'rayd8:adaptive-performance:v1' || data.action !== 'applyProfile') {
+      return;
+    }
+    applyAmritaAdaptiveProfile(data.profile);
+  });
+}
+
 function exposeDualPassDiagnostics() {
+  installAmritaAdaptiveBridge();
   // Always expose soak snapshot API for closure harness (lightweight).
   window.__AMRITA_SOAK__ = {
     getSnapshot: () => getAmritaSoakSnapshot(),
@@ -3928,6 +3962,9 @@ function exposeDualPassDiagnostics() {
     setRenderScale(scale) {
       state.renderScaleOverride = Math.max(0.5, Math.min(1.5, Number(scale) || 1));
       if (state.runtime === 'running') resizeCanvases();
+    },
+    applyAdaptiveProfile(profile) {
+      applyAmritaAdaptiveProfile(profile);
     },
     pauseRendering() {
       state.renderingPausedByController = true;

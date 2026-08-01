@@ -20,6 +20,8 @@
     "test:mux-telemetry": "node --import ../api/node_modules/tsx/dist/esm/index.mjs --test src/features/rayd8-player/playbackIncidentTelemetry.test.ts",
     "test:thermal-regression": "node scripts/thermal-performance-regression.mjs",
     "test:thermal-units": "node --import ../api/node_modules/tsx/dist/esm/index.mjs --test src/features/performance/visualPerformancePreference.test.ts src/features/performance/runtimeResourceRegistry.test.ts src/features/rayd8-player/playbackVisibilityPolicy.test.ts",
+    "test:adaptive-units": "node --import ../api/node_modules/tsx/dist/esm/index.mjs --test src/features/performance/adaptivePerformancePolicy.test.ts src/features/performance/performanceSampler.test.ts src/features/performance/runtimeControllers.test.ts src/features/performance/expressMediaNetworkPolicy.test.ts src/features/performance/adaptiveClockInvariance.test.ts",
+    "test:adaptive-smoke": "node scripts/adaptive-performance-smoke.mjs",
     "test:thermal-budgets": "node scripts/thermal-budget-gates.mjs",
     "test:thermal-behavior": "node scripts/thermal-behavior-smoke.mjs",
     "test:thermal-soak:short": "RAYD8_MUX_SOAK_MS=300000 RAYD8_AMRITA_SHORT_MS=300000 node scripts/amrita-mux-stability.mjs",

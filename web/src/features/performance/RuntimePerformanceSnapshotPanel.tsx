@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { getAdaptivePerformanceManager } from './adaptivePerformanceManager'
+import type { EffectivePerformanceProfile } from './adaptivePerformanceTypes'
 import {
   getRuntimeResourceSnapshot,
   installRuntimeProbe,
@@ -29,6 +31,7 @@ export function RuntimePerformanceSnapshotPanel({
 }: RuntimePerformanceSnapshotPanelProps) {
   const [open, setOpen] = useState(false)
   const [snapshot, setSnapshot] = useState<RuntimeResourceSnapshot | null>(null)
+  const [adaptive, setAdaptive] = useState<EffectivePerformanceProfile | null>(null)
 
   useEffect(() => {
     if (!enabled) {
@@ -46,6 +49,7 @@ export function RuntimePerformanceSnapshotPanel({
       const next = getRuntimeResourceSnapshot()
       next.performanceMode = readVisualPerformanceMode()
       setSnapshot(next)
+      setAdaptive(getAdaptivePerformanceManager()?.getProfile() ?? null)
     }
 
     tick()
@@ -73,6 +77,38 @@ export function RuntimePerformanceSnapshotPanel({
             Performance Snapshot
           </p>
           <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
+            <div className="col-span-2">
+              <dt className="text-slate-500">Selected Mode</dt>
+              <dd className="font-medium text-white">
+                {adaptive?.mode ?? snapshot.performanceMode ?? 'automatic'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Effective Tier</dt>
+              <dd className="font-medium text-white">{adaptive?.effectiveTier ?? 'n/a'}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Activity State</dt>
+              <dd className="font-medium text-white">{adaptive?.activityState ?? 'n/a'}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Target FPS</dt>
+              <dd className="font-medium text-white">{adaptive?.targetFps ?? 'n/a'}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Render Scale</dt>
+              <dd className="font-medium text-white">{adaptive?.renderScale ?? 'n/a'}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">DPR Cap</dt>
+              <dd className="font-medium text-white">
+                {adaptive?.maxDevicePixelRatio ?? 'n/a'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Hidden</dt>
+              <dd className="font-medium text-white">{document.hidden ? 'yes' : 'no'}</dd>
+            </div>
             <div>
               <dt className="text-slate-500">Hamsa Contexts</dt>
               <dd className="font-medium text-white">{snapshot.hamsaContexts}</dd>
@@ -98,24 +134,20 @@ export function RuntimePerformanceSnapshotPanel({
               <dd className="font-medium text-white">{snapshot.timers}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Event Listeners</dt>
-              <dd className="font-medium text-white">{snapshot.listeners}</dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">AudioContexts</dt>
-              <dd className="font-medium text-white">{snapshot.audioContexts}</dd>
-            </div>
-            <div>
               <dt className="text-slate-500">Heap Used</dt>
               <dd className="font-medium text-white">{formatBytes(snapshot.heapUsedBytes)}</dd>
             </div>
-            <div>
-              <dt className="text-slate-500">JS Heap</dt>
-              <dd className="font-medium text-white">{formatBytes(snapshot.jsHeapBytes)}</dd>
+            <div className="col-span-2">
+              <dt className="text-slate-500">Last Tier Change</dt>
+              <dd className="font-medium text-white">
+                {adaptive?.lastTierChangeAt
+                  ? new Date(adaptive.lastTierChangeAt).toLocaleTimeString()
+                  : 'none'}
+              </dd>
             </div>
             <div className="col-span-2">
-              <dt className="text-slate-500">Performance Mode</dt>
-              <dd className="font-medium text-white">{snapshot.performanceMode ?? 'automatic'}</dd>
+              <dt className="text-slate-500">Reason</dt>
+              <dd className="font-medium text-white">{adaptive?.reason ?? 'n/a'}</dd>
             </div>
             <div className="col-span-2">
               <dt className="text-slate-500">Last Cleanup</dt>
@@ -127,7 +159,10 @@ export function RuntimePerformanceSnapshotPanel({
             </div>
           </dl>
           <p className="mt-3 text-[10px] uppercase tracking-[0.2em] text-slate-500">
-            Controllers: {listRuntimeControllers().map((item) => item.key).join(', ') || 'none'}
+            Controllers:{' '}
+            {listRuntimeControllers()
+              .map((item) => item.id)
+              .join(', ') || 'none'}
           </p>
         </div>
       ) : null}

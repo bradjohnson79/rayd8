@@ -10,6 +10,7 @@ import {
   useAuthReadiness,
 } from '../auth/useAuthReadiness'
 import { consumeStoredAuthReturnTo } from '../auth/useUpgradeNavigation'
+import { useAdaptiveSessionLifecycle } from '../performance/useAdaptiveSessionLifecycle'
 import { useSession } from '../session/SessionProvider'
 import { useAuthUser } from './useAuthUser'
 import { Sidebar } from './Sidebar'
@@ -150,6 +151,8 @@ function SignedInDashboardLayout({
     shouldRenderSidebar,
     toggleSidebar,
   } = useExpressNavigation()
+
+  useAdaptiveSessionLifecycle(isActive)
 
   useEffect(() => {
     if (shellMode === 'drawer') {

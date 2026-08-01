@@ -45,6 +45,31 @@ export function isHamsaRenderingPaused() {
   return renderingPaused
 }
 
+export function setHamsaRenderFPS(fps: number) {
+  renderFps = Math.max(1, Math.min(60, fps))
+}
+
+export function setHamsaRenderScale(scale: number) {
+  renderScale = Math.max(0.5, Math.min(1.5, scale))
+}
+
+export function setHamsaRenderingPaused(paused: boolean) {
+  renderingPaused = paused
+}
+
+/** Internal apply path used by adaptive bridge (not window globals). */
+export function applyHamsaPerformanceProfile(input: {
+  targetFps: number
+  renderScale: number
+  pauseRendering?: boolean
+}) {
+  setHamsaRenderFPS(input.targetFps)
+  setHamsaRenderScale(input.renderScale)
+  if (typeof input.pauseRendering === 'boolean') {
+    setHamsaRenderingPaused(input.pauseRendering)
+  }
+}
+
 export function getHamsaPerfSnapshot() {
   const contexts = (Object.values(surfaces) as HamsaSurfaceState[]).filter(
     (s) => s.hasContext,
@@ -87,23 +112,64 @@ export function installHamsaPerfProbe() {
   ).__HAMSA_PERF__ = {
     getSnapshot: getHamsaPerfSnapshot,
     setRenderFPS(fps: number) {
-      renderFps = Math.max(1, Math.min(60, fps))
+      setHamsaRenderFPS(fps)
     },
     setRenderScale(scale: number) {
-      renderScale = Math.max(0.5, Math.min(1.5, scale))
+      setHamsaRenderScale(scale)
     },
     pauseRendering() {
-      renderingPaused = true
+      setHamsaRenderingPaused(true)
     },
     resumeRendering() {
-      renderingPaused = false
+      setHamsaRenderingPaused(false)
     },
     dispose() {
-      renderingPaused = true
+      setHamsaRenderingPaused(true)
       for (const key of Object.keys(surfaces) as HamsaSurface[]) {
         surfaces[key].activeLoop = false
       }
     },
     status: getHamsaPerfSnapshot,
   }
+
+  installHamsaAdaptiveBridge()
+}
+
+const ADAPTIVE_PERF_MESSAGE_TYPE = 'rayd8:adaptive-performance:v1'
+
+function installHamsaAdaptiveBridge() {
+  if (typeof window === 'undefined') {
+    return
+  }
+  const w = window as Window & { __RAYD8_HAMSA_ADAPTIVE_BRIDGE__?: boolean }
+  if (w.__RAYD8_HAMSA_ADAPTIVE_BRIDGE__) {
+    return
+  }
+  w.__RAYD8_HAMSA_ADAPTIVE_BRIDGE__ = true
+  window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin) {
+      return
+    }
+    const data = event.data as {
+      type?: string
+      action?: string
+      profile?: {
+        targetFps?: number
+        renderScale?: number
+        pauseHiddenTabRendering?: boolean
+      }
+    }
+    if (data?.type !== ADAPTIVE_PERF_MESSAGE_TYPE || data.action !== 'applyProfile') {
+      return
+    }
+    const profile = data.profile
+    if (!profile) {
+      return
+    }
+    applyHamsaPerformanceProfile({
+      targetFps: Number(profile.targetFps) || 30,
+      renderScale: Number(profile.renderScale) || 1,
+      pauseRendering: Boolean(profile.pauseHiddenTabRendering && document.hidden),
+    })
+  })
 }
