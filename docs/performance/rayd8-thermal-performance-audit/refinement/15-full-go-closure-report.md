@@ -8,8 +8,8 @@
 | Parent audit implementation SHA | `b59343902c3f443fb8dc50e2d5df37ef36c05fc3` |
 | Refinement branch | `refine/rayd8-performance-full-go` |
 | Refinement implementation SHA | `4f50b513be6410fd7f34ac8321a65a7b8d514933` |
-| Documentation tip SHA | see branch tip after docs commit |
-| Certification target SHA | same as refinement implementation SHA (rebuilt) |
+| Documentation tip SHA | `d3857eadc99f0d06e653f4982136bff048a3cca2` (+ follow-up metadata if present) |
+| Certification target SHA | `4f50b513be6410fd7f34ac8321a65a7b8d514933` (rebuilt + thermal budgets/behavior retested) |
 | Merge target | `main` (via PR) |
 
 ## Tests run
