@@ -2523,6 +2523,9 @@ const state = {
   lastFrameAt: 0,
   fps: 0,
   frameSamples: [],
+  resumeCount: 0,
+  renderScaleOverride: null,
+  renderingPausedByController: false,
 };
 
 const dom = {
@@ -3040,7 +3043,11 @@ function resizeCanvases() {
 
 function getDevicePixelRatioCap() {
   const lowPower = state.filters.has('nightMode') || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  return Math.min(window.devicePixelRatio || 1, lowPower ? CONFIG.renderProfile.lowPowerMaxDevicePixelRatio : CONFIG.renderProfile.maxDevicePixelRatio);
+  const base = Math.min(window.devicePixelRatio || 1, lowPower ? CONFIG.renderProfile.lowPowerMaxDevicePixelRatio : CONFIG.renderProfile.maxDevicePixelRatio);
+  if (typeof state.renderScaleOverride === 'number' && state.renderScaleOverride > 0) {
+    return Math.max(0.5, base * state.renderScaleOverride);
+  }
+  return base;
 }
 
 function renderBackground(dt) {
@@ -3424,9 +3431,21 @@ async function toggleFullscreen() {
 }
 
 function startSequence() {
+  if (state.runtime === 'running') {
+    debugAmritaRuntime('startSequence_ignored_already_running', {
+      frameId: state.frameId ?? null,
+    });
+    return;
+  }
   persistState();
   const soakMode = applyAmritaSoakModeBeforeStart();
   preloadGlyphs().then(() => {
+  if (state.runtime === 'running' && state.frameId) {
+    debugAmritaRuntime('startSequence_ignored_race', {
+      frameId: state.frameId,
+    });
+    return;
+  }
   debugAmritaRuntime('startSequence', {
       audioTrack: state.audioTrack,
       duration: state.duration,
@@ -3441,6 +3460,7 @@ function startSequence() {
     state.turnIndex = 0;
     state.currentCycle = null;
     state.lastFrameAt = performance.now();
+    state.renderingPausedByController = false;
     if (state._soakSkipVisuals) {
       // Audio-only isolation: mount audio experience without WebGL/glyph rAF pressure.
       applyWellnessFilters();
@@ -3519,6 +3539,8 @@ function togglePause() {
     }
     state.runtime = 'running';
     state.lastFrameAt = performance.now();
+    state.resumeCount = (state.resumeCount || 0) + 1;
+    state.renderingPausedByController = false;
     setPersonalResonancePaused(false);
     void runtimeAudioLayer?.resume();
     if (!state._soakSkipVisuals && state.frameId == null) {
@@ -3551,13 +3573,18 @@ function loadGlyphImage(file) {
 
 function renderFrame(now) {
   const dt = Math.min(80, now - state.lastFrameAt || 16);
-  state.lastFrameAt = now;
   // Hard-stop when not running. Previously paused sessions still re-armed rAF
   // for resize/FPS bookkeeping and kept the GPU/CPU warm.
-  if (state.runtime !== 'running') {
+  if (state.runtime !== 'running' || state.renderingPausedByController) {
     state.frameId = null;
     return;
   }
+  const minFrameMs = 1000 / Math.max(10, CONFIG.renderProfile.targetFps || 60);
+  if (now - state.lastFrameAt < minFrameMs * 0.85) {
+    state.frameId = requestAnimationFrame(renderFrame);
+    return;
+  }
+  state.lastFrameAt = now;
   resizeCanvases();
   updateSpeedInterpolation(now);
   renderBackground(dt);
@@ -3850,18 +3877,18 @@ function getAmritaSoakSnapshot() {
   } catch {
     audioBuffer = null;
   }
+  const activeVisualLoops = state.runtime === 'running' && state.frameId ? 1 : 0;
   return {
     soakMode: getAmritaSoakMode(),
     runtime: state.runtime,
     frameId: state.frameId ?? null,
+    activeVisualLoops,
+    resumeCount: state.resumeCount || 0,
+    phase: state.currentCycle?.phase ?? null,
+    lastFrameAt: state.lastFrameAt || null,
     canvasCount: canvases.length,
-    webglContexts: canvases.filter((c) => {
-      try {
-        return Boolean(c.getContext('webgl') || c.getContext('webgl2'));
-      } catch {
-        return false;
-      }
-    }).length,
+    // Do not call getContext here — that would allocate WebGL during measurement.
+    webglContexts: state.runtime === 'idle' ? 0 : (dom.backgroundCanvas ? 1 : 0),
     canvasSizes: canvases.map((canvas) => ({
       width: canvas.width,
       height: canvas.height,
@@ -3876,6 +3903,8 @@ function getAmritaSoakSnapshot() {
     audioBufferLength: audioBuffer,
     audioCurrentSrc: audio?.currentSrc ? 'present' : null,
     fps: typeof state.lastFps === 'number' ? state.lastFps : null,
+    targetFps: CONFIG.renderProfile.targetFps,
+    renderScaleOverride: state.renderScaleOverride,
   };
 }
 
@@ -3893,6 +3922,25 @@ function exposeDualPassDiagnostics() {
         // ignore
       }
     },
+    setRenderFPS(fps) {
+      CONFIG.renderProfile.targetFps = Math.max(10, Math.min(60, Number(fps) || 30));
+    },
+    setRenderScale(scale) {
+      state.renderScaleOverride = Math.max(0.5, Math.min(1.5, Number(scale) || 1));
+      if (state.runtime === 'running') resizeCanvases();
+    },
+    pauseRendering() {
+      state.renderingPausedByController = true;
+      if (state.runtime === 'running') togglePause();
+    },
+    resumeRendering() {
+      state.renderingPausedByController = false;
+      if (state.runtime === 'paused') togglePause();
+    },
+    dispose() {
+      if (state.runtime !== 'idle') stopSequence();
+    },
+    status: () => getAmritaSoakSnapshot(),
   };
 
   if (!isDualPassDebugEnabled()) return;

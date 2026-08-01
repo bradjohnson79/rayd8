@@ -1,9 +1,16 @@
 import React, { useEffect, useRef } from "react";
 import { StyleSheet, View, ViewStyle } from "react-native";
 import {
-  HAMSA_WEBGL_FRAME_MS,
+  getHamsaFrameMs,
   shouldRunHamsaWebglLoop,
 } from "../../utils/webglRenderLoop";
+import {
+  installHamsaPerfProbe,
+  markHamsaDraw,
+  setHamsaPlaying,
+  setHamsaSurfaceContext,
+  setHamsaSurfaceLoop,
+} from "../../utils/hamsaPerfProbe";
 
 interface Props {
   style?: ViewStyle;
@@ -25,102 +32,147 @@ export const AuraBackground = ({
   const elapsedTimeRef = useRef<number>(0);
   const isPlayingRef = useRef(isPlaying);
   const speedRef = useRef(speed);
-  const drawFrameRef = useRef<((time: number) => void) | null>(null);
+  const glRef = useRef<WebGLRenderingContext | null>(null);
+  const programInfoRef = useRef<{
+    program: WebGLProgram;
+    attribLocations: { vertexPosition: number };
+    uniformLocations: {
+      time: WebGLUniformLocation | null;
+      resolution: WebGLUniformLocation | null;
+    };
+    positionBuffer: WebGLBuffer;
+  } | null>(null);
+
+  useEffect(() => {
+    installHamsaPerfProbe();
+  }, []);
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
     speedRef.current = speed;
+    setHamsaPlaying(isPlaying);
   }, [isPlaying, speed]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const gl = canvas.getContext("webgl", {
-      alpha: false,
-      antialias: false,
-      powerPreference: "low-power",
-    });
-    if (!gl) return;
-
-    const vsSource = `
-      attribute vec4 aVertexPosition;
-      void main() {
-        gl_Position = aVertexPosition;
+    const stopLoop = () => {
+      if (requestRef.current != null) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
       }
-    `;
-
-    const fsSource = `
-      precision mediump float;
-      uniform float u_time;
-      uniform vec2 u_resolution;
-
-      void main() {
-        vec2 uv = gl_FragCoord.xy / u_resolution;
-        float t = u_time * 0.55;
-
-        float r = sin(uv.x * 3.0 + t) * 0.5 + 0.5;
-        float g = sin(uv.y * 2.0 + t * 1.1) * 0.5 + 0.5;
-        float b = sin((uv.x + uv.y) * 2.0 + t * 0.9) * 0.5 + 0.5;
-
-        vec3 color = vec3(r, g, b);
-
-        vec2 center = uv - 0.5;
-        float glow = 1.0 - smoothstep(0.0, 1.1, length(center));
-        color *= glow;
-
-        gl_FragColor = vec4(color, 1.0);
-      }
-    `;
-
-    const loadShader = (
-      glCtx: WebGLRenderingContext,
-      type: number,
-      source: string,
-    ) => {
-      const shader = glCtx.createShader(type)!;
-      glCtx.shaderSource(shader, source);
-      glCtx.compileShader(shader);
-      return shader;
+      setHamsaSurfaceLoop("aura", false);
     };
 
-    const shaderProgram = gl.createProgram()!;
-    gl.attachShader(shaderProgram, loadShader(gl, gl.VERTEX_SHADER, vsSource));
-    gl.attachShader(
-      shaderProgram,
-      loadShader(gl, gl.FRAGMENT_SHADER, fsSource),
-    );
-    gl.linkProgram(shaderProgram);
-
-    const programInfo = {
-      program: shaderProgram,
-      attribLocations: {
-        vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
-      },
-      uniformLocations: {
-        time: gl.getUniformLocation(shaderProgram, "u_time"),
-        resolution: gl.getUniformLocation(shaderProgram, "u_resolution"),
-      },
+    const loseContext = () => {
+      stopLoop();
+      const gl = glRef.current;
+      if (gl) {
+        const ext = gl.getExtension("WEBGL_lose_context") as
+          | { loseContext: () => void }
+          | null;
+        ext?.loseContext();
+      }
+      glRef.current = null;
+      programInfoRef.current = null;
+      setHamsaSurfaceContext("aura", false);
     };
 
-    const positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0];
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+    const ensureGl = () => {
+      if (glRef.current && programInfoRef.current) {
+        return true;
+      }
+      if (!isPlayingRef.current) {
+        return false;
+      }
+
+      const gl = canvas.getContext("webgl", {
+        alpha: false,
+        antialias: false,
+        powerPreference: "low-power",
+      });
+      if (!gl) return false;
+
+      const vsSource = `
+        attribute vec4 aVertexPosition;
+        void main() { gl_Position = aVertexPosition; }
+      `;
+      const fsSource = `
+        precision mediump float;
+        uniform float u_time;
+        uniform vec2 u_resolution;
+        void main() {
+          vec2 uv = gl_FragCoord.xy / u_resolution;
+          float t = u_time * 0.55;
+          float r = sin(uv.x * 3.0 + t) * 0.5 + 0.5;
+          float g = sin(uv.y * 2.0 + t * 1.1) * 0.5 + 0.5;
+          float b = sin((uv.x + uv.y) * 2.0 + t * 0.9) * 0.5 + 0.5;
+          vec3 color = vec3(r, g, b);
+          vec2 center = uv - 0.5;
+          float glow = 1.0 - smoothstep(0.0, 1.1, length(center));
+          color *= glow;
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `;
+
+      const loadShader = (
+        glCtx: WebGLRenderingContext,
+        type: number,
+        source: string,
+      ) => {
+        const shader = glCtx.createShader(type)!;
+        glCtx.shaderSource(shader, source);
+        glCtx.compileShader(shader);
+        return shader;
+      };
+
+      const shaderProgram = gl.createProgram()!;
+      gl.attachShader(shaderProgram, loadShader(gl, gl.VERTEX_SHADER, vsSource));
+      gl.attachShader(
+        shaderProgram,
+        loadShader(gl, gl.FRAGMENT_SHADER, fsSource),
+      );
+      gl.linkProgram(shaderProgram);
+
+      const positionBuffer = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0]),
+        gl.STATIC_DRAW,
+      );
+
+      glRef.current = gl;
+      programInfoRef.current = {
+        program: shaderProgram,
+        attribLocations: {
+          vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+        },
+        uniformLocations: {
+          time: gl.getUniformLocation(shaderProgram, "u_time"),
+          resolution: gl.getUniformLocation(shaderProgram, "u_resolution"),
+        },
+        positionBuffer,
+      };
+      setHamsaSurfaceContext("aura", true);
+      return true;
+    };
 
     const drawOnce = (time: number) => {
+      if (!ensureGl()) return;
+      const gl = glRef.current!;
+      const programInfo = programInfoRef.current!;
+
       const dt = (time - lastTimeRef.current) / 1000;
       lastTimeRef.current = time;
-
       if (isPlayingRef.current) {
         elapsedTimeRef.current += dt * speedRef.current;
       }
 
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
-      if (width === 0 || height === 0) {
-        return;
-      }
+      if (width === 0 || height === 0) return;
 
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;
@@ -130,10 +182,8 @@ export const AuraBackground = ({
 
       gl.clearColor(0.0, 0.0, 0.0, 1.0);
       gl.clear(gl.COLOR_BUFFER_BIT);
-
       gl.useProgram(programInfo.program);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      gl.bindBuffer(gl.ARRAY_BUFFER, programInfo.positionBuffer);
       gl.vertexAttribPointer(
         programInfo.attribLocations.vertexPosition,
         2,
@@ -143,75 +193,60 @@ export const AuraBackground = ({
         0,
       );
       gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-
       gl.uniform1f(programInfo.uniformLocations.time, elapsedTimeRef.current);
       gl.uniform2f(
         programInfo.uniformLocations.resolution,
         canvas.width,
         canvas.height,
       );
-
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       lastDrawAtRef.current = time;
-    };
-
-    const stopLoop = () => {
-      if (requestRef.current != null) {
-        cancelAnimationFrame(requestRef.current);
-        requestRef.current = null;
-      }
+      markHamsaDraw("aura");
     };
 
     const render = (time: number) => {
       requestRef.current = null;
-
       if (!shouldRunHamsaWebglLoop(isPlayingRef.current)) {
-        drawOnce(time);
+        if (glRef.current) {
+          drawOnce(time);
+        }
+        setHamsaSurfaceLoop("aura", false);
         return;
       }
 
-      if (time - lastDrawAtRef.current >= HAMSA_WEBGL_FRAME_MS) {
+      if (time - lastDrawAtRef.current >= getHamsaFrameMs()) {
         drawOnce(time);
       }
 
+      setHamsaSurfaceLoop("aura", true);
       requestRef.current = requestAnimationFrame(render);
     };
 
-    drawFrameRef.current = render;
-
     const ensureLoop = () => {
       stopLoop();
+      if (!isPlayingRef.current && !glRef.current) {
+        return;
+      }
       lastTimeRef.current = performance.now();
       requestRef.current = requestAnimationFrame(render);
     };
 
-    const onVisibility = () => {
-      ensureLoop();
-    };
+    const onVisibility = () => ensureLoop();
 
-    ensureLoop();
+    if (isPlaying) {
+      ensureLoop();
+    } else if (glRef.current) {
+      // Bounded terminal draw, then dispose context on stop.
+      drawOnce(performance.now());
+      loseContext();
+    }
+
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
-      stopLoop();
-      const loseContext = (gl.getExtension("WEBGL_lose_context") as
-        | { loseContext: () => void }
-        | null);
-      loseContext?.loseContext();
+      loseContext();
     };
-  }, []);
-
-  useEffect(() => {
-    // Restart or freeze when play state changes.
-    if (drawFrameRef.current) {
-      if (requestRef.current != null) {
-        cancelAnimationFrame(requestRef.current);
-        requestRef.current = null;
-      }
-      lastTimeRef.current = performance.now();
-      requestRef.current = requestAnimationFrame(drawFrameRef.current);
-    }
   }, [isPlaying]);
 
   return (

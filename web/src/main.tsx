@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import { ClerkProvider } from '@clerk/react'
 import './index.css'
 import App from './App.tsx'
+import {
+  installRuntimeProbe,
+  recordRuntimeTimeline,
+} from './features/performance/runtimeResourceRegistry'
 import { registerRayd8ExpressServiceWorker } from './features/pwa/registerRayd8ExpressServiceWorker'
 import { isStandaloneDisplayMode } from './features/pwa/useStandaloneMode'
 import { initializeUmami } from './services/umami'
@@ -13,6 +17,8 @@ if (!publishableKey) {
   throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY in the environment.')
 }
 
+installRuntimeProbe()
+recordRuntimeTimeline('load')
 initializeUmami()
 registerRayd8ExpressServiceWorker()
 

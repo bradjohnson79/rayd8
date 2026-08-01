@@ -42,6 +42,11 @@ check(
   gate.includes('shouldRunHamsaWebglLoop') && gate.includes('HAMSA_WEBGL_TARGET_FPS = 30'),
   'shared 30 FPS gate helper',
 )
+check(
+  'hamsa-lazy-webgl',
+  aura.includes('ensureGl') && aura.includes('if (!isPlayingRef.current)'),
+  'Hamsa Aura defers WebGL until START',
+)
 check('hamsa-aura-uses-gate', aura.includes('shouldRunHamsaWebglLoop'), 'AuraBackground gated')
 check('hamsa-glyph-uses-gate', glyph.includes('shouldRunHamsaWebglLoop'), 'GlyphBackground gated')
 check('hamsa-hand-uses-gate', hand.includes('shouldRunHamsaWebglLoop'), 'HandOutlineGlow gated')
@@ -84,8 +89,10 @@ check(
 )
 check(
   'auth-token-uses-cache',
-  auth.includes('await getToken()') && !auth.includes('skipCache: true'),
-  'getTokenSafe uses Clerk cache by default',
+  auth.includes('options?.forceRefresh') &&
+    auth.includes("options?.forceRefresh ? { skipCache: true } : undefined") &&
+    !/await getToken\(\{\s*skipCache:\s*true\s*\}\)/.test(auth.replace(/\n/g, ' ')),
+  'getTokenSafe uses Clerk cache by default; skipCache only via forceRefresh',
 )
 check(
   'heartbeat-skips-when-hidden',

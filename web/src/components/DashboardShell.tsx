@@ -3,6 +3,7 @@ import type { PropsWithChildren, ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import type { AuthUser } from '../app/types'
 import type { ExpressShellMode } from '../features/dashboard/useExpressNavigation'
+import { RuntimePerformanceSnapshotPanel } from '../features/performance/RuntimePerformanceSnapshotPanel'
 import { useVisualPerformanceMode } from '../features/performance/useVisualPerformanceMode'
 import { resolveVisualPerformanceProfile } from '../features/performance/visualPerformancePreference'
 import { Rayd8Background } from './Rayd8Background'
@@ -63,6 +64,8 @@ export function DashboardShell({
     presentation === 'immersive' && location.pathname === '/dashboard'
   const resolvedMenuButtonLabel = isSidebarOpen ? 'Close navigation' : menuButtonLabel
   const showImmersiveMenuButton = shellMode === 'drawer' && !isSessionActive
+  const showPerfSnapshot =
+    import.meta.env.DEV || user.role === 'admin'
 
   return (
     <Rayd8Background
@@ -71,6 +74,7 @@ export function DashboardShell({
       reducedEffects={isSessionActive || ambientProfile !== 'cinematic'}
     >
       {sidebar}
+      <RuntimePerformanceSnapshotPanel enabled={showPerfSnapshot} />
 
       <div
         className={[

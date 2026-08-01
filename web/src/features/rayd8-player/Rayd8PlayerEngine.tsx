@@ -1269,6 +1269,11 @@ export function Rayd8PlayerEngine({
     singleAvAudioActiveRef.current = false
     setSingleAvAudioActive(false)
     destroyPrimaryVideoPipeline('primary:end-session')
+    void import('../performance/runtimeResourceRegistry').then((mod) => {
+      mod.markRuntimeCleanup('express_session_stop')
+      mod.recordRuntimeTimeline('stop', { surface: 'express' })
+      mod.recordRuntimeTimeline('idle', { surface: 'express' })
+    })
     onClose()
   }, [
     destroyPrimaryVideoPipeline,

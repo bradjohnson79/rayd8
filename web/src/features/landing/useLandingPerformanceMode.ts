@@ -153,6 +153,19 @@ export function useLandingPerformanceMode() {
 
   const reducedEffects = profile !== 'cinematic' || prefersReducedMotion
 
+  useEffect(() => {
+    void import('../performance/runtimeControllers').then((mod) => {
+      if (visualPerformanceMode === 'reduced' || profile === 'minimal') {
+        mod.applyReducedVisualPerformance()
+      } else {
+        mod.applyStandardVisualPerformance()
+      }
+    })
+    void import('../performance/runtimeResourceRegistry').then((mod) => {
+      mod.setRuntimePerformanceMode(visualPerformanceMode)
+    })
+  }, [profile, visualPerformanceMode])
+
   return useMemo(
     () => ({
       isLowCapabilityDevice,

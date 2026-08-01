@@ -7,6 +7,12 @@ import { useLandingMembership } from './useLandingMembership'
 // Prefer the optimized still (~52KB). The previous Premium still (~1.5MB) was an LCP bottleneck.
 const HERO_STILL = '/hero/RAYD8_Hero.png'
 
+function markHeroDecoded() {
+  void import('../performance/runtimeResourceRegistry').then((mod) => {
+    mod.recordRuntimeTimeline('hero_decoded')
+  })
+}
+
 interface HeroSectionProps {
   reducedEffects?: boolean
 }
@@ -25,6 +31,7 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
         draggable={false}
         fetchPriority="high"
         height={576}
+        onLoad={markHeroDecoded}
         src={HERO_STILL}
         width={1024}
       />

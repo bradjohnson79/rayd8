@@ -3,9 +3,15 @@ import { StyleSheet, ViewProps } from "react-native";
 import { AnimatedProps } from "react-native-reanimated";
 import { HamsaRenderState } from "../../hooks/useHamsaRenderEngine";
 import {
-  HAMSA_WEBGL_FRAME_MS,
+  getHamsaFrameMs,
   shouldRunHamsaWebglLoop,
 } from "../../utils/webglRenderLoop";
+import {
+  installHamsaPerfProbe,
+  markHamsaDraw,
+  setHamsaSurfaceContext,
+  setHamsaSurfaceLoop,
+} from "../../utils/hamsaPerfProbe";
 
 interface HandOutlineGlowProps extends AnimatedProps<ViewProps> {
   renderState: HamsaRenderState;
@@ -20,8 +26,6 @@ interface HandOutlineGlowProps extends AnimatedProps<ViewProps> {
 
 export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
   renderState,
-  width,
-  height,
   handWidth,
   handHeight,
   handX,
@@ -34,142 +38,146 @@ export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
   const requestRef = useRef<number | null>(null);
   const lastDrawAtRef = useRef(0);
   const isPlayingRef = useRef(isPlaying);
-  const drawFrameRef = useRef<((time: number) => void) | null>(null);
+  const glRef = useRef<WebGLRenderingContext | null>(null);
+  const programRef = useRef<any>(null);
+
+  const hWidth = handWidth ?? 0;
+  const hHeight = handHeight ?? 0;
+
+  useEffect(() => {
+    installHamsaPerfProbe();
+  }, []);
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
 
-  const cx =
-    handX !== undefined && handWidth !== undefined
-      ? handX + handWidth / 2
-      : width / 2;
-  const cy =
-    handY !== undefined && handHeight !== undefined
-      ? handY + handHeight / 2
-      : height / 2;
-
-  const hWidth = handWidth ?? width;
-  const hHeight = handHeight ?? height;
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const gl = canvas.getContext("webgl", {
-      alpha: true,
-      premultipliedAlpha: false,
-      antialias: false,
-      powerPreference: "low-power",
-    });
-    if (!gl) return;
-
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-    const vsSource = `
-      attribute vec4 aVertexPosition;
-      void main() {
-        gl_Position = aVertexPosition;
+    const stopLoop = () => {
+      if (requestRef.current != null) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
       }
-    `;
-
-    const fsSource = `
-      precision mediump float;
-      uniform float u_time;
-      uniform vec2 u_resolution;
-      uniform vec2 u_handResolution;
-      uniform vec2 u_centerPosition;
-      uniform vec3 u_prevColor;
-      uniform vec3 u_currColor;
-      uniform float u_themeBlend;
-      uniform float u_pulse;
-
-      void main() {
-        vec2 pos = gl_FragCoord.xy;
-        vec2 skiaPos = vec2(pos.x, u_resolution.y - pos.y);
-
-        vec2 p = skiaPos - u_centerPosition;
-
-        float scale = max(u_handResolution.x, u_handResolution.y);
-        if (scale <= 0.0) scale = min(u_resolution.x, u_resolution.y) * 0.5;
-        float dist = length(p) / scale;
-
-        float breath = u_pulse;
-        float radius = 0.40 + 0.2 * breath;
-
-        float alpha = 1.0 - smoothstep(0.1, radius, dist);
-
-        vec3 baseColor = mix(u_prevColor, u_currColor, u_themeBlend);
-        float t = u_time;
-        float noise = sin(dist * 20.0 - t * 3.0) * 0.5 + 0.5;
-
-        vec3 fluidColor = mix(baseColor, vec3(0.4), noise * 0.1);
-
-        gl_FragColor = vec4(fluidColor, alpha * 0.85);
-      }
-    `;
-
-    const loadShader = (
-      glCtx: WebGLRenderingContext,
-      type: number,
-      source: string,
-    ) => {
-      const shader = glCtx.createShader(type)!;
-      glCtx.shaderSource(shader, source);
-      glCtx.compileShader(shader);
-      return shader;
+      setHamsaSurfaceLoop("hand", false);
     };
 
-    const shaderProgram = gl.createProgram()!;
-    gl.attachShader(shaderProgram, loadShader(gl, gl.VERTEX_SHADER, vsSource));
-    gl.attachShader(
-      shaderProgram,
-      loadShader(gl, gl.FRAGMENT_SHADER, fsSource),
-    );
-    gl.linkProgram(shaderProgram);
+    const loseContext = () => {
+      stopLoop();
+      const gl = glRef.current;
+      if (gl) {
+        const ext = gl.getExtension("WEBGL_lose_context") as
+          | { loseContext: () => void }
+          | null;
+        ext?.loseContext();
+      }
+      glRef.current = null;
+      programRef.current = null;
+      setHamsaSurfaceContext("hand", false);
+    };
 
-    const programInfo = {
-      program: shaderProgram,
-      attribLocations: {
+    const ensureGl = () => {
+      if (glRef.current && programRef.current) return true;
+      if (!isPlayingRef.current) return false;
+
+      const gl = canvas.getContext("webgl", {
+        alpha: true,
+        premultipliedAlpha: false,
+        antialias: false,
+        powerPreference: "low-power",
+      });
+      if (!gl) return false;
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+      const vsSource = `
+        attribute vec4 aVertexPosition;
+        void main() { gl_Position = aVertexPosition; }
+      `;
+      const fsSource = `
+        precision mediump float;
+        uniform float u_time;
+        uniform vec2 u_resolution;
+        uniform vec2 u_handResolution;
+        uniform vec2 u_centerPosition;
+        uniform vec3 u_prevColor;
+        uniform vec3 u_currColor;
+        uniform float u_themeBlend;
+        uniform float u_pulse;
+        void main() {
+          vec2 pos = gl_FragCoord.xy;
+          vec2 skiaPos = vec2(pos.x, u_resolution.y - pos.y);
+          vec2 p = skiaPos - u_centerPosition;
+          float scale = max(u_handResolution.x, u_handResolution.y);
+          if (scale <= 0.0) scale = min(u_resolution.x, u_resolution.y) * 0.5;
+          float dist = length(p) / scale;
+          float radius = 0.40 + 0.2 * u_pulse;
+          float alpha = 1.0 - smoothstep(0.1, radius, dist);
+          vec3 baseColor = mix(u_prevColor, u_currColor, u_themeBlend);
+          float noise = sin(dist * 20.0 - u_time * 3.0) * 0.5 + 0.5;
+          vec3 fluidColor = mix(baseColor, vec3(0.4), noise * 0.1);
+          gl_FragColor = vec4(fluidColor, alpha * 0.85);
+        }
+      `;
+
+      const loadShader = (
+        glCtx: WebGLRenderingContext,
+        type: number,
+        source: string,
+      ) => {
+        const shader = glCtx.createShader(type)!;
+        glCtx.shaderSource(shader, source);
+        glCtx.compileShader(shader);
+        return shader;
+      };
+
+      const shaderProgram = gl.createProgram()!;
+      gl.attachShader(shaderProgram, loadShader(gl, gl.VERTEX_SHADER, vsSource));
+      gl.attachShader(
+        shaderProgram,
+        loadShader(gl, gl.FRAGMENT_SHADER, fsSource),
+      );
+      gl.linkProgram(shaderProgram);
+      const positionBuffer = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0]),
+        gl.STATIC_DRAW,
+      );
+
+      glRef.current = gl;
+      programRef.current = {
+        program: shaderProgram,
         vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
-      },
-      uniformLocations: {
         time: gl.getUniformLocation(shaderProgram, "u_time"),
         resolution: gl.getUniformLocation(shaderProgram, "u_resolution"),
-        handResolution: gl.getUniformLocation(
-          shaderProgram,
-          "u_handResolution",
-        ),
-        centerPosition: gl.getUniformLocation(
-          shaderProgram,
-          "u_centerPosition",
-        ),
+        handResolution: gl.getUniformLocation(shaderProgram, "u_handResolution"),
+        centerPosition: gl.getUniformLocation(shaderProgram, "u_centerPosition"),
         prevColor: gl.getUniformLocation(shaderProgram, "u_prevColor"),
         currColor: gl.getUniformLocation(shaderProgram, "u_currColor"),
         themeBlend: gl.getUniformLocation(shaderProgram, "u_themeBlend"),
         pulse: gl.getUniformLocation(shaderProgram, "u_pulse"),
-      },
+        positionBuffer,
+      };
+      setHamsaSurfaceContext("hand", true);
+      return true;
     };
 
-    const positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0];
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-
     const drawOnce = () => {
+      if (!ensureGl()) return;
+      const gl = glRef.current!;
+      const p = programRef.current!;
       const displayWidth = canvas.clientWidth;
       const displayHeight = canvas.clientHeight;
-      if (displayWidth === 0 || displayHeight === 0) {
-        return;
-      }
-
+      if (displayWidth === 0 || displayHeight === 0) return;
       if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
         canvas.width = displayWidth;
         canvas.height = displayHeight;
         gl.viewport(0, 0, displayWidth, displayHeight);
       }
-
       const currentCx =
         handX !== undefined && handWidth !== undefined
           ? handX + handWidth / 2
@@ -181,105 +189,65 @@ export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
 
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
-
-      gl.useProgram(programInfo.program);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-      gl.vertexAttribPointer(
-        programInfo.attribLocations.vertexPosition,
-        2,
-        gl.FLOAT,
-        false,
-        0,
-        0,
-      );
-      gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-
-      gl.uniform1f(programInfo.uniformLocations.time, renderState.time.value);
-      gl.uniform2f(
-        programInfo.uniformLocations.resolution,
-        canvas.width,
-        canvas.height,
-      );
-      gl.uniform2f(
-        programInfo.uniformLocations.handResolution,
-        hWidth || 0,
-        hHeight || 0,
-      );
-      gl.uniform2f(
-        programInfo.uniformLocations.centerPosition,
-        currentCx,
-        currentCy,
-      );
-      gl.uniform3fv(
-        programInfo.uniformLocations.prevColor,
-        renderState.activeColors.prev.value,
-      );
-      gl.uniform3fv(
-        programInfo.uniformLocations.currColor,
-        renderState.activeColors.curr.value,
-      );
-      gl.uniform1f(
-        programInfo.uniformLocations.themeBlend,
-        renderState.themeBlend.value,
-      );
-      gl.uniform1f(programInfo.uniformLocations.pulse, renderState.pulse.value);
-
+      gl.useProgram(p.program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, p.positionBuffer);
+      gl.vertexAttribPointer(p.vertexPosition, 2, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(p.vertexPosition);
+      gl.uniform1f(p.time, renderState.time.value);
+      gl.uniform2f(p.resolution, canvas.width, canvas.height);
+      gl.uniform2f(p.handResolution, hWidth || 0, hHeight || 0);
+      gl.uniform2f(p.centerPosition, currentCx, currentCy);
+      gl.uniform3fv(p.prevColor, renderState.activeColors.prev.value);
+      gl.uniform3fv(p.currColor, renderState.activeColors.curr.value);
+      gl.uniform1f(p.themeBlend, renderState.themeBlend.value);
+      gl.uniform1f(p.pulse, renderState.pulse.value);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    };
-
-    const stopLoop = () => {
-      if (requestRef.current != null) {
-        cancelAnimationFrame(requestRef.current);
-        requestRef.current = null;
-      }
+      markHamsaDraw("hand");
     };
 
     const render = (time: number) => {
       requestRef.current = null;
-
       if (!shouldRunHamsaWebglLoop(isPlayingRef.current)) {
-        drawOnce();
+        if (glRef.current) drawOnce();
+        setHamsaSurfaceLoop("hand", false);
         return;
       }
-
-      if (time - lastDrawAtRef.current >= HAMSA_WEBGL_FRAME_MS) {
+      if (time - lastDrawAtRef.current >= getHamsaFrameMs()) {
         drawOnce();
         lastDrawAtRef.current = time;
       }
-
+      setHamsaSurfaceLoop("hand", true);
       requestRef.current = requestAnimationFrame(render);
     };
-
-    drawFrameRef.current = render;
 
     const ensureLoop = () => {
       stopLoop();
+      if (!isPlayingRef.current && !glRef.current) return;
       requestRef.current = requestAnimationFrame(render);
     };
 
-    ensureLoop();
-    document.addEventListener("visibilitychange", ensureLoop);
+    if (isPlaying) {
+      ensureLoop();
+    } else if (glRef.current) {
+      drawOnce();
+      loseContext();
+    }
 
+    document.addEventListener("visibilitychange", ensureLoop);
     return () => {
       document.removeEventListener("visibilitychange", ensureLoop);
-      stopLoop();
-      const loseContext = gl.getExtension("WEBGL_lose_context") as
-        | { loseContext: () => void }
-        | null;
-      loseContext?.loseContext();
+      loseContext();
     };
-  }, [renderState, hWidth, hHeight, cx, cy, handX, handY, handWidth, handHeight]);
-
-  useEffect(() => {
-    if (drawFrameRef.current) {
-      if (requestRef.current != null) {
-        cancelAnimationFrame(requestRef.current);
-        requestRef.current = null;
-      }
-      requestRef.current = requestAnimationFrame(drawFrameRef.current);
-    }
-  }, [isPlaying]);
+  }, [
+    isPlaying,
+    renderState,
+    hWidth,
+    hHeight,
+    handX,
+    handY,
+    handWidth,
+    handHeight,
+  ]);
 
   return (
     <canvas

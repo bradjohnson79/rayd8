@@ -177,6 +177,23 @@ export function recordSourceLoad(label: string, sourceUrl: string) {
 }
 
 export function recordHlsController(label: string, action: 'create' | 'destroy') {
+  // Always keep runtime ownership counts for the Performance Snapshot / budget gates.
+  void import('../performance/runtimeResourceRegistry').then((mod) => {
+    const id = `hls:${label}`
+    if (action === 'create') {
+      mod.registerRuntimeResource({
+        id,
+        kind: 'hls_instance',
+        owner: 'Express Player',
+        meta: { label },
+      })
+      mod.recordRuntimeTimeline('express_hls_create', { label })
+    } else {
+      mod.unregisterRuntimeResource(id, 'destroy')
+      mod.recordRuntimeTimeline('express_hls_destroy', { label })
+    }
+  })
+
   if (!isPlaybackEngineeringDiagnosticsEnabled()) {
     return
   }

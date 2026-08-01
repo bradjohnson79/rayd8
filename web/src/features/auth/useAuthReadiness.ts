@@ -95,7 +95,7 @@ export function useAuthReadiness() {
     previousStatusRef.current = status
   }, [isLoaded, isSignedIn, status, user?.id])
 
-  const getTokenSafe = useCallback(async () => {
+  const getTokenSafe = useCallback(async (options?: { forceRefresh?: boolean }) => {
     if (!isLoaded) {
       return {
         token: null,
@@ -114,7 +114,9 @@ export function useAuthReadiness() {
       // Prefer Clerk's cached JWT. Forced refresh is reserved for explicit
       // 401 recovery paths — skipCache on every call was a sustained network
       // and main-thread cost during usage heartbeats and dashboard polls.
-      const token = await getToken()
+      const token = await getToken(
+        options?.forceRefresh ? { skipCache: true } : undefined,
+      )
 
       if (!token) {
         logInDev('token-unavailable', {
