@@ -200,7 +200,7 @@ export const ContactSection = memo(function ContactSection({
                   ? 'Optional: upload a screenshot of the bug.'
                   : formState.topic === 'testimonial'
                     ? 'Optional: upload a photo to include with your testimonial.'
-                    : 'Optional: upload a related image.'}
+                    : 'Optional: Upload a screenshot if you are reporting a bug.'}
               </p>
               {formState.attachment ? (
                 <p className="mt-2 text-sm text-emerald-100/85">
