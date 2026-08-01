@@ -15,7 +15,7 @@
 ## Audit commits
 
 - `b59343902c3f443fb8dc50e2d5df37ef36c05fc3` — thermal Priority 0–1 repairs + audit docs pack
-- `1253c96eccb3177ecc0d88ed0ea1ea8c959631bb` — closure report identity metadata
+- docs metadata commit(s) on `audit/rayd8-performance-thermal` after `b593439` — identity fields only
 
 ## Browser / hardware
 
