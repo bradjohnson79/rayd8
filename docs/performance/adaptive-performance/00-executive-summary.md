@@ -4,6 +4,7 @@
 |------|-------|
 | Branch | `feat/rayd8-adaptive-performance` |
 | Base tip | `53336bc` (Full-GO refinement) |
+| Clean cert SHA | `da93733` |
 | Modes | Automatic / Standard / Reduced |
 | Profile | `EffectivePerformanceProfile` v1 |
 | Verdict | See `ADAPTIVE-PERFORMANCE-REPORT.md` |
