@@ -1,5 +1,9 @@
 import React, { useEffect, useRef } from "react";
 import { StyleSheet, View, ViewStyle } from "react-native";
+import {
+  HAMSA_WEBGL_FRAME_MS,
+  shouldRunHamsaWebglLoop,
+} from "../../utils/webglRenderLoop";
 
 interface Props {
   style?: ViewStyle;
@@ -12,16 +16,17 @@ export const AuraBackground = ({
   style,
   speed = 1,
   children,
-  isPlaying = true,
+  isPlaying = false,
 }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const requestRef = useRef<number>(null);
+  const requestRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(performance.now());
+  const lastDrawAtRef = useRef<number>(0);
   const elapsedTimeRef = useRef<number>(0);
   const isPlayingRef = useRef(isPlaying);
   const speedRef = useRef(speed);
+  const drawFrameRef = useRef<((time: number) => void) | null>(null);
 
-  // Sync refs with props
   useEffect(() => {
     isPlayingRef.current = isPlaying;
     speedRef.current = speed;
@@ -31,7 +36,11 @@ export const AuraBackground = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const gl = canvas.getContext("webgl");
+    const gl = canvas.getContext("webgl", {
+      alpha: false,
+      antialias: false,
+      powerPreference: "low-power",
+    });
     if (!gl) return;
 
     const vsSource = `
@@ -42,7 +51,7 @@ export const AuraBackground = ({
     `;
 
     const fsSource = `
-      precision highp float;
+      precision mediump float;
       uniform float u_time;
       uniform vec2 u_resolution;
 
@@ -65,13 +74,13 @@ export const AuraBackground = ({
     `;
 
     const loadShader = (
-      gl: WebGLRenderingContext,
+      glCtx: WebGLRenderingContext,
       type: number,
       source: string,
     ) => {
-      const shader = gl.createShader(type)!;
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
+      const shader = glCtx.createShader(type)!;
+      glCtx.shaderSource(shader, source);
+      glCtx.compileShader(shader);
       return shader;
     };
 
@@ -99,7 +108,7 @@ export const AuraBackground = ({
     const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0];
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-    const render = (time: number) => {
+    const drawOnce = (time: number) => {
       const dt = (time - lastTimeRef.current) / 1000;
       lastTimeRef.current = time;
 
@@ -107,11 +116,9 @@ export const AuraBackground = ({
         elapsedTimeRef.current += dt * speedRef.current;
       }
 
-      // Handle resize
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
       if (width === 0 || height === 0) {
-        requestRef.current = requestAnimationFrame(render);
         return;
       }
 
@@ -145,17 +152,67 @@ export const AuraBackground = ({
       );
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      lastDrawAtRef.current = time;
+    };
+
+    const stopLoop = () => {
+      if (requestRef.current != null) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
+      }
+    };
+
+    const render = (time: number) => {
+      requestRef.current = null;
+
+      if (!shouldRunHamsaWebglLoop(isPlayingRef.current)) {
+        drawOnce(time);
+        return;
+      }
+
+      if (time - lastDrawAtRef.current >= HAMSA_WEBGL_FRAME_MS) {
+        drawOnce(time);
+      }
 
       requestRef.current = requestAnimationFrame(render);
     };
 
-    lastTimeRef.current = performance.now();
-    requestRef.current = requestAnimationFrame(render);
+    drawFrameRef.current = render;
+
+    const ensureLoop = () => {
+      stopLoop();
+      lastTimeRef.current = performance.now();
+      requestRef.current = requestAnimationFrame(render);
+    };
+
+    const onVisibility = () => {
+      ensureLoop();
+    };
+
+    ensureLoop();
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      document.removeEventListener("visibilitychange", onVisibility);
+      stopLoop();
+      const loseContext = (gl.getExtension("WEBGL_lose_context") as
+        | { loseContext: () => void }
+        | null);
+      loseContext?.loseContext();
     };
   }, []);
+
+  useEffect(() => {
+    // Restart or freeze when play state changes.
+    if (drawFrameRef.current) {
+      if (requestRef.current != null) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
+      }
+      lastTimeRef.current = performance.now();
+      requestRef.current = requestAnimationFrame(drawFrameRef.current);
+    }
+  }, [isPlaying]);
 
   return (
     <View style={[styles.container, style]}>

@@ -111,7 +111,10 @@ export function useAuthReadiness() {
     }
 
     try {
-      const token = await getToken({ skipCache: true })
+      // Prefer Clerk's cached JWT. Forced refresh is reserved for explicit
+      // 401 recovery paths — skipCache on every call was a sustained network
+      // and main-thread cost during usage heartbeats and dashboard polls.
+      const token = await getToken()
 
       if (!token) {
         logInDev('token-unavailable', {

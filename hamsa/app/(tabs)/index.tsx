@@ -191,6 +191,7 @@ const HamsaHealingScreen = () => {
                 handX={undefined} // On web, always center relative to canvas
                 handY={undefined}
                 renderState={renderState}
+                isPlaying={isPlaying}
                 style={StyleSheet.absoluteFill}
               />
             </View>

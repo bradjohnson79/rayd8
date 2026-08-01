@@ -17,7 +17,9 @@
     "test:amrita-mux-stability": "node scripts/amrita-mux-stability.mjs",
     "test:recovery-machine": "node --import ../api/node_modules/tsx/dist/esm/index.mjs --test src/features/playback-authority/recoveryStateMachine.test.ts",
     "test:av-sync": "node --import ../api/node_modules/tsx/dist/esm/index.mjs --test src/features/rayd8-player/avSyncController.test.ts",
-    "test:mux-telemetry": "node --import ../api/node_modules/tsx/dist/esm/index.mjs --test src/features/rayd8-player/playbackIncidentTelemetry.test.ts"
+    "test:mux-telemetry": "node --import ../api/node_modules/tsx/dist/esm/index.mjs --test src/features/rayd8-player/playbackIncidentTelemetry.test.ts",
+    "test:thermal-regression": "node scripts/thermal-performance-regression.mjs",
+    "test:thermal-units": "node --import ../api/node_modules/tsx/dist/esm/index.mjs --test src/features/performance/visualPerformancePreference.test.ts src/features/rayd8-player/playbackVisibilityPolicy.test.ts"
   },
   "dependencies": {
     "@clerk/react": "^6.4.2",

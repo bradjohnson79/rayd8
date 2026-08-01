@@ -1,0 +1,76 @@
+{
+  "generatedAt": "2026-08-01T16:39:25.869Z",
+  "passed": true,
+  "checks": [
+    {
+      "name": "hamsa-webgl-gate-exists",
+      "ok": true,
+      "detail": "shared 30 FPS gate helper"
+    },
+    {
+      "name": "hamsa-aura-uses-gate",
+      "ok": true,
+      "detail": "AuraBackground gated"
+    },
+    {
+      "name": "hamsa-glyph-uses-gate",
+      "ok": true,
+      "detail": "GlyphBackground gated"
+    },
+    {
+      "name": "hamsa-hand-uses-gate",
+      "ok": true,
+      "detail": "HandOutlineGlow gated"
+    },
+    {
+      "name": "hamsa-aura-lose-context",
+      "ok": true,
+      "detail": "Aura releases WebGL on unmount"
+    },
+    {
+      "name": "player-visibility-all-sessions",
+      "ok": true,
+      "detail": "visibility lifecycle enabled for all active sessions"
+    },
+    {
+      "name": "player-pauses-on-hide",
+      "ok": true,
+      "detail": "tab hide pauses media"
+    },
+    {
+      "name": "player-default-performance-presentation",
+      "ok": true,
+      "detail": "performance presentation is default"
+    },
+    {
+      "name": "amrita-cancel-raf-on-pause",
+      "ok": true,
+      "detail": "Amrita cancels rAF while paused/hidden and does not re-arm"
+    },
+    {
+      "name": "dashboard-session-minimal-ambient",
+      "ok": true,
+      "detail": "dashboard drops ambient during active sessions"
+    },
+    {
+      "name": "hero-uses-optimized-still",
+      "ok": true,
+      "detail": "hero LCP still is optimized asset"
+    },
+    {
+      "name": "auth-token-uses-cache",
+      "ok": true,
+      "detail": "getTokenSafe uses Clerk cache by default"
+    },
+    {
+      "name": "heartbeat-skips-when-hidden",
+      "ok": true,
+      "detail": "session heartbeat skips while tab hidden"
+    },
+    {
+      "name": "hero-asset-present",
+      "ok": true,
+      "detail": "optimized hero asset exists on disk"
+    }
+  ]
+}

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useVisualPerformanceMode } from '../performance/useVisualPerformanceMode'
+import { resolveVisualPerformanceProfile } from '../performance/visualPerformancePreference'
 import type { LandingAmbientProfile } from './landingAmbientProfile'
 
 function readReducedMotion(): boolean {
@@ -61,6 +63,7 @@ function computeProfile(signals: {
 }
 
 export function useLandingPerformanceMode() {
+  const { mode: visualPerformanceMode } = useVisualPerformanceMode()
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => readReducedMotion())
   const [saveData, setSaveData] = useState(() => readSaveData())
@@ -128,7 +131,7 @@ export function useLandingPerformanceMode() {
 
   const deviceMemoryLow = typeof navigator !== 'undefined' && readDeviceMemoryLessThanFour()
 
-  const profile = useMemo(
+  const automaticProfile = useMemo(
     () =>
       computeProfile({
         batteryLow,
@@ -139,6 +142,11 @@ export function useLandingPerformanceMode() {
         saveData,
       }),
     [batteryLow, deviceMemoryLow, isMobileViewport, prefersReducedMotion, saveData],
+  )
+
+  const profile = useMemo(
+    () => resolveVisualPerformanceProfile(visualPerformanceMode, automaticProfile),
+    [automaticProfile, visualPerformanceMode],
   )
 
   const isLowCapabilityDevice = deviceMemoryLow || isMobileViewport
@@ -152,7 +160,15 @@ export function useLandingPerformanceMode() {
       prefersReducedMotion,
       profile,
       reducedEffects,
+      visualPerformanceMode,
     }),
-    [isLowCapabilityDevice, isMobileViewport, prefersReducedMotion, profile, reducedEffects],
+    [
+      isLowCapabilityDevice,
+      isMobileViewport,
+      prefersReducedMotion,
+      profile,
+      reducedEffects,
+      visualPerformanceMode,
+    ],
   )
 }

@@ -3,6 +3,8 @@ import type { PropsWithChildren, ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import type { AuthUser } from '../app/types'
 import type { ExpressShellMode } from '../features/dashboard/useExpressNavigation'
+import { useVisualPerformanceMode } from '../features/performance/useVisualPerformanceMode'
+import { resolveVisualPerformanceProfile } from '../features/performance/visualPerformancePreference'
 import { Rayd8Background } from './Rayd8Background'
 
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
@@ -42,6 +44,10 @@ export function DashboardShell({
   withGuestActions = false,
 }: DashboardShellProps) {
   const location = useLocation()
+  const { mode: visualPerformanceMode } = useVisualPerformanceMode()
+  const ambientProfile = isSessionActive
+    ? 'minimal'
+    : resolveVisualPerformanceProfile(visualPerformanceMode, 'balanced')
   const accentCopy =
     accent === 'emerald'
       ? {
@@ -59,7 +65,11 @@ export function DashboardShell({
   const showImmersiveMenuButton = shellMode === 'drawer' && !isSessionActive
 
   return (
-    <Rayd8Background>
+    <Rayd8Background
+      ambientProfile={ambientProfile}
+      intensity={isSessionActive || ambientProfile === 'minimal' ? 'low' : 'default'}
+      reducedEffects={isSessionActive || ambientProfile !== 'cinematic'}
+    >
       {sidebar}
 
       <div

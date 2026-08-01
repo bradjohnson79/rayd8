@@ -2874,7 +2874,7 @@ function getSelectionLabel() {
 }
 
 function setupBackgroundRenderer() {
-  const gl = dom.backgroundCanvas.getContext('webgl', { alpha: false, antialias: false, powerPreference: 'high-performance' });
+  const gl = dom.backgroundCanvas.getContext('webgl', { alpha: false, antialias: false, powerPreference: 'default' });
   if (!gl) return;
   const vertexSource = `
     attribute vec2 a_position;
@@ -3489,6 +3489,12 @@ function togglePause() {
     });
     state.runtime = 'paused';
     state.pauseStartedAt = performance.now();
+    // Stop the render loop while paused — paused frames previously kept
+    // scheduling rAF (resize/performance bookkeeping) and heated the GPU.
+    if (state.frameId) {
+      cancelAnimationFrame(state.frameId);
+      state.frameId = null;
+    }
     setPersonalResonancePaused(true);
     runtimeAudioLayer?.pause();
     setRuntimeStatus('Paused');
@@ -3515,6 +3521,9 @@ function togglePause() {
     state.lastFrameAt = performance.now();
     setPersonalResonancePaused(false);
     void runtimeAudioLayer?.resume();
+    if (!state._soakSkipVisuals && state.frameId == null) {
+      state.frameId = requestAnimationFrame(renderFrame);
+    }
     runtimeControls?.update();
   }
 }
@@ -3543,18 +3552,24 @@ function loadGlyphImage(file) {
 function renderFrame(now) {
   const dt = Math.min(80, now - state.lastFrameAt || 16);
   state.lastFrameAt = now;
+  // Hard-stop when not running. Previously paused sessions still re-armed rAF
+  // for resize/FPS bookkeeping and kept the GPU/CPU warm.
+  if (state.runtime !== 'running') {
+    state.frameId = null;
+    return;
+  }
   resizeCanvases();
+  updateSpeedInterpolation(now);
+  renderBackground(dt);
+  advanceSession(now);
   if (state.runtime === 'running') {
-    updateSpeedInterpolation(now);
-    renderBackground(dt);
-    advanceSession(now);
-    if (state.runtime === 'running') {
-      renderGlyphs(now);
-    }
+    renderGlyphs(now);
   }
   updatePerformance(now, dt);
-  if (state.runtime !== 'idle') {
+  if (state.runtime === 'running') {
     state.frameId = requestAnimationFrame(renderFrame);
+  } else {
+    state.frameId = null;
   }
 }
 

@@ -91,6 +91,7 @@ const HamsaHealingScreen = () => {
             handX={handLayout.x}
             handY={handLayout.y}
             renderState={renderState}
+            isPlaying={isPlaying}
             style={StyleSheet.absoluteFill}
           />
         </View>

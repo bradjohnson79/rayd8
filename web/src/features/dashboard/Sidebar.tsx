@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { AuthUser } from '../../app/types'
 import { useUpgradeNavigation } from '../auth/useUpgradeNavigation'
+import { useVisualPerformanceMode } from '../performance/useVisualPerformanceMode'
+import type { VisualPerformanceMode } from '../performance/visualPerformancePreference'
 import { dashboardSectionIds, type DashboardSectionId } from './dashboardSections'
 import { getSidebarItems } from './sidebarItems'
 import type { ExpressShellMode } from './useExpressNavigation'
@@ -115,6 +117,8 @@ function SidebarPanelContent({
   const location = useLocation()
   const navigate = useNavigate()
   const navigateToUpgrade = useUpgradeNavigation()
+  const { mode: visualPerformanceMode, setMode: setVisualPerformanceMode } =
+    useVisualPerformanceMode()
   const items = isMembershipLoading ? getSidebarItems({ ...user, plan: 'premium' }) : getSidebarItems(user)
   const [observerActiveSection, setObserverActiveSection] =
     useState<DashboardSectionId>('expansion')
@@ -303,6 +307,23 @@ function SidebarPanelContent({
       </nav>
 
       <div className={footerClassName}>
+        <label className="mb-3 block rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+          <span className="block text-[10px] uppercase tracking-[0.24em] text-slate-400">
+            Visual Performance
+          </span>
+          <select
+            aria-label="Visual performance"
+            className="mt-2 w-full rounded-lg border border-white/10 bg-black/40 px-2 py-2 text-xs uppercase tracking-[0.18em] text-white"
+            onChange={(event) =>
+              setVisualPerformanceMode(event.target.value as VisualPerformanceMode)
+            }
+            value={visualPerformanceMode}
+          >
+            <option value="automatic">Automatic</option>
+            <option value="standard">Standard</option>
+            <option value="reduced">Reduced</option>
+          </select>
+        </label>
         <button
           className="flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs uppercase tracking-[0.24em] text-white transition-colors hover:bg-white/[0.08]"
           onClick={handleBackToHome}

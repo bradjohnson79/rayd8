@@ -177,6 +177,7 @@ export const CenterDisplay: React.FC<CenterDisplayProps> = ({
                     renderState={renderState}
                     glyphColor={color}
                     speed={speed}
+                    isPlaying={isPlaying}
                   />
 
                   <SmoothImage

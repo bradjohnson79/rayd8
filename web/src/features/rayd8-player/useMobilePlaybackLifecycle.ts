@@ -6,6 +6,7 @@ import { addTrackedDomEventListener } from './playerDiagnostics'
 interface UseMobilePlaybackLifecycleInput {
   enabled: boolean
   getVideoElement: () => HTMLVideoElement | null
+  getAudioElement?: () => HTMLAudioElement | null
   orientationSettlingRef: MutableRefObject<boolean>
   playbackAuthority: PlaybackAuthorityController | null
   shouldVideoBePlaying: (video: HTMLVideoElement | null) => boolean
@@ -17,9 +18,21 @@ function videoLooksStalled(video: HTMLVideoElement) {
   return video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.networkState === HTMLMediaElement.NETWORK_LOADING
 }
 
+function resolveGlobalAudioElement(): HTMLAudioElement | null {
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  return (
+    (document.querySelector('audio[data-rayd8-global-audio="true"]') as HTMLAudioElement | null) ??
+    (document.querySelector('audio') as HTMLAudioElement | null)
+  )
+}
+
 export function useMobilePlaybackLifecycle({
   enabled,
   getVideoElement,
+  getAudioElement,
   orientationSettlingRef,
   playbackAuthority,
   shouldVideoBePlaying,
@@ -43,19 +56,40 @@ export function useMobilePlaybackLifecycle({
   }, [getVideoElement, playbackAuthority, shouldVideoBePlaying])
 
   useEffect(() => {
-    const handleHidden = () => {
+    if (!enabled) {
+      return
+    }
+
+    const pauseMediaForHiddenTab = () => {
+      const video = getVideoElement()
+      if (video && !video.paused) {
+        try {
+          video.pause()
+        } catch {
+          /* ignore pause races during teardown */
+        }
+      }
+
+      const audio = getAudioElement?.() ?? resolveGlobalAudioElement()
+      if (audio && !audio.paused) {
+        try {
+          audio.pause()
+        } catch {
+          /* ignore pause races during teardown */
+        }
+      }
+
       playbackAuthority?.dispatch({ type: 'tab_hidden' })
     }
+
     const handleVisible = () => {
       playbackAuthority?.dispatch({ type: 'tab_visible' })
-
-      if (enabled) {
-        void softResumeVideo()
-      }
+      void softResumeVideo()
     }
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        handleHidden()
+        pauseMediaForHiddenTab()
         return
       }
 
@@ -71,7 +105,7 @@ export function useMobilePlaybackLifecycle({
     const removePageHideListener = addTrackedDomEventListener(
       window,
       'pagehide',
-      handleHidden as EventListener,
+      pauseMediaForHiddenTab as EventListener,
       'window:pagehide:mobile-playback',
     )
     const removePageShowListener = addTrackedDomEventListener(
@@ -93,7 +127,7 @@ export function useMobilePlaybackLifecycle({
       removePageShowListener()
       removeFocusListener()
     }
-  }, [enabled, playbackAuthority, softResumeVideo])
+  }, [enabled, getAudioElement, getVideoElement, playbackAuthority, softResumeVideo])
 
   useEffect(() => {
     if (!enabled) {

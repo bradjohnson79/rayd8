@@ -1,0 +1,7 @@
+branch=audit/rayd8-performance-thermal
+starting_sha=fb9ed241e4f480f86cfcf0983028fa826909076c
+baseline_tag=audit/perf-thermal-baseline-fb9ed241e4f480f86cfcf0983028fa826909076c
+node=v22.18.0
+npm=10.9.3
+date=2026-08-01T16:32:04Z
+host=arm64 macOS 15.6.1

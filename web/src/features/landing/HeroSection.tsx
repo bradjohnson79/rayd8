@@ -4,7 +4,8 @@ import { ConversionButton } from './components/ConversionButton'
 import { LandingBackToTop } from './components/LandingBackToTop'
 import { useLandingMembership } from './useLandingMembership'
 
-const HERO_STILL = '/hero/RAYD8-Premium.png'
+// Prefer the optimized still (~52KB). The previous Premium still (~1.5MB) was an LCP bottleneck.
+const HERO_STILL = '/hero/RAYD8_Hero.png'
 
 interface HeroSectionProps {
   reducedEffects?: boolean
@@ -23,9 +24,9 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
         decoding="async"
         draggable={false}
         fetchPriority="high"
-        height={1080}
+        height={576}
         src={HERO_STILL}
-        width={1920}
+        width={1024}
       />
 
       <div

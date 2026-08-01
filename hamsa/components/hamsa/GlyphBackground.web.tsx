@@ -8,7 +8,11 @@ import Animated, {
 } from "react-native-reanimated";
 import { Speed } from "../../constants/hamsa";
 import { HamsaRenderState } from "../../hooks/useHamsaRenderEngine";
-// Helper to parse hex to [r, g, b] 0..1
+import {
+  HAMSA_WEBGL_FRAME_MS,
+  shouldRunHamsaWebglLoop,
+} from "../../utils/webglRenderLoop";
+
 const hexToRgb = (hex: string): [number, number, number] => {
   const clean = hex.replace("#", "");
   const r = parseInt(clean.substring(0, 2), 16) / 255;
@@ -23,6 +27,7 @@ interface Props extends AnimatedProps<ViewProps> {
   height?: number;
   glyphColor?: string;
   speed?: Speed;
+  isPlaying?: boolean;
 }
 
 export const GlyphBackground = ({
@@ -32,10 +37,18 @@ export const GlyphBackground = ({
   height,
   glyphColor,
   speed,
+  isPlaying = false,
   ...props
 }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const requestRef = useRef<number>(null);
+  const requestRef = useRef<number | null>(null);
+  const lastDrawAtRef = useRef(0);
+  const isPlayingRef = useRef(isPlaying);
+  const drawFrameRef = useRef<((time: number) => void) | null>(null);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
 
   const viewAlpha = useSharedValue(1);
   const initialRgb = glyphColor
@@ -50,7 +63,6 @@ export const GlyphBackground = ({
     if (glyphColor) {
       const newColor = hexToRgb(glyphColor);
 
-      // Snapshot current visual state for smooth transition
       const r =
         prevColor.value[0] * (1 - themeBlend.value) +
         currColor.value[0] * themeBlend.value;
@@ -81,7 +93,11 @@ export const GlyphBackground = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const gl = canvas.getContext("webgl");
+    const gl = canvas.getContext("webgl", {
+      alpha: true,
+      antialias: false,
+      powerPreference: "low-power",
+    });
     if (!gl) return;
 
     const vsSource = `
@@ -92,7 +108,7 @@ export const GlyphBackground = ({
     `;
 
     const fsSource = `
-      precision highp float;
+      precision mediump float;
       uniform float u_time;
       uniform vec2 u_resolution;
       uniform vec3 u_prevColor;
@@ -103,11 +119,9 @@ export const GlyphBackground = ({
 
       void main() {
         vec2 uv = gl_FragCoord.xy / u_resolution;
-        // Flip Y for Skia parity
         uv.y = 1.0 - uv.y;
-        
+
         vec2 center = uv - 0.5;
-        // Correct aspect ratio
         center.x *= u_resolution.x / u_resolution.y;
 
         float dist = length(center);
@@ -116,24 +130,22 @@ export const GlyphBackground = ({
 
         vec3 baseColor = mix(u_prevColor, u_currColor, u_themeBlend);
 
-        // lightening
         float lightAmount = 0.10;
         vec3 lightColor = mix(baseColor, vec3(0.5), lightAmount);
 
         float finalAlpha = alpha * u_globalAlpha;
-        // Premultiplied alpha
         gl_FragColor = vec4(lightColor * finalAlpha, finalAlpha);
       }
     `;
 
     const loadShader = (
-      gl: WebGLRenderingContext,
+      glCtx: WebGLRenderingContext,
       type: number,
       source: string,
     ) => {
-      const shader = gl.createShader(type)!;
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
+      const shader = glCtx.createShader(type)!;
+      glCtx.shaderSource(shader, source);
+      glCtx.compileShader(shader);
       return shader;
     };
 
@@ -166,12 +178,10 @@ export const GlyphBackground = ({
     const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0];
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-    const render = () => {
-      // Handle resize
+    const drawOnce = () => {
       const displayWidth = canvas.clientWidth;
       const displayHeight = canvas.clientHeight;
       if (displayWidth === 0 || displayHeight === 0) {
-        requestRef.current = requestAnimationFrame(render);
         return;
       }
 
@@ -210,16 +220,60 @@ export const GlyphBackground = ({
       gl.uniform1f(programInfo.uniformLocations.globalAlpha, viewAlpha.value);
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    };
+
+    const stopLoop = () => {
+      if (requestRef.current != null) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
+      }
+    };
+
+    const render = (time: number) => {
+      requestRef.current = null;
+
+      if (!shouldRunHamsaWebglLoop(isPlayingRef.current)) {
+        drawOnce();
+        return;
+      }
+
+      if (time - lastDrawAtRef.current >= HAMSA_WEBGL_FRAME_MS) {
+        drawOnce();
+        lastDrawAtRef.current = time;
+      }
 
       requestRef.current = requestAnimationFrame(render);
     };
 
-    requestRef.current = requestAnimationFrame(render);
+    drawFrameRef.current = render;
+
+    const ensureLoop = () => {
+      stopLoop();
+      requestRef.current = requestAnimationFrame(render);
+    };
+
+    ensureLoop();
+    document.addEventListener("visibilitychange", ensureLoop);
 
     return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      document.removeEventListener("visibilitychange", ensureLoop);
+      stopLoop();
+      const loseContext = gl.getExtension("WEBGL_lose_context") as
+        | { loseContext: () => void }
+        | null;
+      loseContext?.loseContext();
     };
   }, [renderState, prevColor, currColor, themeBlend, viewAlpha]);
+
+  useEffect(() => {
+    if (drawFrameRef.current) {
+      if (requestRef.current != null) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
+      }
+      requestRef.current = requestAnimationFrame(drawFrameRef.current);
+    }
+  }, [isPlaying]);
 
   return (
     <Animated.View style={[styles.container, style, animatedStyle]} {...props}>

@@ -2,6 +2,10 @@ import React, { useEffect, useRef } from "react";
 import { StyleSheet, ViewProps } from "react-native";
 import { AnimatedProps } from "react-native-reanimated";
 import { HamsaRenderState } from "../../hooks/useHamsaRenderEngine";
+import {
+  HAMSA_WEBGL_FRAME_MS,
+  shouldRunHamsaWebglLoop,
+} from "../../utils/webglRenderLoop";
 
 interface HandOutlineGlowProps extends AnimatedProps<ViewProps> {
   renderState: HamsaRenderState;
@@ -11,6 +15,7 @@ interface HandOutlineGlowProps extends AnimatedProps<ViewProps> {
   handHeight?: number;
   handX?: number;
   handY?: number;
+  isPlaying?: boolean;
 }
 
 export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
@@ -21,13 +26,20 @@ export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
   handHeight,
   handX,
   handY,
+  isPlaying = false,
   style,
   ...props
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const requestRef = useRef<number>(null);
+  const requestRef = useRef<number | null>(null);
+  const lastDrawAtRef = useRef(0);
+  const isPlayingRef = useRef(isPlaying);
+  const drawFrameRef = useRef<((time: number) => void) | null>(null);
 
-  // Derive center and resolution from props to match Skia version's logic
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
   const cx =
     handX !== undefined && handWidth !== undefined
       ? handX + handWidth / 2
@@ -47,6 +59,8 @@ export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
     const gl = canvas.getContext("webgl", {
       alpha: true,
       premultipliedAlpha: false,
+      antialias: false,
+      powerPreference: "low-power",
     });
     if (!gl) return;
 
@@ -61,7 +75,7 @@ export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
     `;
 
     const fsSource = `
-      precision highp float;
+      precision mediump float;
       uniform float u_time;
       uniform vec2 u_resolution;
       uniform vec2 u_handResolution;
@@ -73,7 +87,6 @@ export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
 
       void main() {
         vec2 pos = gl_FragCoord.xy;
-        // Flip Y to match Skia's top-left origin
         vec2 skiaPos = vec2(pos.x, u_resolution.y - pos.y);
 
         vec2 p = skiaPos - u_centerPosition;
@@ -98,13 +111,13 @@ export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
     `;
 
     const loadShader = (
-      gl: WebGLRenderingContext,
+      glCtx: WebGLRenderingContext,
       type: number,
       source: string,
     ) => {
-      const shader = gl.createShader(type)!;
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
+      const shader = glCtx.createShader(type)!;
+      glCtx.shaderSource(shader, source);
+      glCtx.compileShader(shader);
       return shader;
     };
 
@@ -144,12 +157,10 @@ export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
     const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0];
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-    const render = () => {
-      // Handle resize
+    const drawOnce = () => {
       const displayWidth = canvas.clientWidth;
       const displayHeight = canvas.clientHeight;
       if (displayWidth === 0 || displayHeight === 0) {
-        requestRef.current = requestAnimationFrame(render);
         return;
       }
 
@@ -159,7 +170,6 @@ export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
         gl.viewport(0, 0, displayWidth, displayHeight);
       }
 
-      // Calculate center dynamically to be more robust on web
       const currentCx =
         handX !== undefined && handWidth !== undefined
           ? handX + handWidth / 2
@@ -216,16 +226,60 @@ export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
       gl.uniform1f(programInfo.uniformLocations.pulse, renderState.pulse.value);
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    };
+
+    const stopLoop = () => {
+      if (requestRef.current != null) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
+      }
+    };
+
+    const render = (time: number) => {
+      requestRef.current = null;
+
+      if (!shouldRunHamsaWebglLoop(isPlayingRef.current)) {
+        drawOnce();
+        return;
+      }
+
+      if (time - lastDrawAtRef.current >= HAMSA_WEBGL_FRAME_MS) {
+        drawOnce();
+        lastDrawAtRef.current = time;
+      }
 
       requestRef.current = requestAnimationFrame(render);
     };
 
-    requestRef.current = requestAnimationFrame(render);
+    drawFrameRef.current = render;
+
+    const ensureLoop = () => {
+      stopLoop();
+      requestRef.current = requestAnimationFrame(render);
+    };
+
+    ensureLoop();
+    document.addEventListener("visibilitychange", ensureLoop);
 
     return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      document.removeEventListener("visibilitychange", ensureLoop);
+      stopLoop();
+      const loseContext = gl.getExtension("WEBGL_lose_context") as
+        | { loseContext: () => void }
+        | null;
+      loseContext?.loseContext();
     };
-  }, [renderState, hWidth, hHeight, cx, cy]);
+  }, [renderState, hWidth, hHeight, cx, cy, handX, handY, handWidth, handHeight]);
+
+  useEffect(() => {
+    if (drawFrameRef.current) {
+      if (requestRef.current != null) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
+      }
+      requestRef.current = requestAnimationFrame(drawFrameRef.current);
+    }
+  }, [isPlaying]);
 
   return (
     <canvas
@@ -238,6 +292,7 @@ export const HandOutlineGlow: React.FC<HandOutlineGlowProps> = ({
         height: "100%",
         ...(StyleSheet.flatten(style) as any),
       }}
+      {...(props as any)}
     />
   );
 };

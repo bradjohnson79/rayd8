@@ -705,6 +705,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
     let cancelled = false
 
     const heartbeat = async () => {
+      if (typeof document !== 'undefined' && document.hidden) {
+        return
+      }
+
       const tokenResult = await getTokenSafe()
 
       if (cancelled) {
@@ -760,9 +764,17 @@ export function SessionProvider({ children }: PropsWithChildren) {
       void heartbeat()
     }, HEARTBEAT_MS)
 
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        void heartbeat()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
     return () => {
       cancelled = true
       sessionScheduler.clear('usage-heartbeat')
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [
     authStatus,

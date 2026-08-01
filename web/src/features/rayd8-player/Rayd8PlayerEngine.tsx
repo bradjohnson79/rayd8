@@ -229,10 +229,12 @@ const PLAYBACK_READY_TIMEOUT_MS = 8_000
 const COMPACT_PLAYER_STAGE_HEIGHT_PX = 600
 const DESKTOP_FULLSCREEN_EXIT_HINT_STORAGE_KEY = 'rayd8_fullscreen_exit_hint_desktop'
 const MOBILE_FULLSCREEN_EXIT_HINT_STORAGE_KEY = 'rayd8_fullscreen_exit_hint_mobile'
+// Default to performance presentation (no CSS brightness filter on the video
+// layer). Opt into cinematic via VITE_RAYD8_PLAYBACK_PRESENTATION_MODE=cinematic.
 const playbackPresentationMode =
-  import.meta.env.VITE_RAYD8_PLAYBACK_PRESENTATION_MODE === 'performance'
-    ? 'performance'
-    : 'cinematic'
+  import.meta.env.VITE_RAYD8_PLAYBACK_PRESENTATION_MODE === 'cinematic'
+    ? 'cinematic'
+    : 'performance'
 
 interface PlaybackStabilityProfile {
   backBufferLength: number
@@ -279,10 +281,12 @@ function getPlaybackStabilityProfile(mobileOptimized: boolean): PlaybackStabilit
   }
 
   return {
-    backBufferLength: 90,
+    // Desktop buffer caps reduced to cut decode/memory pressure on MacBook
+    // sessions while retaining enough runway for brief network stalls.
+    backBufferLength: 30,
     mobileOptimized: false,
-    maxBufferLength: 40,
-    maxMaxBufferLength: 120,
+    maxBufferLength: 24,
+    maxMaxBufferLength: 60,
     startLevel: -1,
   }
 }
@@ -1291,7 +1295,10 @@ export function Rayd8PlayerEngine({
   })
 
   useMobilePlaybackLifecycle({
-    enabled: mobilePlaybackRefactorEnabled && touchLikeFullscreenViewport,
+    // Desktop MacBook sessions previously skipped this hook, so dual Mux
+    // streams kept decoding while the tab was hidden. Enable for all active
+    // playback; orientation recovery remains harmless on desktop.
+    enabled: isActive,
     getVideoElement,
     orientationSettlingRef,
     playbackAuthority,
@@ -1749,6 +1756,11 @@ export function Rayd8PlayerEngine({
     playbackScheduler.setInterval('video-freeze-check', () => {
       markFreezePollScheduled()
       markFreezePollExecuted()
+
+      if (typeof document !== 'undefined' && document.hidden) {
+        freezeCounterRef.current = 0
+        return
+      }
 
       const activeVideo = getVideoElement()
       const audioElement =
