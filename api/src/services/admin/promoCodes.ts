@@ -15,6 +15,14 @@ type PromoCodeDuration = 'forever' | 'once' | 'repeating'
 type PromoCodePlan = 'all' | 'amrita' | 'regen'
 type PromoCodeSyncStatus = 'error' | 'inactive' | 'mismatch' | 'missing' | 'pending' | 'synced'
 
+function normalizePromoDuration(value: string): PromoCodeDuration {
+  if (value === 'forever' || value === 'once' || value === 'repeating') {
+    return value
+  }
+
+  throw new Error(`Unsupported Stripe coupon duration: ${value}`)
+}
+
 export interface AdminPromoCodeRecord {
   amount_off: number | null
   applies_to_plan: PromoCodePlan
@@ -877,11 +885,13 @@ export async function repairPromoCodeSync(id: string) {
         rayd8_repaired_from_coupon: coupon.id,
         rayd8_repaired_from_promo: promotionCode.id,
       }
+      const repairedDuration = normalizePromoDuration(coupon.duration)
       const repairedCoupon = await stripeClient.coupons.create({
         amount_off: coupon.amount_off ?? undefined,
         currency: coupon.amount_off ? coupon.currency ?? existing.currency : undefined,
-        duration: coupon.duration,
-        duration_in_months: coupon.duration === 'repeating' ? coupon.duration_in_months ?? undefined : undefined,
+        duration: repairedDuration,
+        duration_in_months:
+          repairedDuration === 'repeating' ? coupon.duration_in_months ?? undefined : undefined,
         max_redemptions: coupon.max_redemptions ?? undefined,
         metadata,
         name: coupon.name ?? existing.name,
@@ -927,7 +937,7 @@ export async function repairPromoCodeSync(id: string) {
       code: normalizeCode(promotionCode.code),
       currency: coupon.currency ?? existing.currency,
       discountType: coupon.amount_off ? 'amount' : 'percent',
-      duration: coupon.duration,
+      duration: normalizePromoDuration(coupon.duration),
       durationInMonths: coupon.duration_in_months ?? null,
       expiresAt: fromUnixSeconds(promotionCode.expires_at ?? coupon.redeem_by),
       isActive: promotionCode.active,
