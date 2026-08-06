@@ -25,7 +25,9 @@
     "test:thermal-budgets": "node scripts/thermal-budget-gates.mjs",
     "test:thermal-behavior": "node scripts/thermal-behavior-smoke.mjs",
     "test:thermal-soak:short": "RAYD8_MUX_SOAK_MS=300000 RAYD8_AMRITA_SHORT_MS=300000 node scripts/amrita-mux-stability.mjs",
-    "test:thermal-soak:30m": "RAYD8_MUX_SOAK_MS=1800000 node scripts/amrita-mux-stability.mjs"
+    "test:thermal-soak:30m": "RAYD8_MUX_SOAK_MS=1800000 node scripts/amrita-mux-stability.mjs",
+    "test:session-startup-unit": "node --import ../api/node_modules/tsx/dist/esm/index.mjs --test src/features/rayd8-player/sessionStartupTaxonomy.test.ts src/features/rayd8-player/playbackHealthStateMachine.test.ts src/features/rayd8-player/mediaController.forceReload.test.ts",
+    "test:session-startup-closure": "npm run test:session-startup-unit && npm run test:no-playback-prompt && npm run test:mux-telemetry"
   },
   "dependencies": {
     "@clerk/react": "^6.4.2",
