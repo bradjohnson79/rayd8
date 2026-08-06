@@ -10,3 +10,5 @@ M1–M3 session-startup reliability repairs are implemented on `fix/session-star
 4. Session end is idempotent; unload uses keepalive fetch; stale-session dry-run reconciler added; start soft-reconciles stale actives.
 
 Residual conditions: authenticated Express live matrix and Brave Shields comparison remain CONDITIONAL (no lab auth / Brave). Automated unit gates pass. No soaks run.
+
+**Final clean SHA:** `e9ab51304e15aae83c6c122f379a32f3a63a84ab`

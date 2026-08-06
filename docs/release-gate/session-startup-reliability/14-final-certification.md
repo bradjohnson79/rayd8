@@ -23,6 +23,9 @@
 | Second-session cleanliness | Pass (static) | Reload new session; Restart preserves |
 | Final readiness | **CONDITIONAL GO** | Live auth/Brave gaps |
 
+**Final clean SHA:** `e9ab51304e15aae83c6c122f379a32f3a63a84ab`  
+**Baseline tag:** `baseline/session-startup-reliability-pre` (`a8ecb87`)
+
 ## Answers
 
 1. Original screenshot path = playback-health hard fallback after mount.  
