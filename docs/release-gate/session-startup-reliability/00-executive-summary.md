@@ -11,4 +11,4 @@ M1–M3 session-startup reliability repairs are implemented on `fix/session-star
 
 Residual conditions: authenticated Express live matrix and Brave Shields comparison remain CONDITIONAL (no lab auth / Brave). Automated unit gates pass. No soaks run.
 
-**Final clean SHA:** `e9ab51304e15aae83c6c122f379a32f3a63a84ab`
+**Final clean SHA:** `af97d0be0cb89ac3ead058a9c16f630aa2197c02`
