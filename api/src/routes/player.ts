@@ -16,6 +16,7 @@ import {
   type TrialBlockReason,
 } from '../services/player/trialStatus.js'
 import { getExperienceAccessForUser } from '../services/player/usageSummary.js'
+import { softReconcileUserStaleActives } from '../services/player/staleSessionReconciliation.js'
 import {
   endUsageSession,
   heartbeatUsageSession,
@@ -251,6 +252,14 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
         userId: request.auth.userId,
       })
       return reply.code(403).send(getBlockedExperienceError(access))
+    }
+
+    // Soft-reconcile clearly stale prior actives so leftovers cannot pressure ops/accounting.
+    // Never blocks a valid new session.
+    try {
+      await softReconcileUserStaleActives({ userId: request.auth.userId })
+    } catch (error) {
+      console.warn('stale session soft-reconcile skipped', error)
     }
 
     const session = await startUsageSession({

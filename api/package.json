@@ -17,6 +17,9 @@
     "test:smoke": "vitest run src/services/notifications/notifications.smoke.test.ts",
     "fixture:mux-soak-auth": "tsx scripts/mux-soak-auth-fixture.ts",
     "test:mux-ttl": "vitest run src/services/admin/muxAdmin.ttl.test.ts",
+    "test:session-end-reliability": "vitest run src/services/player/usageTracking.end.idempotency.test.ts",
+    "test:session-reconciliation": "vitest run src/services/player/staleSessionReconciliation.test.ts",
+    "sessions:reconcile": "tsx scripts/reconcile-stale-sessions.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
