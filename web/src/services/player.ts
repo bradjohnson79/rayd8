@@ -1,5 +1,5 @@
 import type { Experience } from '../app/types'
-import { apiRequest } from './api'
+import { apiBaseUrl, apiRequest } from './api'
 
 export type UsageBlockReason =
   | 'free_expansion_limit_reached'
@@ -128,4 +128,48 @@ export function endPlaybackSession(sessionId: string, token: string) {
     },
     token,
   )
+}
+
+/**
+ * Layered session-end delivery for page lifecycle.
+ * 1) keepalive fetch with Authorization (preferred on unload)
+ * 2) sendBeacon JSON fallback without auth is intentionally NOT used alone —
+ *    auth is required by the API; beacon is only attempted with a Blob that
+ *    cannot set Authorization, so we skip beacon unless keepalive fails and
+ *    rely on server-side stale reconciliation.
+ */
+export async function endPlaybackSessionReliable(
+  sessionId: string,
+  token: string,
+  options?: { transport?: 'standard' | 'unload' },
+): Promise<{ ok: boolean; transport: 'standard' | 'keepalive' | 'failed' }> {
+  const transport = options?.transport ?? 'standard'
+
+  if (transport === 'standard') {
+    try {
+      await endPlaybackSession(sessionId, token)
+      return { ok: true, transport: 'standard' }
+    } catch {
+      return { ok: false, transport: 'failed' }
+    }
+  }
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/v1/player/session/end`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ sessionId }),
+      keepalive: true,
+    })
+    if (response.ok) {
+      return { ok: true, transport: 'keepalive' }
+    }
+  } catch {
+    // Fall through — stale-session reconciliation covers abandoned sessions.
+  }
+
+  return { ok: false, transport: 'failed' }
 }

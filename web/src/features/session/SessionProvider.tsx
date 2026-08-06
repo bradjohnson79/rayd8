@@ -23,6 +23,7 @@ import { getAdminMuxPlaybackToken } from '../../services/admin'
 import {
   computeMuxPlaybackExpiryMs,
   endPlaybackSession,
+  endPlaybackSessionReliable,
   getMemberPlaybackToken,
   heartbeatPlaybackSession,
   startPlaybackSession,
@@ -503,7 +504,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
   }, [])
 
   const finalizeTrackedSession = useCallback(
-    async (sessionId: string | null) => {
+    async (
+      sessionId: string | null,
+      options?: { transport?: 'standard' | 'unload' },
+    ) => {
       if (!sessionId) {
         return
       }
@@ -515,8 +519,15 @@ export function SessionProvider({ children }: PropsWithChildren) {
       }
 
       try {
-        const response = await endPlaybackSession(sessionId, tokenResult.token)
-        updateExperienceAccess(response.access)
+        if ((options?.transport ?? 'standard') === 'standard') {
+          const response = await endPlaybackSession(sessionId, tokenResult.token)
+          updateExperienceAccess(response.access)
+          return
+        }
+
+        await endPlaybackSessionReliable(sessionId, tokenResult.token, {
+          transport: 'unload',
+        })
       } catch {
         // Keep end-session cleanup best-effort so the UI can close immediately.
       }
@@ -545,7 +556,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     })
 
     if (currentTrackingSessionId) {
-      void finalizeTrackedSession(currentTrackingSessionId)
+      void finalizeTrackedSession(currentTrackingSessionId, { transport: 'standard' })
     }
   }, [finalizeTrackedSession])
 
@@ -795,6 +806,25 @@ export function SessionProvider({ children }: PropsWithChildren) {
     },
     [sessionScheduler],
   )
+
+  useEffect(() => {
+    if (!state.isActive) {
+      return
+    }
+
+    const flushOnPageExit = () => {
+      const sessionId = trackingSessionIdRef.current
+      if (!sessionId) {
+        return
+      }
+      void finalizeTrackedSession(sessionId, { transport: 'unload' })
+    }
+
+    window.addEventListener('pagehide', flushOnPageExit)
+    return () => {
+      window.removeEventListener('pagehide', flushOnPageExit)
+    }
+  }, [finalizeTrackedSession, state.isActive])
 
   const value = useMemo<SessionContextValue>(
     () => ({

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lt } from 'drizzle-orm'
+import { and, desc, eq, gte, isNull, lt } from 'drizzle-orm'
 import { db } from '../../db/client.js'
 import { activeSessions, subscriptions, usageSessions } from '../../db/schema.js'
 import type { AppPlan, Experience } from './accessPolicy.js'
@@ -223,6 +223,22 @@ export async function endUsageSession(input: {
     return null
   }
 
+  // Idempotent: already-ended sessions must not accrue more usage.
+  if (existingSession.endedAt) {
+    await db
+      .delete(activeSessions)
+      .where(and(eq(activeSessions.id, input.sessionId), eq(activeSessions.userId, input.userId)))
+
+    return {
+      endedAt: existingSession.endedAt,
+      experience: existingSession.experience,
+      id: existingSession.id,
+      minutesWatched: existingSession.minutesWatched,
+      secondsWatched: existingSession.secondsWatched,
+      alreadyEnded: true as const,
+    }
+  }
+
   const endedAt = new Date()
   const trackedSeconds = toTrackedHeartbeatSeconds(existingSession.lastHeartbeat, endedAt)
   const appliedTrackedSeconds = input.trackUsage === false ? 0 : trackedSeconds
@@ -237,7 +253,7 @@ export async function endUsageSession(input: {
       minutesWatched,
       secondsWatched,
     })
-    .where(eq(usageSessions.id, input.sessionId))
+    .where(and(eq(usageSessions.id, input.sessionId), isNull(usageSessions.endedAt)))
 
   await addTrackedUsageSeconds({
     experience: existingSession.experience,
@@ -256,5 +272,6 @@ export async function endUsageSession(input: {
     id: existingSession.id,
     minutesWatched,
     secondsWatched,
+    alreadyEnded: false as const,
   }
 }
