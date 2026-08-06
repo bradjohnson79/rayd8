@@ -56,6 +56,7 @@ export async function setMediaSource(input: {
   controllerProfileRef?: MutableRefObject<string | null>
   controllerRef: MutableRefObject<HlsController | null>
   diagnostics?: MediaDiagnostics
+  forceReload?: boolean
   generationRef: MutableRefObject<number>
   media: HTMLMediaElement | null
   options?: { pauseBeforeLoad?: boolean }
@@ -68,6 +69,7 @@ export async function setMediaSource(input: {
     controllerProfileRef,
     controllerRef,
     diagnostics,
+    forceReload = false,
     generationRef,
     media,
     options,
@@ -83,8 +85,31 @@ export async function setMediaSource(input: {
 
   const currentSource = media.currentSrc || media.getAttribute('src')
 
-  if (currentSource === sourceUrl && (!controllerRef.current || controllerProfileRef?.current === profileKey)) {
+  if (
+    !forceReload &&
+    currentSource === sourceUrl &&
+    (!controllerRef.current || controllerProfileRef?.current === profileKey)
+  ) {
     return true
+  }
+
+  if (forceReload && controllerRef.current) {
+    diagnostics?.recordController?.('destroy')
+    try {
+      controllerRef.current.destroy()
+    } catch {
+      // Best-effort teardown before forced recreate.
+    }
+    controllerRef.current = null
+    if (controllerProfileRef) {
+      controllerProfileRef.current = null
+    }
+    try {
+      media.removeAttribute('src')
+      media.load()
+    } catch {
+      // Best-effort native source clear.
+    }
   }
 
   if (options?.pauseBeforeLoad ?? true) {
