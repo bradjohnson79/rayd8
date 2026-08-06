@@ -1,0 +1,12 @@
+{
+  "event": "session_startup_incident",
+  "kind": "overlay_shown",
+  "stage": "PLAYBACK_HEALTH",
+  "code": "MEDIA_START_TIMEOUT",
+  "referenceCode": "R8-7F3A",
+  "sourceApplied": true,
+  "sessionIdPresent": true,
+  "documentVisibility": "visible",
+  "online": true,
+  "healthGuardState": "FAILED"
+}
