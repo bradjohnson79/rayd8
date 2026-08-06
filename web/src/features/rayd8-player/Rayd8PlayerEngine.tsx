@@ -19,10 +19,23 @@ import {
 import { GuideModal } from './GuideModal'
 import { PlayerPerformanceNotice } from './PlayerPerformanceNotice'
 import {
-  PlaybackHealthFallbackOverlay,
   PreloadOverlay,
+  StartupRecoveryOverlay,
   UsageWarningOverlay,
 } from './PlayerSessionStatusOverlays'
+import {
+  createStartupCorrelationId,
+  getRecoveryOverlayCopy,
+  mapApiErrorToStartupFailure,
+  mapMediaReasonToStartupFailure,
+  selectRecoveryOverlay,
+  type PlayerStartupFailure,
+} from './sessionStartupTaxonomy'
+import {
+  bucketCurrentTime,
+  emitSessionStartupIncident,
+  failureToSnapshotFields,
+} from './sessionStartupTelemetry'
 import { VideoSurface } from './VideoSurface'
 import { acquireBodyScrollLock } from './bodyScrollLock'
 import { isMobilePlaybackRefactorEnabled } from './mobilePlaybackFeatureFlag'
@@ -694,6 +707,16 @@ export function Rayd8PlayerEngine({
   const [primaryVideoReady, setPrimaryVideoReady] = useState(false)
   const [initFailureVisible, setInitFailureVisible] = useState(false)
   const [initRetryKey, setInitRetryKey] = useState(0)
+  const [forceMediaReload, setForceMediaReload] = useState(false)
+  const [mediaOwned, setMediaOwned] = useState(false)
+  const [sourceApplied, setSourceApplied] = useState(false)
+  const [metadataReady, setMetadataReady] = useState(false)
+  const [autoplayPending, setAutoplayPending] = useState(false)
+  const [startupFailure, setStartupFailure] = useState<PlayerStartupFailure | null>(null)
+  const startupCorrelationIdRef = useRef(createStartupCorrelationId('express'))
+  const recoveryAttemptRef = useRef(0)
+  const previousRecoveryActionRef = useRef<string | null>(null)
+  const overlayTelemetrySentRef = useRef<string | null>(null)
   const [mobileViewport, setMobileViewport] = useState(() => isMobileViewport())
   const [tabletViewport, setTabletViewport] = useState(() => isTabletViewport())
   const [smallScreenViewport, setSmallScreenViewport] = useState(() => isSmallScreen())
@@ -1208,18 +1231,42 @@ export function Rayd8PlayerEngine({
   )
 
   const getVideoElement = useCallback(() => primaryVideoRef.current, [])
+  const getAudioElement = useCallback(() => {
+    if (typeof document === 'undefined') return null
+    return document.querySelector('audio[data-rayd8-global-audio="true"]') as HTMLAudioElement | null
+  }, [])
 
   const resumeMediaWithRetry = useCallback(async (media: HTMLMediaElement | null) => {
     const started = await tryPlayVideo(media)
 
     if (started.ok) {
+      setAutoplayPending(false)
       return true
     }
 
+    if (started.reason === 'NotAllowedError') {
+      setAutoplayPending(true)
+      return false
+    }
+
     const retried = await tryPlayVideo(media)
+    if (!retried.ok && retried.reason === 'NotAllowedError') {
+      setAutoplayPending(true)
+      return false
+    }
+    if (retried.ok) {
+      setAutoplayPending(false)
+    }
     return retried.ok
   }, [])
 
+  const pipelineMode =
+    audioTrack === 'none'
+      ? 'video'
+      : singleAvAudioActive
+        ? 'combined'
+        : ('dual' as const)
+  const audioRequired = audioTrack !== 'none' && !singleAvAudioActive
   const playbackHealthResetKey = `${sessionType}:${sessionConfig.videoMode}:${audioTrack}:${initRetryKey}`
   const handlePlaybackHealthSoftRecovery = useCallback(
     async (reason: string) => {
@@ -1236,12 +1283,100 @@ export function Rayd8PlayerEngine({
   const playbackHealthGuard = usePlaybackHealthGuard({
     enabled: !activeSoftDenialState,
     getVideoElement,
+    getAudioElement,
     onSoftRecovery: handlePlaybackHealthSoftRecovery,
     resetKey: playbackHealthResetKey,
+    pipelineMode,
+    audioRequired,
+    mediaOwned,
+    sourceApplied,
+    metadataReady,
+    autoplayPending,
+    intentionallyPaused: systemPausedRef.current,
+    ending: false,
+    replacingSource: forceMediaReload,
+    tokenRefreshing: false,
   })
   const playbackHealthFallbackVisible = playbackHealthGuard.fallbackVisible
   const reportPlaybackStartupFailure = playbackHealthGuard.reportStartupFailure
   const resetPlaybackHealth = playbackHealthGuard.reset
+
+  const recoveryOverlayKind = selectRecoveryOverlay({
+    softDenialActive: Boolean(activeSoftDenialState),
+    failure: startupFailure,
+    initFailureVisible,
+    playbackHealthFailed: playbackHealthFallbackVisible,
+    offline: typeof navigator !== 'undefined' ? !navigator.onLine : false,
+  })
+  const recoveryOverlayCopy = getRecoveryOverlayCopy({
+    kind: recoveryOverlayKind,
+    correlationId: startupCorrelationIdRef.current,
+  })
+
+  useEffect(() => {
+    if (playbackHealthFallbackVisible && !startupFailure) {
+      setStartupFailure(
+        mapMediaReasonToStartupFailure({
+          correlationId: startupCorrelationIdRef.current,
+          reason: 'startup_health_timeout',
+          sourceApplied: true,
+        }),
+      )
+    }
+  }, [playbackHealthFallbackVisible, startupFailure])
+
+  useEffect(() => {
+    if (!recoveryOverlayCopy || recoveryOverlayKind === 'soft_denial' || recoveryOverlayKind === 'none') {
+      return
+    }
+    const key = `${recoveryOverlayKind}:${startupFailure?.code ?? 'none'}`
+    if (overlayTelemetrySentRef.current === key) {
+      return
+    }
+    overlayTelemetrySentRef.current = key
+    const video = getVideoElement()
+    emitSessionStartupIncident({
+      kind: 'overlay_shown',
+      correlationId: startupCorrelationIdRef.current,
+      ...failureToSnapshotFields(startupFailure),
+      sessionType,
+      route: typeof window !== 'undefined' ? window.location.pathname : null,
+      productMode: pipelineMode,
+      browserFamily: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 40) : null,
+      sessionIdPresent: isActive,
+      videoElementPresent: Boolean(video),
+      audioElementPresent: Boolean(getAudioElement()),
+      sourceApplied,
+      currentSrcPresent: Boolean(video?.currentSrc),
+      videoWidth: video?.videoWidth ?? null,
+      readyState: video?.readyState ?? null,
+      networkState: video?.networkState ?? null,
+      currentTimeBucket: bucketCurrentTime(video?.currentTime),
+      paused: video?.paused ?? null,
+      ended: video?.ended ?? null,
+      autoplayPending,
+      audioOnlyMode: false,
+      dualStreamMode: pipelineMode === 'dual',
+      healthGuardState: playbackHealthGuard.status,
+      recoveryAttemptNumber: recoveryAttemptRef.current,
+      previousRecoveryAction: previousRecoveryActionRef.current,
+      referenceCode: recoveryOverlayCopy.referenceCode,
+      mediaControllerMode: pipelineMode,
+      playbackEngine: primaryVideoControllerRef.current ? 'hls.js' : 'native',
+    })
+  }, [
+    autoplayPending,
+    getAudioElement,
+    getVideoElement,
+    isActive,
+    pipelineMode,
+    playbackHealthGuard.status,
+    recoveryOverlayCopy,
+    recoveryOverlayKind,
+    sessionType,
+    sourceApplied,
+    startupFailure,
+  ])
 
   const destroyPrimaryVideoPipeline = useCallback((diagnosticsLabel: string) => {
     if (muxRefreshTimerRef.current !== null) {
@@ -1452,12 +1587,19 @@ export function Rayd8PlayerEngine({
       setPreloadPercent(0)
       setVideoError(null)
       setInitFailureVisible(false)
+      setStartupFailure(null)
+      setMediaOwned(false)
+      setSourceApplied(false)
+      setMetadataReady(false)
+      setAutoplayPending(false)
       resetPlaybackHealth()
       logExpressPlaybackDebug('syncVideoMode_start', {
         audioTrack,
         experience,
         mode: sessionConfig.videoMode,
       })
+
+      const shouldForceReload = forceMediaReload
 
       try {
         const videoAssetInput = {
@@ -1477,7 +1619,36 @@ export function Rayd8PlayerEngine({
         const assetId = combinedAssetId ?? resolvePlaybackAsset(videoAssetInput)
         setSingleAvAudioActive(singleAvAudioActive)
         playbackAuthority?.setPlaybackKind(singleAvAudioActive ? 'combined' : 'dual')
-        const playback = await fetchPlaybackPayload(assetId)
+        let playback: MuxPlaybackPayload
+        try {
+          playback = await fetchPlaybackPayload(assetId)
+        } catch (tokenError) {
+          if (!cancelled) {
+            const failure =
+              tokenError instanceof ApiRequestError
+                ? mapApiErrorToStartupFailure({
+                    correlationId: startupCorrelationIdRef.current,
+                    message: tokenError.message,
+                    status: tokenError.status,
+                    code: tokenError.code,
+                    offline: tokenError.code === 'NETWORK_ERROR',
+                  })
+                : mapApiErrorToStartupFailure({
+                    correlationId: startupCorrelationIdRef.current,
+                    message: tokenError instanceof Error ? tokenError.message : 'token_failed',
+                  })
+            setStartupFailure(failure)
+            if (failure.code === 'ENTITLEMENT_DENIED' || failure.code === 'AUTH_EXPIRED') {
+              // Soft-denial / auth paths handled by existing restriction UI when codes match.
+            } else if (
+              !(tokenError instanceof ApiRequestError) ||
+              (!isTrialBlockReason(tokenError.code) && !isFreeExperiencePreviewBlockReason(tokenError.code))
+            ) {
+              setInitFailureVisible(true)
+            }
+          }
+          throw tokenError
+        }
 
         if (cancelled || requestId !== videoRequestRef.current) {
           return
@@ -1488,6 +1659,11 @@ export function Rayd8PlayerEngine({
         if (!video) {
           if (!cancelled) {
             setPreloadPercent(0)
+            const failure = mapMediaReasonToStartupFailure({
+              correlationId: startupCorrelationIdRef.current,
+              reason: 'video_ref_missing',
+            })
+            setStartupFailure(failure)
             setInitFailureVisible(true)
             playbackAuthority?.dispatch({ type: 'lifecycle_fatal', message: 'Video element was not ready.' })
             logExpressPlaybackDebug('init_failure_fallback_shown', { reason: 'video_ref_missing' })
@@ -1509,7 +1685,7 @@ export function Rayd8PlayerEngine({
         clearMuxRefreshTimer()
 
         const diagnosticsLabel = `primary:${experience}:${sessionConfig.videoMode}`
-        logExpressPlaybackDebug('mux_source_load', { diagnosticsLabel })
+        logExpressPlaybackDebug('mux_source_load', { diagnosticsLabel, forceReload: shouldForceReload })
         const applied = await setMediaSource({
           controllerProfileRef: primaryVideoControllerProfileRef,
           controllerRef: primaryVideoControllerRef,
@@ -1517,6 +1693,7 @@ export function Rayd8PlayerEngine({
             recordController: (action) => recordHlsController(diagnosticsLabel, action),
             recordSourceLoad: (sourceUrl) => recordSourceLoad(diagnosticsLabel, sourceUrl),
           },
+          forceReload: shouldForceReload,
           generationRef: videoRequestRef,
           media: video,
           profileKey: playbackStabilityProfileRef.current.mobileOptimized ? 'mobile' : 'desktop',
@@ -1527,9 +1704,27 @@ export function Rayd8PlayerEngine({
 
         if (!applied || cancelled || requestId !== videoRequestRef.current) {
           if (!cancelled && requestId === videoRequestRef.current) {
+            const failure = mapMediaReasonToStartupFailure({
+              correlationId: startupCorrelationIdRef.current,
+              reason: 'media_source_not_applied',
+            })
+            setStartupFailure(failure)
             reportPlaybackStartupFailure('media_source_not_applied')
           }
           return
+        }
+
+        setSourceApplied(true)
+        setMediaOwned(true)
+        setForceMediaReload(false)
+        if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+          setMetadataReady(true)
+        } else {
+          const onLoadedMetadata = () => {
+            setMetadataReady(true)
+            video.removeEventListener('loadedmetadata', onLoadedMetadata)
+          }
+          video.addEventListener('loadedmetadata', onLoadedMetadata)
         }
 
         let muxRefreshFailures = 0
@@ -1689,7 +1884,18 @@ export function Rayd8PlayerEngine({
           }
 
           if (!started.ok) {
-            reportPlaybackStartupFailure('play_failed')
+            if (started.reason === 'NotAllowedError') {
+              setAutoplayPending(true)
+              reportPlaybackStartupFailure('AUTOPLAY_BLOCKED')
+            } else {
+              const failure = mapMediaReasonToStartupFailure({
+                correlationId: startupCorrelationIdRef.current,
+                reason: 'play_failed',
+                sourceApplied: true,
+              })
+              setStartupFailure(failure)
+              reportPlaybackStartupFailure('play_failed')
+            }
           }
         }
       } catch (error) {
@@ -1712,6 +1918,21 @@ export function Rayd8PlayerEngine({
           }
 
           playbackAuthority?.dispatch({ type: 'lifecycle_ready' })
+          if (!startupFailure) {
+            const failure =
+              error instanceof ApiRequestError
+                ? mapApiErrorToStartupFailure({
+                    correlationId: startupCorrelationIdRef.current,
+                    message: error.message,
+                    status: error.status,
+                    code: error.code,
+                  })
+                : mapMediaReasonToStartupFailure({
+                    correlationId: startupCorrelationIdRef.current,
+                    reason: error instanceof Error ? error.message : 'unknown',
+                  })
+            setStartupFailure(failure)
+          }
           setInitFailureVisible(true)
           logExpressPlaybackDebug('init_failure_fallback_shown', {
             reason: error instanceof Error ? error.message : 'unknown',
@@ -1738,6 +1959,7 @@ export function Rayd8PlayerEngine({
     experience,
     audioTrack,
     fetchPlaybackPayload,
+    forceMediaReload,
     getTokenSafe,
     playbackAuthority,
     playbackMode,
@@ -2091,18 +2313,48 @@ export function Rayd8PlayerEngine({
     }
   }, [playbackScheduler, setSingleAvAudioActive])
 
-  const handleRetryInitialization = useCallback(() => {
+  const handleRestartPlayback = useCallback(() => {
+    recoveryAttemptRef.current += 1
+    previousRecoveryActionRef.current = 'restart_playback'
+    overlayTelemetrySentRef.current = null
+    startupCorrelationIdRef.current = createStartupCorrelationId('express-retry')
     logExpressPlaybackDebug('init_retry_tapped', {
       experience,
       mode: sessionConfig.videoMode,
+      forceReload: true,
     })
+    emitSessionStartupIncident({
+      kind: 'recovery_action',
+      correlationId: startupCorrelationIdRef.current,
+      recoveryAction: 'restart_playback',
+      recoveryAttemptNumber: recoveryAttemptRef.current,
+      sessionType,
+      ...failureToSnapshotFields(startupFailure),
+    })
+    destroyPrimaryVideoPipeline('primary:restart-playback')
     setInitFailureVisible(false)
     setVideoError(null)
+    setStartupFailure(null)
+    setMediaOwned(false)
+    setSourceApplied(false)
+    setMetadataReady(false)
+    setAutoplayPending(false)
+    setForceMediaReload(true)
     resetPlaybackHealth()
     setInitRetryKey((currentValue) => currentValue + 1)
-  }, [experience, resetPlaybackHealth, sessionConfig.videoMode])
+  }, [destroyPrimaryVideoPipeline, experience, resetPlaybackHealth, sessionConfig.videoMode, sessionType, startupFailure])
 
   const handleReloadSession = useCallback(() => {
+    recoveryAttemptRef.current += 1
+    previousRecoveryActionRef.current = 'reload_session'
+    emitSessionStartupIncident({
+      kind: 'recovery_action',
+      correlationId: startupCorrelationIdRef.current,
+      recoveryAction: 'reload_session',
+      recoveryAttemptNumber: recoveryAttemptRef.current,
+      sessionType,
+      ...failureToSnapshotFields(startupFailure),
+    })
     logExpressPlaybackDebug('health_reload_session', {
       experience,
       mode: sessionConfig.videoMode,
@@ -2112,7 +2364,19 @@ export function Rayd8PlayerEngine({
     window.requestAnimationFrame(() => {
       startSession(sessionType, { source: isAdminPreview ? 'admin' : 'member' })
     })
-  }, [experience, isAdminPreview, onClose, sessionConfig.videoMode, sessionType, startSession])
+  }, [experience, isAdminPreview, onClose, sessionConfig.videoMode, sessionType, startSession, startupFailure])
+
+  const handleReturnHomeFromRecovery = useCallback(() => {
+    emitSessionStartupIncident({
+      kind: 'recovery_action',
+      correlationId: startupCorrelationIdRef.current,
+      recoveryAction: 'return_home',
+      recoveryAttemptNumber: recoveryAttemptRef.current,
+      sessionType,
+      ...failureToSnapshotFields(startupFailure),
+    })
+    onClose()
+  }, [onClose, sessionType, startupFailure])
 
   const setVideoMode = useCallback((videoMode: FreeTrialVideoMode) => {
     setSessionConfig((currentValue) => ({ ...currentValue, videoMode }))
@@ -2337,46 +2601,26 @@ export function Rayd8PlayerEngine({
 
         {isPreloading ? <PreloadOverlay preloadPercent={preloadPercent} /> : null}
 
-        {playbackHealthFallbackVisible && !activeSoftDenialState ? (
-          <PlaybackHealthFallbackOverlay
+        {recoveryOverlayCopy &&
+        !activeSoftDenialState &&
+        (recoveryOverlayKind === 'media_start_failure' ||
+          recoveryOverlayKind === 'init_failure' ||
+          recoveryOverlayKind === 'offline' ||
+          recoveryOverlayKind === 'auth_expired') ? (
+          <StartupRecoveryOverlay
+            body={recoveryOverlayCopy.body}
             onReloadSession={handleReloadSession}
-            onReturnHome={onClose}
-            onTryAgain={handleRetryInitialization}
+            onRestartPlayback={handleRestartPlayback}
+            onReturnHome={handleReturnHomeFromRecovery}
+            onSignIn={handleReturnHomeFromRecovery}
+            onTryAgain={handleRestartPlayback}
+            referenceCode={recoveryOverlayCopy.referenceCode}
+            showReloadSession={recoveryOverlayCopy.actions.includes('reload_session')}
+            showRestartPlayback={recoveryOverlayCopy.actions.includes('restart_playback')}
+            showSignIn={recoveryOverlayCopy.actions.includes('sign_in')}
+            showTryAgain={recoveryOverlayCopy.actions.includes('try_again')}
+            title={recoveryOverlayCopy.title}
           />
-        ) : null}
-
-        {initFailureVisible && !activeSoftDenialState && !playbackHealthFallbackVisible ? (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/78 p-6 text-center">
-            <div className="max-w-sm rounded-[2rem] border border-white/12 bg-slate-950/92 p-6 text-white shadow-[0_18px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-              <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/70">
-                Session interrupted
-              </p>
-              <h3 className="mt-3 text-2xl font-semibold text-white">
-                Unable to initialize session.
-              </h3>
-              <p className="mt-3 text-sm leading-6 text-slate-300">
-                {videoError && !trialOverlayState
-                  ? videoError
-                  : 'The session did not become ready. Try again when the app is foregrounded and connected.'}
-              </p>
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-                <button
-                  className="rounded-2xl bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(59,130,246,0.92))] px-5 py-3 text-sm font-medium text-white transition hover:-translate-y-0.5"
-                  onClick={handleRetryInitialization}
-                  type="button"
-                >
-                  Tap to Retry
-                </button>
-                <button
-                  className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/5"
-                  onClick={onClose}
-                  type="button"
-                >
-                  Exit session
-                </button>
-              </div>
-            </div>
-          </div>
         ) : null}
 
         {activeSoftDenialState ? (
