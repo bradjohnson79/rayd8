@@ -1,0 +1,15 @@
+{
+  "recorded_at": "2026-08-06T01:44:18.340Z",
+  "status": 200,
+  "title": "RAYD8® - The Med Bed Alternative System for Your Home.",
+  "bodySnippet": "",
+  "umamiBlocked": [
+    {
+      "url": "https://rayd8.app/assets/umami-Bf1wl7BH.js",
+      "errorText": "net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    }
+  ],
+  "pageErrors": [],
+  "unhandledRejectionNote": "page remained interactive; no await on umami in app code",
+  "verdict": "Umami block noncritical for shell render"
+}

@@ -1,0 +1,14 @@
+{
+  "project": "curly-river-66984260",
+  "recorded_at": "2026-08-06T01:45:00Z",
+  "anonymized": true,
+  "usage_sessions_total": 10070,
+  "usage_open": 4675,
+  "usage_stale_heartbeat_1h": 4664,
+  "usage_open_started_24h_ago": 4636,
+  "active_sessions_total": 4675,
+  "active_stale_1h": 4664,
+  "active_stale_24h": 4631,
+  "users_with_multiple_active": 354,
+  "users_without_subscription_row": 804
+}

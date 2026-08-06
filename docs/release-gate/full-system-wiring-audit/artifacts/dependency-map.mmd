@@ -1,0 +1,12 @@
+flowchart TD
+  dashboard[Rayd8Dashboard] --> token[getTokenSafe]
+  token --> access[GET /v1/player/access]
+  access --> startSession[SessionProvider.startSession]
+  startSession --> overlay[Rayd8SessionOverlay]
+  overlay --> engine[Rayd8PlayerEngine]
+  startSession --> track[POST /session/start]
+  engine --> muxToken[GET /playback-token]
+  muxToken --> media[setMediaSource]
+  media --> readiness[readiness/play]
+  readiness --> health[usePlaybackHealthGuard]
+  health --> fallback[PlaybackHealthFallbackOverlay]

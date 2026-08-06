@@ -1,0 +1,154 @@
+{
+  "recorded_at": "2026-08-06T01:44:02.681Z",
+  "results": [
+    {
+      "browser": "chromium",
+      "ok": true,
+      "blocked": [
+        {
+          "url": "https://hagen.challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/i/a26a5a3cbbb79943/Gd53QHjcgufbrffZjS9uOgVrj6VPDvPSSeLneEK2WIs-1785980625-1.2.1.1-pZd3GY.YkEcOx.aXyiL_Sp6xOdR",
+          "errorText": "net::ERR_ABORTED"
+        }
+      ],
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "Failed to load resource: the server responded with a status of 403 ()",
+        "%c%d font-size:0;color:transparent NaN",
+        "%c%d font-size:0;color:transparent NaN"
+      ],
+      "notes": [],
+      "url": "https://rayd8.app/",
+      "title": "RAYD8® - The Med Bed Alternative System for Your Home.",
+      "status": 200,
+      "umamiScript": {
+        "src": "https://cloud.umami.is/script.js",
+        "websiteId": "012f9848-b387-4594-a1e6-69fc2ac354aa"
+      },
+      "dashboardUrl": "https://accounts.rayd8.app/sign-in#/?redirect_url=https%3A%2F%2Frayd8.app%2Fdashboard",
+      "umamiNetwork": [
+        {
+          "url": "https://cloud.umami.is/script.js",
+          "status": 200
+        },
+        {
+          "url": "https://rayd8.app/assets/umami-Bf1wl7BH.js",
+          "status": 200
+        },
+        {
+          "url": "https://gateway.umami.is/api/send",
+          "status": 200
+        },
+        {
+          "url": "https://cloud.umami.is/script.js",
+          "status": 200
+        },
+        {
+          "url": "https://rayd8.app/assets/umami-Bf1wl7BH.js",
+          "status": 200
+        }
+      ],
+      "amritaUrl": "https://rayd8.app/amrita"
+    },
+    {
+      "browser": "firefox",
+      "ok": true,
+      "blocked": [
+        {
+          "url": "https://clerk.rayd8.app/npm/@clerk/ui@1.28.0/dist/ui-common_ui_e0cb5a_1.28.0.js",
+          "errorText": "NS_BINDING_ABORTED"
+        }
+      ],
+      "consoleErrors": [
+        "[JavaScript Error: \"Cookie “_cfuvid” has been rejected for invalid domain.\" {file: \"https://clerk.rayd8.app/v1/environment?__clerk_api_version=2026-05-12&_clerk_js_version=6.26.0\" line: 0}]",
+        "[JavaScript Error: \"Cookie “_cfuvid” has been rejected for invalid domain.\" {file: \"https://clerk.rayd8.app/v1/client?__clerk_api_version=2026-05-12&_clerk_js_version=6.26.0\" line: 0}]",
+        "[JavaScript Error: \"Cookie “_cfuvid” has been rejected for invalid domain.\" {file: \"https://clerk.rayd8.app/v1/environment?__clerk_api_version=2026-05-12&_clerk_js_version=6.26.0\" line: 0}]",
+        "[JavaScript Error: \"Cookie “_cfuvid” has been rejected for invalid domain.\" {file: \"https://clerk.rayd8.app/v1/client?__clerk_api_version=2026-05-12&_clerk_js_version=6.26.0\" line: 0}]",
+        "[Clerk UI] Failed to initialize component renderer: Error",
+        "[JavaScript Error: \"Content-Security-Policy: The page’s settings blocked a script (script-src-elem) at https://vercel.live/_next-live/feedback/feedback.js from being executed because it violates the f",
+        "[JavaScript Error: \"Cookie “_cfuvid” has been rejected for invalid domain.\" {file: \"https://clerk.rayd8.app/v1/environment?__clerk_api_version=2026-05-12&_clerk_js_version=6.26.0\" line: 0}]",
+        "[JavaScript Error: \"Cookie “_cfuvid” has been rejected for invalid domain.\" {file: \"https://clerk.rayd8.app/v1/client?__clerk_api_version=2026-05-12&_clerk_js_version=6.26.0\" line: 0}]"
+      ],
+      "notes": [],
+      "url": "https://rayd8.app/",
+      "title": "RAYD8® - The Med Bed Alternative System for Your Home.",
+      "status": 200,
+      "umamiScript": {
+        "src": "https://cloud.umami.is/script.js",
+        "websiteId": "012f9848-b387-4594-a1e6-69fc2ac354aa"
+      },
+      "dashboardUrl": "https://accounts.rayd8.app/sign-in?redirect_url=https%3A%2F%2Frayd8.app%2Fdashboard",
+      "umamiNetwork": [
+        {
+          "url": "https://cloud.umami.is/script.js",
+          "status": 200
+        },
+        {
+          "url": "https://rayd8.app/assets/umami-Bf1wl7BH.js",
+          "status": 304
+        },
+        {
+          "url": "https://gateway.umami.is/api/send",
+          "status": 200
+        },
+        {
+          "url": "https://cloud.umami.is/script.js",
+          "status": 200
+        },
+        {
+          "url": "https://rayd8.app/assets/umami-Bf1wl7BH.js",
+          "status": 304
+        }
+      ],
+      "amritaUrl": "https://rayd8.app/amrita"
+    },
+    {
+      "browser": "webkit",
+      "ok": true,
+      "blocked": [],
+      "consoleErrors": [
+        "Refused to load https://vercel.live/_next-live/feedback/feedback.js because it appears in neither the script-src directive nor the default-src directive of the Content Security Policy."
+      ],
+      "notes": [],
+      "url": "https://rayd8.app/",
+      "title": "RAYD8® - The Med Bed Alternative System for Your Home.",
+      "status": 200,
+      "umamiScript": {
+        "src": "https://cloud.umami.is/script.js",
+        "websiteId": "012f9848-b387-4594-a1e6-69fc2ac354aa"
+      },
+      "dashboardUrl": "https://accounts.rayd8.app/sign-in?redirect_url=https%3A%2F%2Frayd8.app%2Fdashboard",
+      "umamiNetwork": [
+        {
+          "url": "https://cloud.umami.is/script.js",
+          "status": 200
+        },
+        {
+          "url": "https://rayd8.app/assets/umami-Bf1wl7BH.js",
+          "status": 200
+        },
+        {
+          "url": "https://gateway.umami.is/api/send",
+          "status": 200
+        },
+        {
+          "url": "https://cloud.umami.is/script.js",
+          "status": 200
+        },
+        {
+          "url": "https://rayd8.app/assets/umami-Bf1wl7BH.js",
+          "status": 200
+        }
+      ],
+      "amritaUrl": "https://rayd8.app/amrita"
+    },
+    {
+      "browser": "brave",
+      "ok": false,
+      "blocked": [],
+      "consoleErrors": [],
+      "notes": [
+        "Error: browserType.launch: Failed to launch chromium because executable doesn't exist at /Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+      ]
+    }
+  ]
+}

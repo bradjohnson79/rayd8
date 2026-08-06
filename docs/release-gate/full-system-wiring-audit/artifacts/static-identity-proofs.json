@@ -1,0 +1,85 @@
+{
+  "checks": [
+    {
+      "name": "soft_delay_5s",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "hard_delay_9s",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "healthy_requires_videoWidth",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "healthy_requires_currentTime",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "retry_bumps_initRetryKey",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "retry_no_startSession",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "reload_calls_onClose_and_startSession",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "setMediaSource_same_url_short_circuit",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "umami_pending_cap_20",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "umami_track_no_throw_without_umami",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "umami_idle_inject",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "api_no_abort_signal",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "strict_mode",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "endSession_finalize_void",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "health_overlay_copy_session_startup",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "session_start_before_tracking_effect",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "failed": 0
+}
