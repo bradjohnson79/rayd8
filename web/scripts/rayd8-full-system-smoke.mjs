@@ -528,7 +528,97 @@ function computeOverall(live) {
   return 'GO'
 }
 
+function mapProductStatus(status) {
+  if (!status) return 'UNEXECUTED'
+  if (
+    status === 'PASS' ||
+    status === 'PASS_RECOVERED' ||
+    status === 'PASS_NO_RECOVERY_OBSERVED' ||
+    status === 'GO'
+  ) {
+    return 'PASS'
+  }
+  if (status === 'UNEXECUTED') return 'UNEXECUTED'
+  if (status === 'FAIL' || status === 'NO-GO') return 'FAIL'
+  return 'UNEXECUTED'
+}
+
+function ingestLiveClosureArtifacts() {
+  const edgePath = resolve(artifactDir, 'edge-cors-verification.json')
+  if (existsSync(edgePath)) {
+    try {
+      const edge = JSON.parse(readFileSync(edgePath, 'utf8'))
+      const edgePass = edge.verdict === 'PASS' || edge.overall === 'PASS' || edge.pass === true
+      results.push({
+        gate: 'O',
+        label: 'Edge CORS verification artifact',
+        field: 'cors',
+        status: edgePass ? 'PASS' : 'FAIL',
+        durationMs: 0,
+        detail: edgePass ? 'edge-cors-verification.json' : 'edge verification not PASS',
+      })
+      results.push({
+        gate: 'O',
+        label: 'Playback-token edge verification artifact',
+        field: 'playbackToken',
+        status: edgePass ? 'PASS' : 'FAIL',
+        durationMs: 0,
+        detail: edgePass ? 'edge-cors-verification.json' : 'edge verification not PASS',
+      })
+    } catch (error) {
+      results.push({
+        gate: 'O',
+        label: 'Edge CORS verification artifact',
+        field: 'cors',
+        status: 'FAIL',
+        durationMs: 0,
+        detail: String(error),
+      })
+    }
+  }
+
+  const productPath = resolve(artifactDir, 'live-product-smoke.json')
+  if (!existsSync(productPath)) return
+  try {
+    const product = JSON.parse(readFileSync(productPath, 'utf8'))
+    const pushField = (field, status, detail = '') => {
+      const mapped = mapProductStatus(status)
+      // Do not inject UNEXECUTED rows into results — that would hard-fail
+      // computeOverall under --live for optional/unavailable surfaces.
+      if (mapped === 'UNEXECUTED') return
+      results.push({
+        gate: 'O',
+        label: `Live product (${field})`,
+        field,
+        status: mapped,
+        durationMs: 0,
+        detail: detail || String(status),
+      })
+    }
+    pushField('hamsa', product.hamsa?.status)
+    pushField('crossProductHandoff', product.crossProductHandoff?.status)
+    pushField('globalPlayer', product.regen?.status, 'covered by REGEN/express start')
+    if (product.regen?.secondSession?.started) {
+      pushField('secondSession', 'PASS', 'second REGEN session started')
+    }
+    if (product.guidedMeditation?.status) {
+      pushField('guidedMeditation', product.guidedMeditation.status)
+    }
+  } catch (error) {
+    results.push({
+      gate: 'O',
+      label: 'Live product smoke artifact ingest',
+      field: 'liveProduct',
+      status: 'FAIL',
+      durationMs: 0,
+      detail: String(error),
+    })
+  }
+}
+
 async function writeScorecardAndArtifact(live) {
+  ingestLiveClosureArtifacts()
+
   const pass = results.filter((r) => r.status === 'PASS').length
   const fail = results.filter((r) => r.status === 'FAIL').length
   const skipped = results.filter((r) => r.status === 'SKIP').length

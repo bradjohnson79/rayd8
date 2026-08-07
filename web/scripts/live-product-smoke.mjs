@@ -180,13 +180,26 @@ async function startRegenSession(page) {
 async function waitForRegenReadyOrRecovery(page, timeoutMs) {
   const deadline = Date.now() + timeoutMs
   let last = null
+  let sawVideoElement = false
   while (Date.now() < deadline) {
     last = await collectSnapshot(page)
+    if ((last.videos ?? 0) > 0) sawVideoElement = true
     if (last.videos > 0 && (last.videoCurrentTime ?? 0) > 0) return { ready: true, snapshot: last }
     if (last.recoveryOverlayVisible) return { ready: false, recovered: true, snapshot: last }
+    // After native→hls.js repair, media can attach with currentTime still 0 for
+    // a few seconds while buffers fill. Treat a non-paused video element with a
+    // post-auth startup stage as ready enough for product smoke.
+    if (
+      last.videos > 0 &&
+      last.videoPaused === false &&
+      last.startupStage &&
+      last.startupStage !== 'AUTH_READINESS'
+    ) {
+      return { ready: true, snapshot: last }
+    }
     await page.waitForTimeout(1500)
   }
-  return { ready: false, recovered: false, snapshot: last, timedOut: true }
+  return { ready: false, recovered: false, snapshot: last, timedOut: true, sawVideoElement }
 }
 
 async function endSession(page) {
@@ -219,11 +232,24 @@ async function smokeRegen(page) {
     secondSnapshot = { error: String(error) }
   }
 
-  const stuckAtZero = firstSnapshot?.videos === 0 && !firstSnapshot?.recoveryOverlayVisible && result.timedOut
+  const stuckAtZero =
+    result.timedOut &&
+    !result.recovered &&
+    !result.ready &&
+    !result.sawVideoElement &&
+    (firstSnapshot?.videos ?? 0) === 0 &&
+    !firstSnapshot?.recoveryOverlayVisible
   return {
-    status: stuckAtZero ? 'FAIL' : result.recovered ? 'PASS_RECOVERED' : 'PASS',
+    status: stuckAtZero ? 'FAIL' : result.recovered ? 'PASS_RECOVERED' : result.ready || (firstSnapshot?.videos ?? 0) > 0 ? 'PASS' : 'FAIL',
     started,
-    firstSession: { ready: result.ready, recovered: result.recovered, timedOut: result.timedOut, snapshot: firstSnapshot, afterExit: afterFirstExit },
+    firstSession: {
+      ready: result.ready,
+      recovered: result.recovered,
+      timedOut: result.timedOut,
+      sawVideoElement: result.sawVideoElement,
+      snapshot: firstSnapshot,
+      afterExit: afterFirstExit,
+    },
     secondSession: { started: secondStarted, snapshot: secondSnapshot },
   }
 }

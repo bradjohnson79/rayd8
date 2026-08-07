@@ -1337,10 +1337,19 @@ export function Rayd8PlayerEngine({
   const reportPlaybackStartupFailure = playbackHealthGuard.reportStartupFailure
   const resetPlaybackHealth = playbackHealthGuard.reset
 
-  fetchPlaybackPayloadRef.current = fetchPlaybackPayload
-  reportPlaybackStartupFailureRef.current = reportPlaybackStartupFailure
-  resetPlaybackHealthRef.current = resetPlaybackHealth
-  forceMediaReloadRef.current = forceMediaReload
+  // Keep sync effect deps stable: read latest helpers/flags via refs updated in
+  // an effect (not during render) so react-hooks/refs stays at baseline.
+  useEffect(() => {
+    fetchPlaybackPayloadRef.current = fetchPlaybackPayload
+    reportPlaybackStartupFailureRef.current = reportPlaybackStartupFailure
+    resetPlaybackHealthRef.current = resetPlaybackHealth
+    forceMediaReloadRef.current = forceMediaReload
+  }, [
+    fetchPlaybackPayload,
+    reportPlaybackStartupFailure,
+    resetPlaybackHealth,
+    forceMediaReload,
+  ])
 
   // User-driven remounts (Try Again / Reload) reset the auto-sync budget.
   useEffect(() => {
