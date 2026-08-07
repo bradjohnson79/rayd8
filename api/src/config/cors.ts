@@ -2,6 +2,14 @@ import { env } from '../env.js'
 
 export const CORRELATION_ID_HEADER = 'x-rayd8-correlation-id'
 
+function parseExtraCorsOrigins(value: string | undefined): string[] {
+  if (!value?.trim()) return []
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0 && /^https?:\/\//i.test(entry))
+}
+
 const allowedCorsOrigins = Array.from(
   new Set([
     env.APP_URL.trim(),
@@ -9,6 +17,7 @@ const allowedCorsOrigins = Array.from(
     'https://www.rayd8.app',
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    ...parseExtraCorsOrigins(env.EXTRA_CORS_ORIGIN),
   ]),
 )
 

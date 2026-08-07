@@ -837,6 +837,13 @@ export function Rayd8PlayerEngine({
   const isPreloading = playbackPresentation.legacyPlaybackState === 'preloading'
   const isRecovering = playbackPresentation.legacyPlaybackState === 'recovering'
   const isVideoLoading = isPreloading || isRecovering
+
+  useEffect(() => {
+    if (!isPreloading) return
+    startupInstrumentationRef.current.recordOverlayRender()
+    startupInstrumentationRef.current.publishToWindow()
+  }, [isPreloading, preloadPercent])
+
   const topChromeInset = smallScreenViewport ? 12 : 16
   const bottomChromeInset = smallScreenViewport ? 20 : 24
   const isCompactPlayerUI =
@@ -914,6 +921,8 @@ export function Rayd8PlayerEngine({
     recordVideoMount('primary', node !== null)
     if (node !== null) {
       startupInstrumentationRef.current.recordMediaMount()
+      startupInstrumentationRef.current.recordVideoElementCreate()
+      startupInstrumentationRef.current.publishToWindow()
     }
     primaryVideoRef.current = node
     setPrimaryVideoReady(node !== null)
@@ -1283,6 +1292,8 @@ export function Rayd8PlayerEngine({
   const handlePlaybackHealthSoftRecovery = useCallback(
     async (reason: string) => {
       startupInstrumentationRef.current.recordRecoveryAttempt('soft')
+      startupInstrumentationRef.current.recordHealthGuardActivation()
+      startupInstrumentationRef.current.publishToWindow()
       logExpressPlaybackDebug('health_soft_recovery_attempt', {
         reason,
         currentTime: getVideoElement()?.currentTime ?? null,
@@ -1676,6 +1687,10 @@ export function Rayd8PlayerEngine({
     async function syncVideoMode() {
       playbackAuthority?.dispatch({ type: 'lifecycle_preloading' })
       startupInstrumentationRef.current.beginAttempt()
+      startupInstrumentationRef.current.recordStage('AUTH_READINESS')
+      startupInstrumentationRef.current.markTimingPhase('authentication')
+      startupInstrumentationRef.current.recordOverlayMount()
+      startupInstrumentationRef.current.publishToWindow()
       setPreloadPercent(0)
       setVideoError(null)
       setInitFailureVisible(false)
@@ -1765,6 +1780,12 @@ export function Rayd8PlayerEngine({
         }
 
         setCurrentVideoSignedUrl(playback.signed_url)
+        startupInstrumentationRef.current.recordStage('PLAYBACK_TOKEN')
+        startupInstrumentationRef.current.endTimingPhase('authentication')
+        startupInstrumentationRef.current.markTimingPhase('playback_token')
+        startupInstrumentationRef.current.endTimingPhase('playback_token')
+        startupInstrumentationRef.current.markTimingPhase('media_attachment')
+        startupInstrumentationRef.current.publishToWindow()
 
         configureVideoElement(video)
         video.muted = true
@@ -1778,11 +1799,21 @@ export function Rayd8PlayerEngine({
 
         const diagnosticsLabel = `primary:${experience}:${sessionConfig.videoMode}`
         logExpressPlaybackDebug('mux_source_load', { diagnosticsLabel, forceReload: shouldForceReload })
+        const hadControllerBefore = Boolean(primaryVideoControllerRef.current)
+        const prefersNativeHls = Boolean(video.canPlayType('application/vnd.apple.mpegurl'))
+        startupInstrumentationRef.current.recordStage('MEDIA_SOURCE_APPLY')
         const applied = await setMediaSource({
           controllerProfileRef: primaryVideoControllerProfileRef,
           controllerRef: primaryVideoControllerRef,
           diagnostics: {
-            recordController: (action) => recordHlsController(diagnosticsLabel, action),
+            recordController: (action) => {
+              if (action === 'create') {
+                startupInstrumentationRef.current.recordControllerCreate(
+                  prefersNativeHls ? 'native' : 'hls',
+                )
+              }
+              recordHlsController(diagnosticsLabel, action)
+            },
             recordSourceLoad: (sourceUrl) => recordSourceLoad(diagnosticsLabel, sourceUrl),
           },
           forceReload: shouldForceReload,
@@ -1793,6 +1824,15 @@ export function Rayd8PlayerEngine({
           sourceUrl: playback.signed_url,
           stabilityProfile: playbackStabilityProfileRef.current,
         })
+        if (applied) {
+          startupInstrumentationRef.current.recordSourceAssignment()
+          if (prefersNativeHls && !hadControllerBefore) {
+            startupInstrumentationRef.current.recordControllerCreate('native')
+          }
+          startupInstrumentationRef.current.endTimingPhase('media_attachment')
+          startupInstrumentationRef.current.markTimingPhase('manifest_download')
+          startupInstrumentationRef.current.publishToWindow()
+        }
 
         if (!applied || cancelled || requestId !== videoRequestRef.current) {
           if (!cancelled && requestId === videoRequestRef.current) {
