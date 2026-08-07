@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-08-07T15:41:18Z",
+  "apiSha": "2d1ed42465ddd6d24c5e73534de050f6098c0200",
+  "hosts": ["https://api.rayd8.app", "https://rayd8-api.onrender.com"],
+  "results": {
+    "options_rayd8_app": {
+      "status": 204,
+      "access-control-allow-origin": "https://rayd8.app",
+      "access-control-allow-credentials": "true",
+      "access-control-allow-headers": "Content-Type, Authorization, x-rayd8-correlation-id",
+      "access-control-allow-methods": "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS",
+      "vary": "Origin",
+      "correlationIdPresent": true,
+      "htmlBody": false,
+      "wildcardOrigin": false
+    },
+    "options_www_rayd8_app": {
+      "status": 204,
+      "access-control-allow-origin": "https://www.rayd8.app",
+      "access-control-allow-credentials": "true",
+      "correlationIdPresent": true
+    },
+    "get_unauth_json": {
+      "status": 401,
+      "contentType": "application/json",
+      "code": "AUTH_REQUIRED",
+      "echoedCorrelationId": "live-cors-probe-1",
+      "htmlBody": false,
+      "redirect": false
+    },
+    "onrender_host": {
+      "status": 401,
+      "contentType": "application/json",
+      "corsOrigin": "https://rayd8.app"
+    }
+  },
+  "cloudflare": {
+    "server": "cloudflare",
+    "cf-cache-status": "DYNAMIC",
+    "challengeOrHtmlObserved": false,
+    "status52xObserved": false,
+    "notes": "Read-only header inspection only; no Cloudflare dashboard mutations performed."
+  },
+  "verdict": "PASS"
+}

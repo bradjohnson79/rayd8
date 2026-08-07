@@ -1,0 +1,12 @@
+{
+  "decision": "Path B — production deploy",
+  "rationale": "Render rayd8-api has previews.generation=off and no staging service. Creating temporary staging infrastructure is not quick/practical; deterministic gates are green (12 PASS).",
+  "apiServiceId": "srv-d7nst5j7uimc73bhq9gg",
+  "apiUrl": "https://rayd8-api.onrender.com",
+  "apiAlias": "https://api.rayd8.app",
+  "webProject": "rayd8-web",
+  "webUrl": "https://rayd8.app",
+  "deployOrder": ["api", "web"],
+  "releaseBranch": "release/rayd8-live-smoke-closure",
+  "releaseSha": "2d1ed42"
+}

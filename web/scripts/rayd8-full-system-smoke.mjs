@@ -52,13 +52,12 @@ const artifactDir = resolve(
 )
 const artifactPath = resolve(artifactDir, 'full-system-live-smoke-summary.json')
 
-// Load Clerk key from web/.env.live-smoke (dotenv-style) when --live.
+// Load Clerk keys from gitignored env files when --live.
 // Never prints values; only presence is reported.
-function loadLiveSmokeEnv() {
-  if (!LIVE) return null
-  if (!existsSync(liveEnvPath)) return null
+function parseEnvFile(path) {
+  if (!existsSync(path)) return {}
   const parsed = {}
-  for (const line of readFileSync(liveEnvPath, 'utf8').split('\n')) {
+  for (const line of readFileSync(path, 'utf8').split('\n')) {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue
     const idx = trimmed.indexOf('=')
@@ -66,12 +65,31 @@ function loadLiveSmokeEnv() {
     const value = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '')
     parsed[key] = value
   }
-  for (const [key, value] of Object.entries(parsed)) {
+  return parsed
+}
+
+function loadLiveSmokeEnv() {
+  if (!LIVE) return null
+  // Publishable key from Vercel pull; secret/testing token from local root/.api env.
+  const candidates = [
+    liveEnvPath,
+    resolve(webRoot, '.env.live-smoke.secrets'),
+    resolve(repoRoot, '.env'),
+    resolve(apiRoot, '.env'),
+  ]
+  const merged = {}
+  for (const path of candidates) {
+    Object.assign(merged, parseEnvFile(path))
+  }
+  for (const [key, value] of Object.entries(merged)) {
     if (process.env[key] === undefined) {
       process.env[key] = value
     }
   }
-  return parsed
+  if (!process.env.CLERK_PUBLISHABLE_KEY && process.env.VITE_CLERK_PUBLISHABLE_KEY) {
+    process.env.CLERK_PUBLISHABLE_KEY = process.env.VITE_CLERK_PUBLISHABLE_KEY
+  }
+  return merged
 }
 
 const liveSmokeEnv = loadLiveSmokeEnv()

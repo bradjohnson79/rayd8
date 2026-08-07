@@ -725,6 +725,16 @@ export function Rayd8PlayerEngine({
   const recoveryAttemptRef = useRef(0)
   const previousRecoveryActionRef = useRef<string | null>(null)
   const overlayTelemetrySentRef = useRef<string | null>(null)
+  // Bound automatic syncVideoMode restarts. Unstable effect deps previously
+  // caused hundreds of beginAttempt() calls (Chromium-variant investigation).
+  const autoSyncAttemptRef = useRef(0)
+  const MAX_AUTO_SYNC_ATTEMPTS = 6
+  const fetchPlaybackPayloadRef = useRef<((assetId: string) => Promise<MuxPlaybackPayload>) | null>(
+    null,
+  )
+  const reportPlaybackStartupFailureRef = useRef<((reason: string) => void) | null>(null)
+  const resetPlaybackHealthRef = useRef<(() => void) | null>(null)
+  const forceMediaReloadRef = useRef(false)
   const [mobileViewport, setMobileViewport] = useState(() => isMobileViewport())
   const [tabletViewport, setTabletViewport] = useState(() => isTabletViewport())
   const [smallScreenViewport, setSmallScreenViewport] = useState(() => isSmallScreen())
@@ -1237,6 +1247,7 @@ export function Rayd8PlayerEngine({
       }
 
       startupInstrumentationRef.current.recordTokenRequest()
+      startupInstrumentationRef.current.publishToWindow()
       const response =
         playbackMode === 'admin'
           ? await getAdminMuxPlaybackToken(assetId, tokenResult.token)
@@ -1324,6 +1335,16 @@ export function Rayd8PlayerEngine({
   const playbackHealthFallbackVisible = playbackHealthGuard.fallbackVisible
   const reportPlaybackStartupFailure = playbackHealthGuard.reportStartupFailure
   const resetPlaybackHealth = playbackHealthGuard.reset
+
+  fetchPlaybackPayloadRef.current = fetchPlaybackPayload
+  reportPlaybackStartupFailureRef.current = reportPlaybackStartupFailure
+  resetPlaybackHealthRef.current = resetPlaybackHealth
+  forceMediaReloadRef.current = forceMediaReload
+
+  // User-driven remounts (Try Again / Reload) reset the auto-sync budget.
+  useEffect(() => {
+    autoSyncAttemptRef.current = 0
+  }, [initRetryKey, sessionType, experience, audioTrack, sessionConfig.videoMode])
 
   const recoveryOverlayKind = selectRecoveryOverlay({
     softDenialActive: Boolean(activeSoftDenialState),
@@ -1658,6 +1679,28 @@ export function Rayd8PlayerEngine({
       }
     }
 
+    // Fail closed: unstable callback identities must not restart media forever.
+    autoSyncAttemptRef.current += 1
+    if (autoSyncAttemptRef.current > MAX_AUTO_SYNC_ATTEMPTS) {
+      logExpressPlaybackDebug('syncVideoMode_budget_exceeded', {
+        attempts: autoSyncAttemptRef.current,
+      })
+      playbackAuthority?.dispatch({ type: 'lifecycle_ready' })
+      setStartupFailure(
+        mapMediaReasonToStartupFailure({
+          correlationId: startupCorrelationIdRef.current,
+          reason: 'startup_health_timeout',
+          sourceApplied: false,
+        }),
+      )
+      setInitFailureVisible(true)
+      startupInstrumentationRef.current.publishToWindow()
+      return () => {
+        cancelled = true
+        preloadAbortController.abort()
+      }
+    }
+
     async function waitForPrimaryVideoElement() {
       const immediateVideo = primaryVideoRef.current
 
@@ -1699,14 +1742,15 @@ export function Rayd8PlayerEngine({
       setSourceApplied(false)
       setMetadataReady(false)
       setAutoplayPending(false)
-      resetPlaybackHealth()
+      resetPlaybackHealthRef.current?.()
       logExpressPlaybackDebug('syncVideoMode_start', {
         audioTrack,
         experience,
         mode: sessionConfig.videoMode,
+        autoSyncAttempt: autoSyncAttemptRef.current,
       })
 
-      const shouldForceReload = forceMediaReload
+      const shouldForceReload = forceMediaReloadRef.current
 
       try {
         const videoAssetInput = {
@@ -1728,7 +1772,11 @@ export function Rayd8PlayerEngine({
         playbackAuthority?.setPlaybackKind(singleAvAudioActive ? 'combined' : 'dual')
         let playback: MuxPlaybackPayload
         try {
-          playback = await fetchPlaybackPayload(assetId)
+          const fetchPayload = fetchPlaybackPayloadRef.current
+          if (!fetchPayload) {
+            throw new Error('Playback token fetch is not ready.')
+          }
+          playback = await fetchPayload(assetId)
         } catch (tokenError) {
           if (!cancelled) {
             const failure =
@@ -1841,7 +1889,7 @@ export function Rayd8PlayerEngine({
               reason: 'media_source_not_applied',
             })
             setStartupFailure(failure)
-            reportPlaybackStartupFailure('media_source_not_applied')
+            reportPlaybackStartupFailureRef.current?.('media_source_not_applied')
           }
           return
         }
@@ -1993,7 +2041,7 @@ export function Rayd8PlayerEngine({
             // Exit the preloading stage so the 0% preparation overlay clears
             // and the recovery overlay can show (INC-2026-08-06-PLAYBACK-TOKEN-CORS).
             playbackAuthority?.dispatch({ type: 'lifecycle_ready' })
-            reportPlaybackStartupFailure('playback_not_ready')
+            reportPlaybackStartupFailureRef.current?.('playback_not_ready')
           }
           return
         }
@@ -2021,7 +2069,7 @@ export function Rayd8PlayerEngine({
           if (!started.ok) {
             if (started.reason === 'NotAllowedError') {
               setAutoplayPending(true)
-              reportPlaybackStartupFailure('AUTOPLAY_BLOCKED')
+              reportPlaybackStartupFailureRef.current?.('AUTOPLAY_BLOCKED')
             } else {
               const failure = mapMediaReasonToStartupFailure({
                 correlationId: startupCorrelationIdRef.current,
@@ -2029,7 +2077,7 @@ export function Rayd8PlayerEngine({
                 sourceApplied: true,
               })
               setStartupFailure(failure)
-              reportPlaybackStartupFailure('play_failed')
+              reportPlaybackStartupFailureRef.current?.('play_failed')
             }
           }
         }
@@ -2090,18 +2138,17 @@ export function Rayd8PlayerEngine({
       clearMuxRefreshTimer()
       preloadAbortController.abort()
     }
+    // Intentionally omit volatile callback identities (getTokenSafe,
+    // fetchPlaybackPayload, reportPlaybackStartupFailure, resetPlaybackHealth,
+    // forceMediaReload). Those are read via refs so token/health updates cannot
+    // restart the media pipeline in a loop.
   }, [
     experience,
     audioTrack,
-    fetchPlaybackPayload,
-    forceMediaReload,
-    getTokenSafe,
     playbackAuthority,
     playbackMode,
     playbackPlan,
     playbackScheduler,
-    reportPlaybackStartupFailure,
-    resetPlaybackHealth,
     sessionConfig.videoMode,
     sessionType,
     setSingleAvAudioActive,
