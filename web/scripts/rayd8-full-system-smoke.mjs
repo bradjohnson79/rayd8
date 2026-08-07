@@ -544,6 +544,10 @@ function mapProductStatus(status) {
 }
 
 function ingestLiveClosureArtifacts() {
+  // Only merge prior live artifacts when this run requested --live. Deterministic
+  // certification must not inherit FAIL/PASS from a stale live-product-smoke.json.
+  if (!LIVE) return
+
   const edgePath = resolve(artifactDir, 'edge-cors-verification.json')
   if (existsSync(edgePath)) {
     try {
@@ -597,7 +601,12 @@ function ingestLiveClosureArtifacts() {
     }
     pushField('hamsa', product.hamsa?.status)
     pushField('crossProductHandoff', product.crossProductHandoff?.status)
-    pushField('globalPlayer', product.regen?.status, 'covered by REGEN/express start')
+    // Global/Express player coverage is the REGEN start path when it did not FAIL.
+    if (product.regen?.status && product.regen.status !== 'FAIL') {
+      pushField('globalPlayer', 'PASS', `covered by REGEN (${product.regen.status})`)
+    } else if (product.regen?.status === 'FAIL') {
+      pushField('globalPlayer', 'FAIL', 'REGEN start path failed')
+    }
     if (product.regen?.secondSession?.started) {
       pushField('secondSession', 'PASS', 'second REGEN session started')
     }
