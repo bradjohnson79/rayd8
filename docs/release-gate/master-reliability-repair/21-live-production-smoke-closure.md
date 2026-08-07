@@ -2,7 +2,7 @@
 
 **Milestone:** RAYD8 Production Live Smoke Closure (Gates L + N + product/variant)  
 **Branch:** `release/rayd8-live-smoke-closure`  
-**Clean verification SHA (docs + harness tip):** `20796f1`  
+**Clean verification SHA (live GO rerun):** `d4a28e0`  
 **Production web deploy SHA (player runtime):** `8511e67` (hls.js native-maybe fix + lint baseline; subsequent commits are harness/docs only)  
 **Production API deploy SHA:** `2d1ed42` (`EXTRA_CORS_ORIGIN` + CORS contract)  
 **Date:** 2026-08-07  
@@ -10,11 +10,11 @@
 
 ## Verdict: GO
 
-All deterministic gates and all required live gates executed green:
+All deterministic gates and all required live gates executed green on clean SHA `d4a28e0` (redeployed to production, then `smoke:rayd8:full-system` → CONDITIONAL GO and `smoke:rayd8:full-system:live` → GO):
 
 **PASS 28 · FAIL 0 · SKIP 0 · UNEXECUTED 0** (orchestrator scorecard)
 
-JSON artifact: [`artifacts/live-closure/full-system-live-smoke-summary.json`](./artifacts/live-closure/full-system-live-smoke-summary.json) with `"overall": "GO"`.
+JSON artifact: [`artifacts/live-closure/full-system-live-smoke-summary.json`](./artifacts/live-closure/full-system-live-smoke-summary.json) with `"overall": "GO"` and `"releaseSha": "d4a28e0…"`.
 
 ## Staging decision (Path B)
 
@@ -123,7 +123,7 @@ Artifact: [`artifacts/live-closure/live-product-smoke.json`](./artifacts/live-cl
 | Recovery does not create duplicate sessions | Yes (bounded recovery / second session starts) |
 | Browser-specific failures repaired or evidenced | Yes |
 
-## Scorecard (live certification tip `20796f1`)
+## Scorecard (live certification tip `d4a28e0`)
 
 | Gate | Result |
 |------|--------|

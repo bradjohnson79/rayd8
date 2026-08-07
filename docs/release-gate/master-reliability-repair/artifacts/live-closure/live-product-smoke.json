@@ -1,7 +1,7 @@
 {
   "baseUrl": "https://rayd8.app",
   "browserName": "chromium",
-  "startedAt": "2026-08-07T17:33:23.835Z",
+  "startedAt": "2026-08-07T17:52:04.141Z",
   "auth": {
     "present": true,
     "emailDomain": "example.com"
@@ -20,7 +20,7 @@
         "href": "https://rayd8.app/dashboard?rayd8PlayerDebug=true",
         "videos": 1,
         "audios": 1,
-        "videoCurrentTime": 4.018712,
+        "videoCurrentTime": 3.403304,
         "audioCurrentTime": 0,
         "videoPaused": false,
         "audioPaused": true,
@@ -34,7 +34,7 @@
         "href": "https://rayd8.app/dashboard?rayd8PlayerDebug=true",
         "videos": 1,
         "audios": 1,
-        "videoCurrentTime": 5.559954,
+        "videoCurrentTime": 4.944567,
         "audioCurrentTime": 0,
         "videoPaused": false,
         "audioPaused": true,
@@ -51,7 +51,7 @@
         "href": "https://rayd8.app/dashboard?rayd8PlayerDebug=true",
         "videos": 1,
         "audios": 1,
-        "videoCurrentTime": 54.082185,
+        "videoCurrentTime": 53.4671,
         "audioCurrentTime": 0,
         "videoPaused": false,
         "audioPaused": true,
@@ -69,11 +69,11 @@
     "handshake": {
       "soakMode": "reduced",
       "runtime": "running",
-      "frameId": 466,
+      "frameId": 465,
       "activeVisualLoops": 1,
       "resumeCount": 0,
       "phase": "down-pass-1",
-      "lastFrameAt": 4604.8,
+      "lastFrameAt": 4609.6,
       "canvasCount": 2,
       "webglContexts": 1,
       "canvasSizes": [
@@ -121,7 +121,7 @@
         "href": "https://rayd8.app/dashboard?rayd8PlayerDebug=true",
         "videos": 1,
         "audios": 1,
-        "videoCurrentTime": 9.444103,
+        "videoCurrentTime": 8.48922,
         "audioCurrentTime": 0,
         "videoPaused": false,
         "audioPaused": true,
@@ -172,7 +172,7 @@
         "href": "https://rayd8.app/dashboard?rayd8PlayerDebug=true",
         "videos": 1,
         "audios": 1,
-        "videoCurrentTime": 9.718059,
+        "videoCurrentTime": 9.153569,
         "audioCurrentTime": 0,
         "videoPaused": false,
         "audioPaused": true,
@@ -194,7 +194,7 @@
       "href": "https://rayd8.app/dashboard?rayd8PlayerDebug=true",
       "videos": 1,
       "audios": 1,
-      "videoCurrentTime": 37.128659,
+      "videoCurrentTime": 36.064415,
       "audioCurrentTime": 0,
       "videoPaused": false,
       "audioPaused": true,
@@ -223,7 +223,7 @@
     "NetworkError: A network error occurred.",
     "NetworkError: A network error occurred."
   ],
-  "finishedAt": "2026-08-07T17:36:50.575Z",
+  "finishedAt": "2026-08-07T17:55:32.561Z",
   "hardFailures": [],
   "verdict": "GO"
 }
