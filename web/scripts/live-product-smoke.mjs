@@ -50,15 +50,19 @@ function loadDotenvFile(path) {
   return parsed
 }
 
-function loadAuthEnv() {
-  if (!existsSync(authEnvPath)) return null
+function loadAuthEnvFrom(path) {
+  if (!existsSync(path)) return null
   const env = {}
-  for (const line of readFileSync(authEnvPath, 'utf8').split('\n')) {
+  for (const line of readFileSync(path, 'utf8').split('\n')) {
     if (!line || line.startsWith('#') || !line.includes('=')) continue
     const idx = line.indexOf('=')
     env[line.slice(0, idx)] = line.slice(idx + 1)
   }
-  return env
+  return env.RAYD8_QA_EMAIL && env.RAYD8_QA_PASSWORD ? env : null
+}
+
+function loadAuthEnv() {
+  return loadAuthEnvFrom(authEnvPath)
 }
 
 function redactEmail(value) {
@@ -224,30 +228,86 @@ async function smokeRegen(page) {
   }
 }
 
-async function smokeAmrita(page) {
-  await page.goto(`${baseUrl}/amrita-dashboard?rayd8AmritaSoak=reduced`, { waitUntil: 'domcontentloaded', timeout: 90_000 })
-  if (/subscription/i.test(page.url())) {
-    return { status: 'UNEXECUTED', reason: 'AMRITA entitlement missing — redirected to subscription' }
+async function smokeAmrita(_page, browser) {
+  // Prefer the dedicated AMRITA entitlement fixture so this step is not
+  // blocked by the REGEN-plan QA user used for the rest of the product smoke.
+  const amritaAuth =
+    loadAuthEnvFrom(resolve(webRoot, 'e2e/.auth/mux-soak-amrita.env')) || loadAuthEnv()
+  if (!amritaAuth) {
+    return { status: 'UNEXECUTED', reason: 'AMRITA auth fixture missing' }
   }
-  await page.waitForTimeout(2500)
-  const iframeCount = await page.locator('iframe').count()
-  if (iframeCount === 0) return { status: 'UNEXECUTED', reason: 'AMRITA iframe not present' }
-  await page.locator('iframe').first().waitFor({ state: 'attached', timeout: 60_000 })
-  const frame = page.frameLocator('iframe').first()
-  let handshake = null
+
+  const context = await browser.newContext()
+  const page = await context.newPage()
   try {
-    handshake = await frame.locator('body').evaluate(() => window.__AMRITA_SOAK__?.getSnapshot?.() ?? null)
-  } catch (error) {
-    handshake = { error: String(error) }
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem('rayd8-amrita-soak-mode', 'reduced')
+        localStorage.setItem('rayd8-amrita-dual-pass-debug', 'true')
+      } catch {
+        // ignore
+      }
+    })
+    await loginWithClerk(page, amritaAuth)
+    await page.goto(`${baseUrl}/amrita-dashboard?rayd8AmritaSoak=reduced`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 90_000,
+    })
+
+    const deadline = Date.now() + 45_000
+    while (Date.now() < deadline) {
+      if (/subscription/i.test(page.url())) {
+        return {
+          status: 'UNEXECUTED',
+          reason: 'AMRITA entitlement missing — redirected to subscription',
+        }
+      }
+      if ((await page.locator('iframe').count()) > 0) break
+      await page.waitForTimeout(1000)
+    }
+
+    const iframeCount = await page.locator('iframe').count()
+    if (iframeCount === 0) {
+      return {
+        status: 'UNEXECUTED',
+        reason: /subscription/i.test(page.url())
+          ? 'AMRITA entitlement missing — redirected to subscription'
+          : 'AMRITA iframe not present',
+        href: page.url(),
+      }
+    }
+
+    await page.locator('iframe').first().waitFor({ state: 'attached', timeout: 60_000 })
+    const frame = page.frameLocator('iframe').first()
+    const start = frame.locator('#start-sequence, button:has-text("Start")').first()
+    if ((await start.count()) > 0) {
+      await start.click({ timeout: 30_000 }).catch(() => null)
+      await page.waitForTimeout(4000)
+    }
+
+    let handshake = null
+    try {
+      handshake = await frame.locator('body').evaluate(() => window.__AMRITA_SOAK__?.getSnapshot?.() ?? null)
+    } catch (error) {
+      handshake = { error: String(error) }
+    }
+    try {
+      await frame.locator('body').evaluate(() => window.__AMRITA_SOAK__?.stop?.())
+    } catch {
+      // ignore
+    }
+    await page.waitForTimeout(1000)
+    const leftoverIframes = await page.locator('iframe').count()
+    return {
+      status: 'PASS',
+      iframeMounted: iframeCount > 0,
+      handshake,
+      leftoverIframes,
+      usedAmritaFixture: Boolean(loadAuthEnvFrom(resolve(webRoot, 'e2e/.auth/mux-soak-amrita.env'))),
+    }
+  } finally {
+    await context.close().catch(() => null)
   }
-  try {
-    await frame.locator('body').evaluate(() => window.__AMRITA_SOAK__?.stop?.())
-  } catch {
-    // ignore
-  }
-  await page.waitForTimeout(1000)
-  const leftoverIframes = await page.locator('iframe').count()
-  return { status: 'PASS', iframeMounted: iframeCount > 0, handshake, leftoverIframes }
 }
 
 async function smokeHamsa(page) {
@@ -522,7 +582,7 @@ async function main() {
     report.login = { status: 'PASS', url: page.url() }
 
     await safeRun('regen', smokeRegen, page)
-    await safeRun('amrita', smokeAmrita, page)
+    await safeRun('amrita', smokeAmrita, page, browser)
     await safeRun('hamsa', smokeHamsa, page)
     await safeRun('crossProductHandoff', smokeCrossProductHandoff, page)
     await safeRun('controlledTokenFailure', smokeControlledTokenFailure, page)
