@@ -8,5 +8,6 @@ declare module 'fastify' {
       plan: 'free' | 'premium' | 'regen' | 'amrita'
       role: 'member' | 'admin'
     } | null
+    correlationId?: string
   }
 }

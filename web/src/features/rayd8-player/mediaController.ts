@@ -172,6 +172,15 @@ export async function setMediaSource(input: {
       maxBufferLength: stabilityProfile.maxBufferLength,
       maxMaxBufferLength: stabilityProfile.maxMaxBufferLength,
       startLevel: stabilityProfile.startLevel ?? -1,
+      // Bound hls.js internal retries so a starved/blocked stream cannot
+      // produce an unbounded request storm (INC-2026-08-06-VIDEO-LOOP). The
+      // recovery state machine handles escalation beyond these limits.
+      manifestLoadingMaxRetry: 2,
+      levelLoadingMaxRetry: 2,
+      fragLoadingMaxRetry: 3,
+      manifestLoadingRetryDelay: 500,
+      levelLoadingRetryDelay: 500,
+      fragLoadingRetryDelay: 1000,
     })
     if (controllerProfileRef) {
       controllerProfileRef.current = profileKey

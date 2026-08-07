@@ -49,6 +49,13 @@ export type SessionStartupSnapshot = {
   referenceCode?: string | null
   recoveryAction?: string | null
   recoverySucceeded?: boolean | null
+  /** Count of signed playback-URL (token) requests this attempt. */
+  signedUrlRequestCount?: number | null
+  /** Session-cumulative signed playback-URL request count. */
+  signedUrlRequestTotal?: number | null
+  mediaMountCount?: number | null
+  softRecoveryCount?: number | null
+  majorRecoveryCount?: number | null
 }
 
 const SECRET_KEY =

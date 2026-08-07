@@ -1,5 +1,6 @@
 import type { Experience } from '../app/types'
 import { apiBaseUrl, apiRequest } from './api'
+import { playerApiGet } from './playerTransport'
 
 export type UsageBlockReason =
   | 'free_expansion_limit_reached'
@@ -81,52 +82,76 @@ export interface PlaybackSessionResponse {
   }
 }
 
-export function getMemberPlaybackToken(assetId: string, experience: Experience, token: string) {
-  return apiRequest<PlaybackTokenResponse>(
+export function getMemberPlaybackToken(
+  assetId: string,
+  experience: Experience,
+  token: string,
+  options?: { signal?: AbortSignal; correlationId?: string },
+) {
+  return playerApiGet<PlaybackTokenResponse>(
     `/v1/player/playback-token?assetId=${encodeURIComponent(assetId)}&experience=${encodeURIComponent(experience)}`,
-    undefined,
     token,
+    options,
   )
 }
 
-export function getPlaybackAccess(experience: Experience, token: string) {
-  return apiRequest<{ access: ExperienceAccessSummary }>(
+export function getPlaybackAccess(
+  experience: Experience,
+  token: string,
+  options?: { signal?: AbortSignal; correlationId?: string },
+) {
+  return playerApiGet<{ access: ExperienceAccessSummary }>(
     `/v1/player/access?experience=${encodeURIComponent(experience)}`,
-    undefined,
     token,
+    options,
   )
 }
 
-export function startPlaybackSession(experience: Experience, token: string) {
+export function startPlaybackSession(
+  experience: Experience,
+  token: string,
+  options?: { sessionId?: string; signal?: AbortSignal; correlationId?: string },
+) {
   return apiRequest<PlaybackSessionResponse>(
     '/v1/player/session/start',
     {
-      body: JSON.stringify({ experience }),
+      body: JSON.stringify({ experience, sessionId: options?.sessionId }),
       method: 'POST',
     },
     token,
+    { correlationId: options?.correlationId, signal: options?.signal },
   )
 }
 
-export function heartbeatPlaybackSession(sessionId: string, token: string) {
+export function heartbeatPlaybackSession(
+  sessionId: string,
+  token: string,
+  options?: { mediaQualified?: boolean; signal?: AbortSignal; correlationId?: string },
+) {
   return apiRequest<PlaybackSessionResponse>(
     '/v1/player/session/heartbeat',
     {
-      body: JSON.stringify({ sessionId }),
+      body: JSON.stringify({ sessionId, mediaQualified: options?.mediaQualified }),
       method: 'POST',
     },
     token,
+    { correlationId: options?.correlationId, signal: options?.signal },
   )
 }
 
-export function endPlaybackSession(sessionId: string, token: string) {
+export function endPlaybackSession(
+  sessionId: string,
+  token: string,
+  options?: { mediaQualified?: boolean; signal?: AbortSignal; correlationId?: string },
+) {
   return apiRequest<PlaybackSessionResponse>(
     '/v1/player/session/end',
     {
-      body: JSON.stringify({ sessionId }),
+      body: JSON.stringify({ sessionId, mediaQualified: options?.mediaQualified }),
       method: 'POST',
     },
     token,
+    { correlationId: options?.correlationId, signal: options?.signal },
   )
 }
 
@@ -141,13 +166,13 @@ export function endPlaybackSession(sessionId: string, token: string) {
 export async function endPlaybackSessionReliable(
   sessionId: string,
   token: string,
-  options?: { transport?: 'standard' | 'unload' },
+  options?: { transport?: 'standard' | 'unload'; mediaQualified?: boolean },
 ): Promise<{ ok: boolean; transport: 'standard' | 'keepalive' | 'failed' }> {
   const transport = options?.transport ?? 'standard'
 
   if (transport === 'standard') {
     try {
-      await endPlaybackSession(sessionId, token)
+      await endPlaybackSession(sessionId, token, { mediaQualified: options?.mediaQualified })
       return { ok: true, transport: 'standard' }
     } catch {
       return { ok: false, transport: 'failed' }
