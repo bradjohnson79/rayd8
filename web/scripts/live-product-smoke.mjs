@@ -533,6 +533,24 @@ async function main() {
       allowExpectedNetworkAborts,
     })
 
+    // Intentional route.abort() can surface as pageerror NetworkError after the
+    // expect-window is cleared (async script/media failures). Reclassify a
+    // bounded number of those when the corresponding intentional aborts ran.
+    let expectedBudget =
+      Number(report.telemetryNonblocking?.umamiAborted || 0) +
+      (report.usageQualification?.starved ? 4 : 0)
+    const keptUncaught = []
+    for (const err of uncaughtErrors) {
+      if (expectedBudget > 0 && isExpectedNetworkAbortError(err)) {
+        expectedNetworkAborts.push(err)
+        expectedBudget -= 1
+        continue
+      }
+      keptUncaught.push(err)
+    }
+    uncaughtErrors.length = 0
+    uncaughtErrors.push(...keptUncaught)
+
     report.uncaughtErrors = uncaughtErrors
     report.expectedNetworkAborts = expectedNetworkAborts
     if (uncaughtErrors.length > 0) hardFailures.push(`uncaughtErrors: ${uncaughtErrors.length}`)
