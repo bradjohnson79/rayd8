@@ -52,6 +52,20 @@ function getUnsupportedStreamMessage() {
   return 'This browser cannot play the current RAYD8® session stream. Please use Safari, Chrome, Edge, or another browser with HLS or MediaSource playback support.'
 }
 
+/**
+ * Prefer native HLS only when the browser reports confident support
+ * (`"probably"`, typically Safari). Chromium-family browsers often return
+ * `"maybe"` for `application/vnd.apple.mpegurl` while their native HLS path
+ * cannot initialize Mux signed streams (stuck readyState=0 / permanent 0%).
+ * Those browsers must use hls.js/MSE instead.
+ */
+export function prefersNativeHls(media: HTMLMediaElement | null | undefined): boolean {
+  if (!media || typeof media.canPlayType !== 'function') {
+    return false
+  }
+  return media.canPlayType('application/vnd.apple.mpegurl') === 'probably'
+}
+
 export async function setMediaSource(input: {
   controllerProfileRef?: MutableRefObject<string | null>
   controllerRef: MutableRefObject<HlsController | null>
@@ -118,7 +132,7 @@ export async function setMediaSource(input: {
 
   diagnostics?.recordSourceLoad?.(sourceUrl)
 
-  if (media.canPlayType('application/vnd.apple.mpegurl')) {
+  if (prefersNativeHls(media)) {
     if (generationRef.current !== requestGeneration) {
       return false
     }

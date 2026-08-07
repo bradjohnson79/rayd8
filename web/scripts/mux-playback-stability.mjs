@@ -763,11 +763,32 @@ async function main() {
 
     report.finishedAt = new Date().toISOString()
     const syncPass = report.session?.syncAnalysis?.pass
+    const progressSamples = Array.isArray(report.session?.samples) ? report.session.samples : []
+    const maxVideoTime = progressSamples.reduce(
+      (max, sample) => Math.max(max, Number(sample?.videoCurrentTime) || 0),
+      0,
+    )
+    const maxAudioTime = progressSamples.reduce(
+      (max, sample) => Math.max(max, Number(sample?.audioCurrentTime) || 0),
+      0,
+    )
+    // Permanent 0% / never-initialized media must not count as a green smoke.
+    // Chromium "maybe" native HLS previously produced AUTHENTICATED_RUN_COMPLETE
+    // with sync.pass=true while currentTime stayed at 0 for the whole soak.
+    const madePlaybackProgress = maxVideoTime >= 1 || maxAudioTime >= 1
+    report.playbackProgress = {
+      maxVideoTime,
+      maxAudioTime,
+      madePlaybackProgress,
+      sampleCount: progressSamples.length,
+    }
     report.verdict =
       report.authenticated && report.session?.started
         ? syncPass === false
           ? 'AUTHENTICATED_RUN_SYNC_BUDGET_FAIL'
-          : 'AUTHENTICATED_RUN_COMPLETE'
+          : madePlaybackProgress
+            ? 'AUTHENTICATED_RUN_COMPLETE'
+            : 'AUTHENTICATED_RUN_NO_PROGRESS'
         : report.authenticated
           ? 'AUTH_PRESENT_BUT_SESSION_START_UNCONFIRMED'
           : 'SHELL_ONLY_NO_AUTH'
@@ -808,7 +829,10 @@ async function main() {
     if (mode === 'soak' && !report.authenticated) {
       process.exitCode = 2
     }
-    if (report.verdict === 'AUTHENTICATED_RUN_SYNC_BUDGET_FAIL') {
+    if (
+      report.verdict === 'AUTHENTICATED_RUN_SYNC_BUDGET_FAIL' ||
+      report.verdict === 'AUTHENTICATED_RUN_NO_PROGRESS'
+    ) {
       process.exitCode = 3
     }
   } finally {

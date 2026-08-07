@@ -14,6 +14,20 @@ describe('mediaController forceReload', () => {
     assert.match(source, /!forceReload &&/)
   })
 
+  it('uses native HLS only for canPlayType probably (not maybe)', () => {
+    const source = readFileSync(path.join(root, 'src/features/rayd8-player/mediaController.ts'), 'utf8')
+    assert.match(source, /export function prefersNativeHls/)
+    assert.match(
+      source,
+      /canPlayType\('application\/vnd\.apple\.mpegurl'\) === 'probably'/,
+    )
+    assert.match(source, /if \(prefersNativeHls\(media\)\)/)
+    assert.doesNotMatch(
+      source,
+      /if \(media\.canPlayType\('application\/vnd\.apple\.mpegurl'\)\)/,
+    )
+  })
+
   it('restart playback path destroys pipeline and forces reload', () => {
     const engine = readFileSync(path.join(root, 'src/features/rayd8-player/Rayd8PlayerEngine.tsx'), 'utf8')
     assert.match(engine, /handleRestartPlayback/)

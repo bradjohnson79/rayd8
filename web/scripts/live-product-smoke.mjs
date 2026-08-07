@@ -362,8 +362,10 @@ async function smokeControlledTokenFailure(page) {
   }
 }
 
-async function smokeUsageQualification(page) {
+async function smokeUsageQualification(page, opts = {}) {
+  const allowExpectedNetworkAborts = opts.allowExpectedNetworkAborts
   let starved = false
+  allowExpectedNetworkAborts?.(true)
   await page.route('**/*.m3u8**', (route) => {
     starved = true
     route.abort().catch(() => null)
@@ -373,44 +375,50 @@ async function smokeUsageQualification(page) {
     route.abort().catch(() => null)
   })
 
-  await page.goto(`${baseUrl}/dashboard?rayd8PlayerDebug=true`, { waitUntil: 'domcontentloaded', timeout: 90_000 })
-  await dismissExpressPrompt(page)
-  await startRegenSession(page)
-  await page.waitForTimeout(8000)
-
-  let mediaQualified = null
-  let startupStage = null
   try {
-    const probe = await page.evaluate(() => {
-      const s = window.__rayd8StartupInstrumentation
-      return {
-        tokenRequestCount: s?.tokenRequestCount ?? null,
-        startupStage: s?.stages?.[s.stages.length - 1]?.stage ?? null,
-      }
-    })
-    mediaQualified = probe.tokenRequestCount
-    startupStage = probe.startupStage
-  } catch (error) {
-    mediaQualified = { error: String(error) }
-  }
-  await endSession(page)
-  await page.unroute('**/*.m3u8**').catch(() => null)
-  await page.unroute('**/*.ts**').catch(() => null)
+    await page.goto(`${baseUrl}/dashboard?rayd8PlayerDebug=true`, { waitUntil: 'domcontentloaded', timeout: 90_000 })
+    await dismissExpressPrompt(page)
+    await startRegenSession(page)
+    await page.waitForTimeout(8000)
 
-  // Without DB admin access we cannot authoritatively read the qualification
-  // verdict; mark UNEXECUTED with reason unless a clear negative signal appeared.
-  const reason = 'No DB admin access to read authoritative qualification verdict'
-  return {
-    status: 'UNEXECUTED',
-    reason,
-    starved,
-    mediaQualified,
-    startupStage,
+    let mediaQualified = null
+    let startupStage = null
+    try {
+      const probe = await page.evaluate(() => {
+        const s = window.__rayd8StartupInstrumentation
+        return {
+          tokenRequestCount: s?.tokenRequestCount ?? null,
+          startupStage: s?.stages?.[s.stages.length - 1]?.stage ?? null,
+        }
+      })
+      mediaQualified = probe.tokenRequestCount
+      startupStage = probe.startupStage
+    } catch (error) {
+      mediaQualified = { error: String(error) }
+    }
+    await endSession(page)
+
+    // Without DB admin access we cannot authoritatively read the qualification
+    // verdict; mark UNEXECUTED with reason unless a clear negative signal appeared.
+    const reason = 'No DB admin access to read authoritative qualification verdict'
+    return {
+      status: 'UNEXECUTED',
+      reason,
+      starved,
+      mediaQualified,
+      startupStage,
+    }
+  } finally {
+    await page.unroute('**/*.m3u8**').catch(() => null)
+    await page.unroute('**/*.ts**').catch(() => null)
+    allowExpectedNetworkAborts?.(false)
   }
 }
 
-async function smokeTelemetryNonblocking(page) {
+async function smokeTelemetryNonblocking(page, opts = {}) {
+  const allowExpectedNetworkAborts = opts.allowExpectedNetworkAborts
   let umamiAborted = 0
+  allowExpectedNetworkAborts?.(true)
   await page.route('**/umami**', (route) => {
     umamiAborted += 1
     route.abort().catch(() => null)
@@ -424,17 +432,21 @@ async function smokeTelemetryNonblocking(page) {
     route.continue().catch(() => null)
   })
 
-  await page.goto(`${baseUrl}/dashboard`, { waitUntil: 'domcontentloaded', timeout: 90_000 })
-  await page.waitForTimeout(5000)
-  const snap = await collectSnapshot(page)
-  const dashboardLoaded = /dashboard/i.test(snap.href)
-  await page.unroute('**/umami**').catch(() => null)
-  await page.unroute('**/script.js**').catch(() => null)
-  return {
-    status: dashboardLoaded ? 'PASS' : 'FAIL',
-    umamiAborted,
-    dashboardLoaded,
-    href: snap.href,
+  try {
+    await page.goto(`${baseUrl}/dashboard`, { waitUntil: 'domcontentloaded', timeout: 90_000 })
+    await page.waitForTimeout(5000)
+    const snap = await collectSnapshot(page)
+    const dashboardLoaded = /dashboard/i.test(snap.href)
+    return {
+      status: dashboardLoaded ? 'PASS' : 'FAIL',
+      umamiAborted,
+      dashboardLoaded,
+      href: snap.href,
+    }
+  } finally {
+    await page.unroute('**/umami**').catch(() => null)
+    await page.unroute('**/script.js**').catch(() => null)
+    allowExpectedNetworkAborts?.(false)
   }
 }
 
@@ -458,7 +470,22 @@ async function main() {
   const page = await context.newPage()
 
   const uncaughtErrors = []
-  page.on('pageerror', (error) => uncaughtErrors.push(String(error)))
+  const expectedNetworkAborts = []
+  let expectNetworkAborts = false
+  const allowExpectedNetworkAborts = (enabled) => {
+    expectNetworkAborts = Boolean(enabled)
+  }
+  const isExpectedNetworkAbortError = (text) =>
+    /^NetworkError:/i.test(text) || /net::ERR_FAILED|NS_ERROR_FAILURE|Load failed/i.test(text)
+
+  page.on('pageerror', (error) => {
+    const text = String(error)
+    if (expectNetworkAborts && isExpectedNetworkAbortError(text)) {
+      expectedNetworkAborts.push(text)
+      return
+    }
+    uncaughtErrors.push(text)
+  })
   page.on('console', (msg) => {
     if (msg.type() === 'error') {
       const text = msg.text()
@@ -499,10 +526,15 @@ async function main() {
     await safeRun('hamsa', smokeHamsa, page)
     await safeRun('crossProductHandoff', smokeCrossProductHandoff, page)
     await safeRun('controlledTokenFailure', smokeControlledTokenFailure, page)
-    await safeRun('usageQualification', smokeUsageQualification, page)
-    await safeRun('telemetryNonblocking', smokeTelemetryNonblocking, page)
+    await safeRun('usageQualification', smokeUsageQualification, page, {
+      allowExpectedNetworkAborts,
+    })
+    await safeRun('telemetryNonblocking', smokeTelemetryNonblocking, page, {
+      allowExpectedNetworkAborts,
+    })
 
     report.uncaughtErrors = uncaughtErrors
+    report.expectedNetworkAborts = expectedNetworkAborts
     if (uncaughtErrors.length > 0) hardFailures.push(`uncaughtErrors: ${uncaughtErrors.length}`)
 
     report.finishedAt = new Date().toISOString()

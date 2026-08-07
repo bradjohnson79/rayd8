@@ -94,6 +94,7 @@ import { OverlayLayer } from '../player/OverlayLayer'
 import { usePlaybackAuthority, useSession } from '../session/SessionProvider'
 import {
   resetMedia,
+  prefersNativeHls,
   setMediaSource,
   tryPlayVideo,
   type HlsController,
@@ -1848,7 +1849,7 @@ export function Rayd8PlayerEngine({
         const diagnosticsLabel = `primary:${experience}:${sessionConfig.videoMode}`
         logExpressPlaybackDebug('mux_source_load', { diagnosticsLabel, forceReload: shouldForceReload })
         const hadControllerBefore = Boolean(primaryVideoControllerRef.current)
-        const prefersNativeHls = Boolean(video.canPlayType('application/vnd.apple.mpegurl'))
+        const useNativeHls = prefersNativeHls(video)
         startupInstrumentationRef.current.recordStage('MEDIA_SOURCE_APPLY')
         const applied = await setMediaSource({
           controllerProfileRef: primaryVideoControllerProfileRef,
@@ -1857,7 +1858,7 @@ export function Rayd8PlayerEngine({
             recordController: (action) => {
               if (action === 'create') {
                 startupInstrumentationRef.current.recordControllerCreate(
-                  prefersNativeHls ? 'native' : 'hls',
+                  useNativeHls ? 'native' : 'hls',
                 )
               }
               recordHlsController(diagnosticsLabel, action)
@@ -1874,7 +1875,7 @@ export function Rayd8PlayerEngine({
         })
         if (applied) {
           startupInstrumentationRef.current.recordSourceAssignment()
-          if (prefersNativeHls && !hadControllerBefore) {
+          if (useNativeHls && !hadControllerBefore) {
             startupInstrumentationRef.current.recordControllerCreate('native')
           }
           startupInstrumentationRef.current.endTimingPhase('media_attachment')
