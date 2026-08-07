@@ -1,9 +1,11 @@
 {
   "branch": "release/rayd8-live-smoke-closure",
-  "headSha": "1d59bc3a74253889805049548e812b5e3ef129d0",
+  "headShaAtBaseline": "1d59bc3a74253889805049548e812b5e3ef129d0",
   "repairSha": "efd5d8c",
   "docsSha": "acb41de",
+  "closureTipAtCertification": "20796f1384d760f23278db8b0d5cbb1501ae6b4f",
   "recordedAt": "2026-08-07T15:13:55Z",
+  "certifiedAt": "2026-08-07T17:39:59Z",
   "node": "v22.18.0",
   "npm": "10.9.3",
   "versions": {
@@ -13,7 +15,7 @@
     "playwright": "1.61.1",
     "@mux/mux-node": "14.0.1"
   },
-  "environment": "pending-deploy-decision",
+  "environment": "production",
   "browsers": {
     "chrome": "151.0.7922.76",
     "firefox": "153.0.3",

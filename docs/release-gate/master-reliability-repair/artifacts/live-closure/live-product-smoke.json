@@ -1,0 +1,229 @@
+{
+  "baseUrl": "https://rayd8.app",
+  "browserName": "chromium",
+  "startedAt": "2026-08-07T17:33:23.835Z",
+  "auth": {
+    "present": true,
+    "emailDomain": "example.com"
+  },
+  "clerkKeyPresent": true,
+  "login": {
+    "status": "PASS",
+    "url": "https://rayd8.app/dashboard?rayd8PlayerDebug=true"
+  },
+  "regen": {
+    "status": "PASS",
+    "started": true,
+    "firstSession": {
+      "ready": true,
+      "snapshot": {
+        "href": "https://rayd8.app/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "videoCurrentTime": 4.018712,
+        "audioCurrentTime": 0,
+        "videoPaused": false,
+        "audioPaused": true,
+        "recoveryOverlayVisible": false,
+        "preloadPercent": 0,
+        "tokenRequestCount": 3,
+        "startupStage": "MEDIA_SOURCE_APPLY",
+        "hasNonMonotonicCycle": false
+      },
+      "afterExit": {
+        "href": "https://rayd8.app/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "videoCurrentTime": 5.559954,
+        "audioCurrentTime": 0,
+        "videoPaused": false,
+        "audioPaused": true,
+        "recoveryOverlayVisible": false,
+        "preloadPercent": 0,
+        "tokenRequestCount": 3,
+        "startupStage": "MEDIA_SOURCE_APPLY",
+        "hasNonMonotonicCycle": false
+      }
+    },
+    "secondSession": {
+      "started": true,
+      "snapshot": {
+        "href": "https://rayd8.app/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "videoCurrentTime": 54.082185,
+        "audioCurrentTime": 0,
+        "videoPaused": false,
+        "audioPaused": true,
+        "recoveryOverlayVisible": false,
+        "preloadPercent": 0,
+        "tokenRequestCount": 3,
+        "startupStage": "MEDIA_SOURCE_APPLY",
+        "hasNonMonotonicCycle": false
+      }
+    }
+  },
+  "amrita": {
+    "status": "PASS",
+    "iframeMounted": true,
+    "handshake": {
+      "soakMode": "reduced",
+      "runtime": "running",
+      "frameId": 466,
+      "activeVisualLoops": 1,
+      "resumeCount": 0,
+      "phase": "down-pass-1",
+      "lastFrameAt": 4604.8,
+      "canvasCount": 2,
+      "webglContexts": 1,
+      "canvasSizes": [
+        {
+          "width": 1280,
+          "height": 720,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        },
+        {
+          "width": 1280,
+          "height": 720,
+          "cssWidth": 1280,
+          "cssHeight": 720
+        }
+      ],
+      "devicePixelRatio": 1,
+      "hidden": false,
+      "audioElements": 1,
+      "audioCurrentTime": 0,
+      "audioPaused": true,
+      "audioBufferLength": null,
+      "audioCurrentSrc": "present",
+      "fps": null,
+      "targetFps": 30,
+      "renderScaleOverride": 1
+    },
+    "leftoverIframes": 1,
+    "usedAmritaFixture": true
+  },
+  "hamsa": {
+    "status": "PASS",
+    "iframeMounted": true,
+    "sourceReady": {
+      "audioSrc": false,
+      "videoSrc": false
+    }
+  },
+  "crossProductHandoff": {
+    "status": "PASS",
+    "steps": [
+      {
+        "label": "REGEN",
+        "path": "/dashboard",
+        "href": "https://rayd8.app/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "videoCurrentTime": 9.444103,
+        "audioCurrentTime": 0,
+        "videoPaused": false,
+        "audioPaused": true,
+        "recoveryOverlayVisible": false,
+        "preloadPercent": 0,
+        "tokenRequestCount": 3,
+        "startupStage": "MEDIA_SOURCE_APPLY",
+        "hasNonMonotonicCycle": false
+      },
+      {
+        "label": "dashboard-1",
+        "path": "/dashboard",
+        "href": "https://rayd8.app/dashboard",
+        "videos": 0,
+        "audios": 1
+      },
+      {
+        "label": "AMRITA",
+        "path": "/amrita-dashboard",
+        "href": "https://rayd8.app/subscription?plan=amrita",
+        "videos": 0,
+        "audios": 0
+      },
+      {
+        "label": "dashboard-2",
+        "path": "/dashboard",
+        "href": "https://rayd8.app/dashboard",
+        "videos": 0,
+        "audios": 1
+      },
+      {
+        "label": "HAMSA",
+        "path": "/dashboard/hamsa",
+        "href": "https://rayd8.app/dashboard/hamsa",
+        "videos": 0,
+        "audios": 1
+      },
+      {
+        "label": "dashboard-3",
+        "path": "/dashboard",
+        "href": "https://rayd8.app/dashboard",
+        "videos": 0,
+        "audios": 1
+      },
+      {
+        "label": "REGEN-2",
+        "path": "/dashboard",
+        "href": "https://rayd8.app/dashboard?rayd8PlayerDebug=true",
+        "videos": 1,
+        "audios": 1,
+        "videoCurrentTime": 9.718059,
+        "audioCurrentTime": 0,
+        "videoPaused": false,
+        "audioPaused": true,
+        "recoveryOverlayVisible": false,
+        "preloadPercent": 0,
+        "tokenRequestCount": 3,
+        "startupStage": "MEDIA_SOURCE_APPLY",
+        "hasNonMonotonicCycle": false
+      }
+    ]
+  },
+  "controlledTokenFailure": {
+    "status": "PASS_NO_RECOVERY_OBSERVED",
+    "tokenHits": 4,
+    "bounded": true,
+    "recoveryOverlaySeen": false,
+    "tryAgainClicked": false,
+    "finalSnapshot": {
+      "href": "https://rayd8.app/dashboard?rayd8PlayerDebug=true",
+      "videos": 1,
+      "audios": 1,
+      "videoCurrentTime": 37.128659,
+      "audioCurrentTime": 0,
+      "videoPaused": false,
+      "audioPaused": true,
+      "recoveryOverlayVisible": false,
+      "preloadPercent": 0,
+      "tokenRequestCount": 3,
+      "startupStage": "MEDIA_SOURCE_APPLY",
+      "hasNonMonotonicCycle": false
+    }
+  },
+  "usageQualification": {
+    "status": "UNEXECUTED",
+    "reason": "No DB admin access to read authoritative qualification verdict",
+    "starved": true,
+    "mediaQualified": 3,
+    "startupStage": "MEDIA_SOURCE_APPLY"
+  },
+  "telemetryNonblocking": {
+    "status": "PASS",
+    "umamiAborted": 2,
+    "dashboardLoaded": true,
+    "href": "https://rayd8.app/dashboard"
+  },
+  "uncaughtErrors": [],
+  "expectedNetworkAborts": [
+    "NetworkError: A network error occurred.",
+    "NetworkError: A network error occurred."
+  ],
+  "finishedAt": "2026-08-07T17:36:50.575Z",
+  "hardFailures": [],
+  "verdict": "GO"
+}

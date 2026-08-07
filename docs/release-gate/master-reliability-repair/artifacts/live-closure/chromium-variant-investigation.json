@@ -1,0 +1,1613 @@
+{
+  "incident": "INC-2026-08-07-OPERA-STARTUP-HANG",
+  "correlatedIncidents": [
+    "INC-2026-08-06-VIDEO-LOOP",
+    "INC-2026-08-06-PLAYBACK-TOKEN-CORS"
+  ],
+  "framingQuestion": "which browser modifications expose startup assumptions that Chrome masks?",
+  "baseUrl": "https://rayd8.app",
+  "collectMs": 35000,
+  "pollIntervalMs": 2500,
+  "tokenRequestCap": "[redacted]",
+  "generatedAt": "2026-08-07T17:39:59.420Z",
+  "browsers": [
+    {
+      "id": "chrome",
+      "kind": "chromium",
+      "role": "baseline",
+      "status": "EXECUTED",
+      "reason": null,
+      "classification": "FULLY_SUPPORTED",
+      "evidence": "videoAppeared=true; readyState=4; hasCurrentSrc=true; currentTime=36.429594; milestones={\"loadedmetadata\":4583,\"canplay\":4815,\"canplaythrough\":4821,\"playing\":4828}; firstFailure=none; tokenRequests=5; permanentZero=false; overlayFlicker=false; nonMonotonic=false",
+      "sameFailureVsChrome": null,
+      "permanentZeroPercent": false,
+      "overlayFlicker": false,
+      "tokenRequestTotal": "[redacted]",
+      "session": {
+        "clickedStart": true,
+        "videoAppeared": true
+      },
+      "features": {
+        "nativeHlsCanPlayType": "maybe",
+        "mediaCapabilities": true,
+        "serviceWorkerController": false,
+        "isBrave": false,
+        "privacyHints": []
+      },
+      "network": {
+        "urlType": "other",
+        "status": null,
+        "errorText": "net::ERR_ABORTED",
+        "failureClass": "abort"
+      },
+      "finalStartupInstrumentation": {
+        "attemptNumber": 3,
+        "tokenRequestCount": "[redacted]",
+        "sessionTokenRequestTotal": "[redacted]",
+        "mediaMountCount": 0,
+        "softRecoveryCount": 0,
+        "majorRecoveryCount": 0,
+        "videoElementCreateCount": 0,
+        "audioElementCreateCount": 0,
+        "hlsControllerCreateCount": 1,
+        "nativeControllerCreateCount": 0,
+        "sourceAssignmentCount": 1,
+        "overlayMountCount": 1,
+        "overlayRenderCount": 0,
+        "healthGuardActivationCount": 0,
+        "stages": [
+          {
+            "stage": "AUTH_READINESS",
+            "atMs": 18
+          },
+          {
+            "stage": "PLAYBACK_TOKEN",
+            "atMs": 541
+          },
+          {
+            "stage": "MEDIA_SOURCE_APPLY",
+            "atMs": 541
+          }
+        ],
+        "stageDurationsMs": {
+          "AUTH_READINESS": 523,
+          "PLAYBACK_TOKEN": "[redacted]"
+        },
+        "timingPhasesMs": {
+          "authentication": 523,
+          "playback_token": "[redacted]",
+          "media_attachment": 77
+        },
+        "nonMonotonicCycles": [],
+        "hasNonMonotonicCycle": false
+      },
+      "samples": [
+        {
+          "at": 1786124222201,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 3.896237,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124224704,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 6.398476,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124227208,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 8.90096,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124229710,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 11.404923,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124232213,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 13.908146,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124234715,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 16.409016,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124237218,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 18.911557,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124239720,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 21.414653,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124242223,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 23.917994,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124244726,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 26.420381,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124247229,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 28.92377,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124249730,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 31.425227,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124252233,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 33.92774,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124254735,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 36.429594,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4583,
+            "canplay": 4815,
+            "canplaythrough": 4821,
+            "playing": 4828
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        }
+      ]
+    },
+    {
+      "id": "brave",
+      "kind": "chromium",
+      "role": "variant",
+      "status": "EXECUTED",
+      "reason": null,
+      "classification": "FULLY_SUPPORTED",
+      "evidence": "videoAppeared=true; readyState=4; hasCurrentSrc=true; currentTime=36.58829; milestones={\"loadedmetadata\":4391,\"canplay\":4663,\"canplaythrough\":4669,\"playing\":4674}; firstFailure=none; tokenRequests=5; permanentZero=false; overlayFlicker=false; nonMonotonic=false",
+      "sameFailureVsChrome": "A_same_root",
+      "permanentZeroPercent": false,
+      "overlayFlicker": false,
+      "tokenRequestTotal": "[redacted]",
+      "session": {
+        "clickedStart": true,
+        "videoAppeared": true
+      },
+      "features": {
+        "nativeHlsCanPlayType": "maybe",
+        "mediaCapabilities": true,
+        "serviceWorkerController": false,
+        "isBrave": true,
+        "privacyHints": []
+      },
+      "network": {
+        "urlType": "other",
+        "status": null,
+        "errorText": "net::ERR_ABORTED",
+        "failureClass": "abort"
+      },
+      "finalStartupInstrumentation": {
+        "attemptNumber": 3,
+        "tokenRequestCount": "[redacted]",
+        "sessionTokenRequestTotal": "[redacted]",
+        "mediaMountCount": 0,
+        "softRecoveryCount": 0,
+        "majorRecoveryCount": 0,
+        "videoElementCreateCount": 0,
+        "audioElementCreateCount": 0,
+        "hlsControllerCreateCount": 1,
+        "nativeControllerCreateCount": 0,
+        "sourceAssignmentCount": 1,
+        "overlayMountCount": 1,
+        "overlayRenderCount": 0,
+        "healthGuardActivationCount": 0,
+        "stages": [
+          {
+            "stage": "AUTH_READINESS",
+            "atMs": 20
+          },
+          {
+            "stage": "PLAYBACK_TOKEN",
+            "atMs": 568
+          },
+          {
+            "stage": "MEDIA_SOURCE_APPLY",
+            "atMs": 568
+          }
+        ],
+        "stageDurationsMs": {
+          "AUTH_READINESS": 548,
+          "PLAYBACK_TOKEN": "[redacted]"
+        },
+        "timingPhasesMs": {
+          "authentication": 548,
+          "playback_token": "[redacted]",
+          "media_attachment": 85
+        },
+        "nonMonotonicCycles": [],
+        "hasNonMonotonicCycle": false
+      },
+      "samples": [
+        {
+          "at": 1786124268878,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 4.054076,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124271380,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 6.557232,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124273882,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 9.05889,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124276384,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 11.560407,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124278887,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 14.062825,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124281390,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 16.566409,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124283892,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 19.067528,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124286394,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 21.570962,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124288897,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 24.074118,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124291400,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 26.576815,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124293902,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 29.079109,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124296408,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 31.583508,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124298910,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 34.085139,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124301413,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 36.58829,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4391,
+            "canplay": 4663,
+            "canplaythrough": 4669,
+            "playing": 4674
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        }
+      ]
+    },
+    {
+      "id": "opera",
+      "kind": "chromium",
+      "role": "variant",
+      "status": "EXECUTED",
+      "reason": null,
+      "classification": "FULLY_SUPPORTED",
+      "evidence": "videoAppeared=true; readyState=4; hasCurrentSrc=true; currentTime=36.715284; milestones={\"loadedmetadata\":4247,\"canplay\":4504,\"canplaythrough\":4510,\"playing\":4518}; firstFailure=none; tokenRequests=5; permanentZero=false; overlayFlicker=false; nonMonotonic=false",
+      "sameFailureVsChrome": "A_same_root",
+      "permanentZeroPercent": false,
+      "overlayFlicker": false,
+      "tokenRequestTotal": "[redacted]",
+      "session": {
+        "clickedStart": true,
+        "videoAppeared": true
+      },
+      "features": {
+        "nativeHlsCanPlayType": "maybe",
+        "mediaCapabilities": true,
+        "serviceWorkerController": false,
+        "isBrave": false,
+        "privacyHints": [
+          "opera_vpn_hint"
+        ]
+      },
+      "network": {
+        "urlType": "other",
+        "status": null,
+        "errorText": "net::ERR_ABORTED",
+        "failureClass": "abort"
+      },
+      "finalStartupInstrumentation": {
+        "attemptNumber": 3,
+        "tokenRequestCount": "[redacted]",
+        "sessionTokenRequestTotal": "[redacted]",
+        "mediaMountCount": 0,
+        "softRecoveryCount": 0,
+        "majorRecoveryCount": 0,
+        "videoElementCreateCount": 0,
+        "audioElementCreateCount": 0,
+        "hlsControllerCreateCount": 1,
+        "nativeControllerCreateCount": 0,
+        "sourceAssignmentCount": 1,
+        "overlayMountCount": 1,
+        "overlayRenderCount": 1,
+        "healthGuardActivationCount": 0,
+        "stages": [
+          {
+            "stage": "AUTH_READINESS",
+            "atMs": 19
+          },
+          {
+            "stage": "PLAYBACK_TOKEN",
+            "atMs": 652
+          },
+          {
+            "stage": "MEDIA_SOURCE_APPLY",
+            "atMs": 652
+          }
+        ],
+        "stageDurationsMs": {
+          "AUTH_READINESS": 633,
+          "PLAYBACK_TOKEN": "[redacted]"
+        },
+        "timingPhasesMs": {
+          "authentication": 633,
+          "playback_token": "[redacted]",
+          "media_attachment": 87
+        },
+        "nonMonotonicCycles": [],
+        "hasNonMonotonicCycle": false
+      },
+      "samples": [
+        {
+          "at": 1786124315861,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 4.187457,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124318364,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 6.689758,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124320866,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 9.192245,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124323368,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 11.69473,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124325871,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 14.196856,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124328372,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 16.698887,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124330873,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 19.200529,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124333376,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 21.702459,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124335878,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 24.202815,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124338381,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 26.705983,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124340884,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 29.209464,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124343386,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 31.712282,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124345888,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 34.213476,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124348390,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 36.715284,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 4247,
+            "canplay": 4504,
+            "canplaythrough": 4510,
+            "playing": 4518
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        }
+      ]
+    },
+    {
+      "id": "edge",
+      "kind": "chromium",
+      "role": "variant",
+      "status": "UNEXECUTED",
+      "reason": "executable missing",
+      "classification": null,
+      "evidence": null,
+      "sameFailureVsChrome": null,
+      "permanentZeroPercent": false,
+      "overlayFlicker": false,
+      "tokenRequestTotal": "[redacted]",
+      "session": null,
+      "features": null,
+      "network": null
+    },
+    {
+      "id": "firefox",
+      "kind": "gecko",
+      "role": "reference",
+      "status": "EXECUTED",
+      "reason": null,
+      "classification": "FULLY_SUPPORTED",
+      "evidence": "videoAppeared=true; readyState=4; hasCurrentSrc=true; currentTime=35.985396; milestones={\"loadedmetadata\":6434,\"canplay\":6487,\"canplaythrough\":6491,\"playing\":6761}; firstFailure=none; tokenRequests=5; permanentZero=false; overlayFlicker=false; nonMonotonic=false",
+      "sameFailureVsChrome": "A_same_root",
+      "permanentZeroPercent": false,
+      "overlayFlicker": false,
+      "tokenRequestTotal": "[redacted]",
+      "session": {
+        "clickedStart": true,
+        "videoAppeared": true
+      },
+      "features": {
+        "nativeHlsCanPlayType": "no",
+        "mediaCapabilities": true,
+        "serviceWorkerController": false,
+        "isBrave": false,
+        "privacyHints": []
+      },
+      "network": {
+        "urlType": "other",
+        "status": null,
+        "errorText": "NS_BINDING_ABORTED",
+        "failureClass": "abort"
+      },
+      "finalStartupInstrumentation": {
+        "attemptNumber": 3,
+        "tokenRequestCount": "[redacted]",
+        "sessionTokenRequestTotal": "[redacted]",
+        "mediaMountCount": 0,
+        "softRecoveryCount": 0,
+        "majorRecoveryCount": 0,
+        "videoElementCreateCount": 0,
+        "audioElementCreateCount": 0,
+        "hlsControllerCreateCount": 1,
+        "nativeControllerCreateCount": 0,
+        "sourceAssignmentCount": 1,
+        "overlayMountCount": 1,
+        "overlayRenderCount": 0,
+        "healthGuardActivationCount": 0,
+        "stages": [
+          {
+            "stage": "AUTH_READINESS",
+            "atMs": 14
+          },
+          {
+            "stage": "PLAYBACK_TOKEN",
+            "atMs": 597
+          },
+          {
+            "stage": "MEDIA_SOURCE_APPLY",
+            "atMs": 598
+          }
+        ],
+        "stageDurationsMs": {
+          "AUTH_READINESS": 583,
+          "PLAYBACK_TOKEN": "[redacted]"
+        },
+        "timingPhasesMs": {
+          "authentication": 583,
+          "playback_token": "[redacted]",
+          "media_attachment": 93
+        },
+        "nonMonotonicCycles": [],
+        "hasNonMonotonicCycle": false
+      },
+      "samples": [
+        {
+          "at": 1786124364056,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 3.417923,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124366560,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 5.935415,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124369063,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 8.444929,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124371567,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 10.943033,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124374069,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 13.443935,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124376572,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 15.951742,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124379074,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 18.461991,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124381591,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 20.957458,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124384094,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 23.473943,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124386597,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 25.976395,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124389099,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 28.477332,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124391602,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 30.976138,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124394104,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 33.476183,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        },
+        {
+          "at": 1786124396606,
+          "videoPresent": true,
+          "videoReadyState": 4,
+          "videoNetworkState": 2,
+          "videoWidth": 1280,
+          "videoHeight": 720,
+          "videoCurrentTime": 35.985396,
+          "hasCurrentSrc": true,
+          "overlayVisible": false,
+          "overlayPercent": null,
+          "overlayChangeCount": 0,
+          "tokenRequestCount": "[redacted]",
+          "milestones": {
+            "loadedmetadata": 6434,
+            "canplay": 6487,
+            "canplaythrough": 6491,
+            "playing": 6761
+          },
+          "startupStages": 3,
+          "hasNonMonotonicCycle": false,
+          "collectError": null
+        }
+      ]
+    }
+  ]
+}
