@@ -27,7 +27,10 @@
     "test:thermal-soak:short": "RAYD8_MUX_SOAK_MS=300000 RAYD8_AMRITA_SHORT_MS=300000 node scripts/amrita-mux-stability.mjs",
     "test:thermal-soak:30m": "RAYD8_MUX_SOAK_MS=1800000 node scripts/amrita-mux-stability.mjs",
     "test:session-startup-unit": "node --import ../api/node_modules/tsx/dist/esm/index.mjs --test src/features/rayd8-player/sessionStartupTaxonomy.test.ts src/features/rayd8-player/playbackHealthStateMachine.test.ts src/features/rayd8-player/mediaController.forceReload.test.ts",
-    "test:session-startup-closure": "npm run test:session-startup-unit && npm run test:no-playback-prompt && npm run test:mux-telemetry"
+    "test:session-startup-closure": "npm run test:session-startup-unit && npm run test:no-playback-prompt && npm run test:mux-telemetry",
+    "test:reliability-units": "node --import ../api/node_modules/tsx/dist/esm/index.mjs --test src/services/api.transport.test.ts src/services/api.playerTransport.test.ts src/features/rayd8-player/startupStageMachine.test.ts src/features/rayd8-player/browserBlockDetection.test.ts src/features/rayd8-player/mediaQualification.test.ts src/features/rayd8-player/startupInstrumentation.test.ts",
+    "smoke:rayd8:full-system": "node scripts/rayd8-full-system-smoke.mjs",
+    "smoke:rayd8:full-system:live": "node scripts/rayd8-full-system-smoke.mjs --live"
   },
   "dependencies": {
     "@clerk/react": "^6.4.2",

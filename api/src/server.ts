@@ -3,6 +3,7 @@ import cors from '@fastify/cors'
 import sensible from '@fastify/sensible'
 import rawBody from 'fastify-raw-body'
 import { randomUUID } from 'node:crypto'
+import { pathToFileURL } from 'node:url'
 import { ZodError } from 'zod'
 import { env } from './env.js'
 import { buildCorsOptions, CORRELATION_ID_HEADER } from './config/cors.js'
@@ -98,7 +99,16 @@ async function start() {
   await app.listen({ port: env.PORT, host: '0.0.0.0' })
 }
 
-start().catch((error) => {
-  app.log.error(error)
-  process.exit(1)
-})
+// Only auto-start when this module is the process entry point. Tests import
+// buildServer() directly; without this guard, importing server.ts would bind
+// the port (colliding with a running dev server) and call process.exit(1).
+const isEntryPoint =
+  typeof process.argv[1] === 'string' &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isEntryPoint) {
+  start().catch((error) => {
+    app.log.error(error)
+    process.exit(1)
+  })
+}
