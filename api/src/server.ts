@@ -88,6 +88,7 @@ export function buildServer() {
   void app.register(adminPromoCodeRoutes, { prefix: '/api/admin/promo-codes' })
   void app.register(adminSeoRoutes, { prefix: '/api/admin/seo' })
   void app.register(adminUserRoutes, { prefix: '/api/admin/users' })
+  void app.register(adminUserRoutes, { prefix: '/v1/admin/users' })
 
   return app
 }

@@ -12,6 +12,7 @@ function subscription(overrides: Partial<SubscriptionRecord>): SubscriptionRecor
     createdAt: now,
     currentPeriodEnd: new Date('2026-08-01T00:00:00.000Z'),
     currentPeriodStart: now,
+    discountPercentOff: null,
     id: '00000000-0000-0000-0000-000000000001',
     pastDueStartedAt: null,
     pendingDowngradePlan: null,
@@ -44,6 +45,34 @@ describe('subscription state entitlement policy', () => {
   it('removes paid access after past_due grace expires', () => {
     const state = resolveSubscriptionStateFromRecords([
       subscription({
+        pastDueStartedAt: new Date('2026-06-20T00:00:00.000Z'),
+        status: 'past_due',
+      }),
+    ], new Date('2026-07-01T00:00:00.000Z'))
+
+    expect(state.entitlementPlan).toBe('free')
+    expect(state.paymentRecoveryRequired).toBe(true)
+    expect(state.reason).toBe('past_due_expired')
+  })
+
+  it('keeps entitlement for a 100%-off promo subscription stuck in past_due beyond the grace window', () => {
+    const state = resolveSubscriptionStateFromRecords([
+      subscription({
+        discountPercentOff: 100,
+        pastDueStartedAt: new Date('2026-06-01T00:00:00.000Z'),
+        status: 'past_due',
+      }),
+    ], new Date('2026-07-01T00:00:00.000Z'))
+
+    expect(state.entitlementPlan).toBe('regen')
+    expect(state.paymentRecoveryRequired).toBe(false)
+    expect(state.reason).toBe('past_due_grace_promo')
+  })
+
+  it('still drops a partial-discount past_due subscription after the grace window', () => {
+    const state = resolveSubscriptionStateFromRecords([
+      subscription({
+        discountPercentOff: 50,
         pastDueStartedAt: new Date('2026-06-20T00:00:00.000Z'),
         status: 'past_due',
       }),

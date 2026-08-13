@@ -116,6 +116,7 @@ export const subscriptions = pgTable(
     currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
     pendingDowngradePlan: planEnum('pending_downgrade_plan'),
     pastDueStartedAt: timestamp('past_due_started_at', { withTimezone: true }),
+    discountPercentOff: integer('discount_percent_off'),
     statusChangedAt: timestamp('status_changed_at', { withTimezone: true }),
     stripeEventCreatedAt: timestamp('stripe_event_created_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

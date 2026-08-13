@@ -1,3 +1,4 @@
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '../../db/client.js'
 import {
   activeSessions,
@@ -6,6 +7,11 @@ import {
   userDevices,
   users,
 } from '../../db/schema.js'
+import {
+  stripeClient,
+  syncManagedPlanForUser,
+  syncSubscriptionFromStripe,
+} from '../subscriptions.js'
 
 export interface AdminOverview {
   totalUsers: number
@@ -94,4 +100,105 @@ export async function getAdminUsers() {
       active_session_count: sessions.length,
     }
   })
+}
+
+export class ResyncUserError extends Error {
+  constructor(
+    message: string,
+    readonly code: 'USER_NOT_FOUND' | 'STRIPE_NOT_CONFIGURED',
+  ) {
+    super(message)
+    this.name = 'ResyncUserError'
+  }
+}
+
+export interface ResyncedSubscriptionSummary {
+  stripeSubscriptionId: string
+  status: string
+  plan: string
+  currentPeriodEnd: string | null
+}
+
+export interface ResyncUserResult {
+  userId: string
+  plan: string
+  subscriptions: ResyncedSubscriptionSummary[]
+}
+
+export async function resyncUserSubscriptionsFromStripe(userId: string): Promise<ResyncUserResult> {
+  if (!db) {
+    throw new ResyncUserError('Database is not available.', 'USER_NOT_FOUND')
+  }
+
+  const [userRecord] = await db
+    .select({ id: users.id, stripeCustomerId: users.stripeCustomerId })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+
+  if (!userRecord) {
+    throw new ResyncUserError('User not found.', 'USER_NOT_FOUND')
+  }
+
+  if (!stripeClient) {
+    throw new ResyncUserError('Stripe is not configured.', 'STRIPE_NOT_CONFIGURED')
+  }
+
+  // A user can have Stripe subscriptions before their users.stripe_customer_id
+  // is backfilled. Match on the stored customer id OR on any subscription rows
+  // already linked to this user so the resync can recover those customers too.
+  const linkedSubscriptions = await db
+    .select({ stripeCustomerId: subscriptions.stripeCustomerId })
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, userId))
+
+  const customerIds = [
+    ...new Set(
+      [userRecord.stripeCustomerId, ...linkedSubscriptions.map((row) => row.stripeCustomerId)].filter(
+        (value): value is string => Boolean(value),
+      ),
+    ),
+  ]
+
+  const syncedSubscriptionIds: string[] = []
+
+  for (const customerId of customerIds) {
+    const stripeSubscriptions = await stripeClient.subscriptions.list({
+      customer: customerId,
+      limit: 100,
+      status: 'all',
+      expand: ['data.discounts.coupon'],
+    })
+
+    for (const stripeSubscription of stripeSubscriptions.data) {
+      await syncSubscriptionFromStripe(stripeSubscription, new Date())
+      syncedSubscriptionIds.push(stripeSubscription.id)
+    }
+  }
+
+  const plan = await syncManagedPlanForUser(userId)
+
+  const subscriptionRows = syncedSubscriptionIds.length
+    ? await db
+        .select()
+        .from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.userId, userId),
+            inArray(subscriptions.stripeSubscriptionId, syncedSubscriptionIds),
+          ),
+        )
+        .orderBy(desc(subscriptions.currentPeriodEnd))
+    : []
+
+  return {
+    userId,
+    plan,
+    subscriptions: subscriptionRows.map((row) => ({
+      stripeSubscriptionId: row.stripeSubscriptionId,
+      status: row.status,
+      plan: row.plan,
+      currentPeriodEnd: row.currentPeriodEnd?.toISOString() ?? null,
+    })),
+  }
 }

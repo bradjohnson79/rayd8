@@ -28,7 +28,7 @@ import { recordAffiliateTrackingEvent } from './affiliates/tracking.js'
 import { recordPromoCodeRedemption } from './admin/promoCodes.js'
 import { safeSyncUserToAweber, type AweberSyncPlan } from './aweber.js'
 
-const stripeClient = env.STRIPE_SECRET_KEY
+export const stripeClient = env.STRIPE_SECRET_KEY
   ? new Stripe(env.STRIPE_SECRET_KEY, {
       apiVersion: '2024-06-20' as never,
     })
@@ -891,9 +891,30 @@ function getInvoicePaymentSideEffectKey(invoiceId: string) {
   return `invoice:${invoiceId}:payment_succeeded`
 }
 
+function extractSubscriptionDiscountPercentOff(subscription: Stripe.Subscription): number | null {
+  const record = subscription as unknown as {
+    discount?: { coupon?: { percent_off?: number | null } | null } | null
+    discounts?: Array<{ coupon?: { percent_off?: number | null } | null } | string> | null
+  }
+
+  const fromDiscountsArray = Array.isArray(record.discounts)
+    ? record.discounts
+        .map((entry) => (typeof entry === 'string' ? null : entry?.coupon?.percent_off))
+        .find((value): value is number => typeof value === 'number')
+    : null
+
+  if (typeof fromDiscountsArray === 'number') {
+    return fromDiscountsArray
+  }
+
+  const legacyPercentOff = record.discount?.coupon?.percent_off
+  return typeof legacyPercentOff === 'number' ? legacyPercentOff : null
+}
+
 async function upsertSubscriptionRecord(input: {
   cancelAtPeriodEnd: boolean
   customerId: string
+  discountPercentOff?: number | null
   plan: PersistedPlan
   planType: ManagedPlanType
   currentPeriodStart: Date | null
@@ -947,6 +968,7 @@ async function upsertSubscriptionRecord(input: {
       cancelAtPeriodEnd: input.cancelAtPeriodEnd,
       currentPeriodStart: input.currentPeriodStart,
       currentPeriodEnd: input.currentPeriodEnd,
+      discountPercentOff: input.discountPercentOff ?? null,
       pastDueStartedAt,
       statusChangedAt,
       stripeEventCreatedAt: input.stripeEventCreatedAt ?? null,
@@ -961,6 +983,7 @@ async function upsertSubscriptionRecord(input: {
         cancelAtPeriodEnd: input.cancelAtPeriodEnd,
         currentPeriodStart: input.currentPeriodStart,
         currentPeriodEnd: input.currentPeriodEnd,
+        discountPercentOff: input.discountPercentOff ?? existingSubscription?.discountPercentOff ?? null,
         pastDueStartedAt,
         statusChangedAt,
         stripeEventCreatedAt: input.stripeEventCreatedAt ?? existingSubscription?.stripeEventCreatedAt ?? null,
@@ -1169,6 +1192,7 @@ async function activateManagedSubscriptionRecord(input: {
   customerId: string
   currentPeriodEnd: Date | null
   currentPeriodStart: Date | null
+  discountPercentOff?: number | null
   plan: ManagedPlan
   planType: ManagedPlanType
   status: string
@@ -1439,6 +1463,7 @@ export async function upsertUserSubscription(input: {
   clerkUserId: string
   currentPeriodEnd?: Date | null
   currentPeriodStart?: Date | null
+  discountPercentOff?: number | null
   plan: PersistedPlan
   planType?: ManagedPlanType
   status: string
@@ -1457,6 +1482,7 @@ export async function upsertUserSubscription(input: {
       cancelAtPeriodEnd: input.cancelAtPeriodEnd ?? false,
       currentPeriodStart: input.currentPeriodStart ?? null,
       currentPeriodEnd: input.currentPeriodEnd ?? null,
+      discountPercentOff: input.discountPercentOff ?? null,
       stripeEventCreatedAt: input.stripeEventCreatedAt ?? null,
     })
     return
@@ -1472,6 +1498,7 @@ export async function upsertUserSubscription(input: {
     cancelAtPeriodEnd: input.cancelAtPeriodEnd ?? false,
     currentPeriodStart: input.currentPeriodStart ?? null,
     currentPeriodEnd: input.currentPeriodEnd ?? null,
+    discountPercentOff: input.discountPercentOff ?? null,
     stripeEventCreatedAt: input.stripeEventCreatedAt ?? null,
   })
 
@@ -1571,6 +1598,9 @@ async function activateCheckoutSession(session: Stripe.Checkout.Session) {
       subscriptionDetails?.items.data[0]?.current_period_start,
     ),
     currentPeriodEnd: fromUnixTimestamp(subscriptionDetails?.items.data[0]?.current_period_end),
+    discountPercentOff: subscriptionDetails
+      ? extractSubscriptionDiscountPercentOff(subscriptionDetails)
+      : null,
   })
   await markCheckoutSessionProcessed(session.id, sessionContext.userId)
 
@@ -1917,7 +1947,7 @@ async function handleCheckoutCompleted(event: Stripe.CheckoutSessionCompletedEve
   await activateCheckoutSession(session)
 }
 
-async function syncSubscriptionFromStripe(subscription: Stripe.Subscription, stripeEventCreatedAt?: Date | null) {
+export async function syncSubscriptionFromStripe(subscription: Stripe.Subscription, stripeEventCreatedAt?: Date | null) {
   const existingSubscription = await findSubscriptionContext(subscription.id)
   const stripeCustomerId = subscription.customer ? String(subscription.customer) : null
   const [customerMappedUser] =
@@ -1979,6 +2009,7 @@ async function syncSubscriptionFromStripe(subscription: Stripe.Subscription, str
     cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
     currentPeriodStart,
     currentPeriodEnd,
+    discountPercentOff: extractSubscriptionDiscountPercentOff(subscription),
     stripeEventCreatedAt,
   })
 }
