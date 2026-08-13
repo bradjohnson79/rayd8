@@ -31,6 +31,8 @@ import {
   selectRecoveryOverlay,
   type PlayerStartupFailure,
 } from './sessionStartupTaxonomy'
+import { classifyBrowserBlock } from './browserBlockDetection'
+import { createStartupInstrumentation } from './startupInstrumentation'
 import {
   bucketCurrentTime,
   emitSessionStartupIncident,
@@ -92,6 +94,7 @@ import { OverlayLayer } from '../player/OverlayLayer'
 import { usePlaybackAuthority, useSession } from '../session/SessionProvider'
 import {
   resetMedia,
+  prefersNativeHls,
   setMediaSource,
   tryPlayVideo,
   type HlsController,
@@ -118,6 +121,11 @@ import {
   sampleMediaMetrics,
 } from './playbackObservability'
 import { AvSyncController } from './avSyncController'
+import {
+  clearMediaQualification,
+  publishMediaQualification,
+} from './mediaQualificationReporter'
+import type { SessionMode } from './mediaQualification'
 import type { SessionPlaybackStatus } from '../playback-authority/playbackPresentation'
 import { useMobilePlaybackLifecycle } from './useMobilePlaybackLifecycle'
 import { useAudioUnlockGesture } from './useAudioUnlockGesture'
@@ -714,9 +722,20 @@ export function Rayd8PlayerEngine({
   const [autoplayPending, setAutoplayPending] = useState(false)
   const [startupFailure, setStartupFailure] = useState<PlayerStartupFailure | null>(null)
   const startupCorrelationIdRef = useRef(createStartupCorrelationId('express'))
+  const startupInstrumentationRef = useRef(createStartupInstrumentation())
   const recoveryAttemptRef = useRef(0)
   const previousRecoveryActionRef = useRef<string | null>(null)
   const overlayTelemetrySentRef = useRef<string | null>(null)
+  // Bound automatic syncVideoMode restarts. Unstable effect deps previously
+  // caused hundreds of beginAttempt() calls (Chromium-variant investigation).
+  const autoSyncAttemptRef = useRef(0)
+  const MAX_AUTO_SYNC_ATTEMPTS = 6
+  const fetchPlaybackPayloadRef = useRef<((assetId: string) => Promise<MuxPlaybackPayload>) | null>(
+    null,
+  )
+  const reportPlaybackStartupFailureRef = useRef<((reason: string) => void) | null>(null)
+  const resetPlaybackHealthRef = useRef<(() => void) | null>(null)
+  const forceMediaReloadRef = useRef(false)
   const [mobileViewport, setMobileViewport] = useState(() => isMobileViewport())
   const [tabletViewport, setTabletViewport] = useState(() => isTabletViewport())
   const [smallScreenViewport, setSmallScreenViewport] = useState(() => isSmallScreen())
@@ -829,6 +848,13 @@ export function Rayd8PlayerEngine({
   const isPreloading = playbackPresentation.legacyPlaybackState === 'preloading'
   const isRecovering = playbackPresentation.legacyPlaybackState === 'recovering'
   const isVideoLoading = isPreloading || isRecovering
+
+  useEffect(() => {
+    if (!isPreloading) return
+    startupInstrumentationRef.current.recordOverlayRender()
+    startupInstrumentationRef.current.publishToWindow()
+  }, [isPreloading, preloadPercent])
+
   const topChromeInset = smallScreenViewport ? 12 : 16
   const bottomChromeInset = smallScreenViewport ? 20 : 24
   const isCompactPlayerUI =
@@ -904,6 +930,11 @@ export function Rayd8PlayerEngine({
     }
 
     recordVideoMount('primary', node !== null)
+    if (node !== null) {
+      startupInstrumentationRef.current.recordMediaMount()
+      startupInstrumentationRef.current.recordVideoElementCreate()
+      startupInstrumentationRef.current.publishToWindow()
+    }
     primaryVideoRef.current = node
     setPrimaryVideoReady(node !== null)
     if (!node) {
@@ -1216,6 +1247,8 @@ export function Rayd8PlayerEngine({
         )
       }
 
+      startupInstrumentationRef.current.recordTokenRequest()
+      startupInstrumentationRef.current.publishToWindow()
       const response =
         playbackMode === 'admin'
           ? await getAdminMuxPlaybackToken(assetId, tokenResult.token)
@@ -1270,6 +1303,9 @@ export function Rayd8PlayerEngine({
   const playbackHealthResetKey = `${sessionType}:${sessionConfig.videoMode}:${audioTrack}:${initRetryKey}`
   const handlePlaybackHealthSoftRecovery = useCallback(
     async (reason: string) => {
+      startupInstrumentationRef.current.recordRecoveryAttempt('soft')
+      startupInstrumentationRef.current.recordHealthGuardActivation()
+      startupInstrumentationRef.current.publishToWindow()
       logExpressPlaybackDebug('health_soft_recovery_attempt', {
         reason,
         currentTime: getVideoElement()?.currentTime ?? null,
@@ -1301,6 +1337,25 @@ export function Rayd8PlayerEngine({
   const reportPlaybackStartupFailure = playbackHealthGuard.reportStartupFailure
   const resetPlaybackHealth = playbackHealthGuard.reset
 
+  // Keep sync effect deps stable: read latest helpers/flags via refs updated in
+  // an effect (not during render) so react-hooks/refs stays at baseline.
+  useEffect(() => {
+    fetchPlaybackPayloadRef.current = fetchPlaybackPayload
+    reportPlaybackStartupFailureRef.current = reportPlaybackStartupFailure
+    resetPlaybackHealthRef.current = resetPlaybackHealth
+    forceMediaReloadRef.current = forceMediaReload
+  }, [
+    fetchPlaybackPayload,
+    reportPlaybackStartupFailure,
+    resetPlaybackHealth,
+    forceMediaReload,
+  ])
+
+  // User-driven remounts (Try Again / Reload) reset the auto-sync budget.
+  useEffect(() => {
+    autoSyncAttemptRef.current = 0
+  }, [initRetryKey, sessionType, experience, audioTrack, sessionConfig.videoMode])
+
   const recoveryOverlayKind = selectRecoveryOverlay({
     softDenialActive: Boolean(activeSoftDenialState),
     failure: startupFailure,
@@ -1314,16 +1369,86 @@ export function Rayd8PlayerEngine({
   })
 
   useEffect(() => {
-    if (playbackHealthFallbackVisible && !startupFailure) {
-      setStartupFailure(
-        mapMediaReasonToStartupFailure({
-          correlationId: startupCorrelationIdRef.current,
-          reason: 'startup_health_timeout',
-          sourceApplied: true,
-        }),
-      )
+    if (!playbackHealthFallbackVisible || startupFailure) {
+      return
     }
-  }, [playbackHealthFallbackVisible, startupFailure])
+
+    // Distinguish a browser-blocked stream (Brave shields / extensions starving
+    // video while audio continues) from a generic startup health timeout so the
+    // user gets actionable guidance (INC-2026-08-06-VIDEO-LOOP).
+    const video = getVideoElement()
+    const audio = getAudioElement()
+    const verdict = classifyBrowserBlock({
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      isBrave: typeof navigator !== 'undefined' && 'brave' in navigator,
+      videoReadyState: video?.readyState ?? 0,
+      videoCurrentTime: video?.currentTime ?? 0,
+      videoNetworkState: video?.networkState ?? 0,
+      videoError: video?.error ? { code: video.error.code, message: video.error.message } : null,
+      audioPlaying: Boolean(audio && !audio.paused && !audio.ended),
+      // Hard fallback only fires after the 9s hard deadline, past the grace window.
+      elapsedMs: 9_000,
+      manifestRequests: sourceApplied ? 1 : 0,
+      segmentRequests: (video?.readyState ?? 0) > 0 ? 1 : 0,
+    })
+
+    setStartupFailure(
+      mapMediaReasonToStartupFailure({
+        correlationId: startupCorrelationIdRef.current,
+        reason: verdict.blocked ? 'BROWSER_BLOCKED' : 'startup_health_timeout',
+        sourceApplied: true,
+      }),
+    )
+  }, [playbackHealthFallbackVisible, startupFailure, sourceApplied, getVideoElement, getAudioElement])
+
+  // A terminal startup failure (hard fallback or explicit failure state) must
+  // always move the authority out of PRELOADING so the 0% preparation overlay
+  // clears and the recovery overlay is the single visible surface.
+  useEffect(() => {
+    if (!playbackHealthFallbackVisible) {
+      return
+    }
+    if (playbackPresentation.legacyPlaybackState === 'preloading') {
+      playbackAuthority?.dispatch({ type: 'lifecycle_ready' })
+    }
+  }, [playbackHealthFallbackVisible, playbackPresentation.legacyPlaybackState, playbackAuthority])
+
+  // Publish live media qualification so the SessionProvider heartbeat only
+  // accrues usage when the required media is actually healthy (INC-2026-08-06-VIDEO-LOOP).
+  const startupFailed = Boolean(startupFailure) || playbackHealthFallbackVisible
+  useEffect(() => {
+    const sessionMode: SessionMode =
+      pipelineMode === 'combined' ? 'combined' : pipelineMode === 'video' ? 'video_only' : 'dual'
+
+    const publish = () => {
+      const video = getVideoElement()
+      const audio = getAudioElement()
+      const legacyState = playbackStateRef.current
+      const startupStatus: 'idle' | 'starting' | 'ready' | 'failed' = startupFailed
+        ? 'failed'
+        : legacyState === 'playing' || legacyState === 'ready'
+          ? 'ready'
+          : 'starting'
+
+      publishMediaQualification({
+        sessionMode,
+        audioPlaying: Boolean(audio && !audio.paused && !audio.ended),
+        audioCurrentTime: audio?.currentTime ?? 0,
+        videoPlaying: Boolean(video && !video.paused && !video.ended),
+        videoCurrentTime: video?.currentTime ?? 0,
+        videoReadyState: video?.readyState ?? 0,
+        videoWidth: video?.videoWidth ?? 0,
+        startupStatus,
+      })
+    }
+
+    publish()
+    const intervalId = window.setInterval(publish, 1_000)
+    return () => {
+      window.clearInterval(intervalId)
+      clearMediaQualification()
+    }
+  }, [pipelineMode, startupFailed, getVideoElement, getAudioElement])
 
   useEffect(() => {
     if (!recoveryOverlayCopy || recoveryOverlayKind === 'soft_denial' || recoveryOverlayKind === 'none') {
@@ -1335,6 +1460,7 @@ export function Rayd8PlayerEngine({
     }
     overlayTelemetrySentRef.current = key
     const video = getVideoElement()
+    const instrumentation = startupInstrumentationRef.current.snapshot()
     emitSessionStartupIncident({
       kind: 'overlay_shown',
       correlationId: startupCorrelationIdRef.current,
@@ -1363,6 +1489,13 @@ export function Rayd8PlayerEngine({
       referenceCode: recoveryOverlayCopy.referenceCode,
       mediaControllerMode: pipelineMode,
       playbackEngine: primaryVideoControllerRef.current ? 'hls.js' : 'native',
+      // Keys avoid the substring "token"/"session_id" so the telemetry
+      // sanitizer does not redact these counters.
+      signedUrlRequestCount: instrumentation.tokenRequestCount,
+      signedUrlRequestTotal: instrumentation.sessionTokenRequestTotal,
+      mediaMountCount: instrumentation.mediaMountCount,
+      softRecoveryCount: instrumentation.softRecoveryCount,
+      majorRecoveryCount: instrumentation.majorRecoveryCount,
     })
   }, [
     autoplayPending,
@@ -1556,6 +1689,28 @@ export function Rayd8PlayerEngine({
       }
     }
 
+    // Fail closed: unstable callback identities must not restart media forever.
+    autoSyncAttemptRef.current += 1
+    if (autoSyncAttemptRef.current > MAX_AUTO_SYNC_ATTEMPTS) {
+      logExpressPlaybackDebug('syncVideoMode_budget_exceeded', {
+        attempts: autoSyncAttemptRef.current,
+      })
+      playbackAuthority?.dispatch({ type: 'lifecycle_ready' })
+      setStartupFailure(
+        mapMediaReasonToStartupFailure({
+          correlationId: startupCorrelationIdRef.current,
+          reason: 'startup_health_timeout',
+          sourceApplied: false,
+        }),
+      )
+      setInitFailureVisible(true)
+      startupInstrumentationRef.current.publishToWindow()
+      return () => {
+        cancelled = true
+        preloadAbortController.abort()
+      }
+    }
+
     async function waitForPrimaryVideoElement() {
       const immediateVideo = primaryVideoRef.current
 
@@ -1584,6 +1739,11 @@ export function Rayd8PlayerEngine({
 
     async function syncVideoMode() {
       playbackAuthority?.dispatch({ type: 'lifecycle_preloading' })
+      startupInstrumentationRef.current.beginAttempt()
+      startupInstrumentationRef.current.recordStage('AUTH_READINESS')
+      startupInstrumentationRef.current.markTimingPhase('authentication')
+      startupInstrumentationRef.current.recordOverlayMount()
+      startupInstrumentationRef.current.publishToWindow()
       setPreloadPercent(0)
       setVideoError(null)
       setInitFailureVisible(false)
@@ -1592,14 +1752,15 @@ export function Rayd8PlayerEngine({
       setSourceApplied(false)
       setMetadataReady(false)
       setAutoplayPending(false)
-      resetPlaybackHealth()
+      resetPlaybackHealthRef.current?.()
       logExpressPlaybackDebug('syncVideoMode_start', {
         audioTrack,
         experience,
         mode: sessionConfig.videoMode,
+        autoSyncAttempt: autoSyncAttemptRef.current,
       })
 
-      const shouldForceReload = forceMediaReload
+      const shouldForceReload = forceMediaReloadRef.current
 
       try {
         const videoAssetInput = {
@@ -1621,7 +1782,11 @@ export function Rayd8PlayerEngine({
         playbackAuthority?.setPlaybackKind(singleAvAudioActive ? 'combined' : 'dual')
         let playback: MuxPlaybackPayload
         try {
-          playback = await fetchPlaybackPayload(assetId)
+          const fetchPayload = fetchPlaybackPayloadRef.current
+          if (!fetchPayload) {
+            throw new Error('Playback token fetch is not ready.')
+          }
+          playback = await fetchPayload(assetId)
         } catch (tokenError) {
           if (!cancelled) {
             const failure =
@@ -1673,6 +1838,12 @@ export function Rayd8PlayerEngine({
         }
 
         setCurrentVideoSignedUrl(playback.signed_url)
+        startupInstrumentationRef.current.recordStage('PLAYBACK_TOKEN')
+        startupInstrumentationRef.current.endTimingPhase('authentication')
+        startupInstrumentationRef.current.markTimingPhase('playback_token')
+        startupInstrumentationRef.current.endTimingPhase('playback_token')
+        startupInstrumentationRef.current.markTimingPhase('media_attachment')
+        startupInstrumentationRef.current.publishToWindow()
 
         configureVideoElement(video)
         video.muted = true
@@ -1686,11 +1857,21 @@ export function Rayd8PlayerEngine({
 
         const diagnosticsLabel = `primary:${experience}:${sessionConfig.videoMode}`
         logExpressPlaybackDebug('mux_source_load', { diagnosticsLabel, forceReload: shouldForceReload })
+        const hadControllerBefore = Boolean(primaryVideoControllerRef.current)
+        const useNativeHls = prefersNativeHls(video)
+        startupInstrumentationRef.current.recordStage('MEDIA_SOURCE_APPLY')
         const applied = await setMediaSource({
           controllerProfileRef: primaryVideoControllerProfileRef,
           controllerRef: primaryVideoControllerRef,
           diagnostics: {
-            recordController: (action) => recordHlsController(diagnosticsLabel, action),
+            recordController: (action) => {
+              if (action === 'create') {
+                startupInstrumentationRef.current.recordControllerCreate(
+                  useNativeHls ? 'native' : 'hls',
+                )
+              }
+              recordHlsController(diagnosticsLabel, action)
+            },
             recordSourceLoad: (sourceUrl) => recordSourceLoad(diagnosticsLabel, sourceUrl),
           },
           forceReload: shouldForceReload,
@@ -1701,6 +1882,15 @@ export function Rayd8PlayerEngine({
           sourceUrl: playback.signed_url,
           stabilityProfile: playbackStabilityProfileRef.current,
         })
+        if (applied) {
+          startupInstrumentationRef.current.recordSourceAssignment()
+          if (useNativeHls && !hadControllerBefore) {
+            startupInstrumentationRef.current.recordControllerCreate('native')
+          }
+          startupInstrumentationRef.current.endTimingPhase('media_attachment')
+          startupInstrumentationRef.current.markTimingPhase('manifest_download')
+          startupInstrumentationRef.current.publishToWindow()
+        }
 
         if (!applied || cancelled || requestId !== videoRequestRef.current) {
           if (!cancelled && requestId === videoRequestRef.current) {
@@ -1709,7 +1899,7 @@ export function Rayd8PlayerEngine({
               reason: 'media_source_not_applied',
             })
             setStartupFailure(failure)
-            reportPlaybackStartupFailure('media_source_not_applied')
+            reportPlaybackStartupFailureRef.current?.('media_source_not_applied')
           }
           return
         }
@@ -1858,7 +2048,10 @@ export function Rayd8PlayerEngine({
 
         if (!readyToStart || cancelled || requestId !== videoRequestRef.current) {
           if (!cancelled && requestId === videoRequestRef.current) {
-            reportPlaybackStartupFailure('playback_not_ready')
+            // Exit the preloading stage so the 0% preparation overlay clears
+            // and the recovery overlay can show (INC-2026-08-06-PLAYBACK-TOKEN-CORS).
+            playbackAuthority?.dispatch({ type: 'lifecycle_ready' })
+            reportPlaybackStartupFailureRef.current?.('playback_not_ready')
           }
           return
         }
@@ -1886,7 +2079,7 @@ export function Rayd8PlayerEngine({
           if (!started.ok) {
             if (started.reason === 'NotAllowedError') {
               setAutoplayPending(true)
-              reportPlaybackStartupFailure('AUTOPLAY_BLOCKED')
+              reportPlaybackStartupFailureRef.current?.('AUTOPLAY_BLOCKED')
             } else {
               const failure = mapMediaReasonToStartupFailure({
                 correlationId: startupCorrelationIdRef.current,
@@ -1894,7 +2087,7 @@ export function Rayd8PlayerEngine({
                 sourceApplied: true,
               })
               setStartupFailure(failure)
-              reportPlaybackStartupFailure('play_failed')
+              reportPlaybackStartupFailureRef.current?.('play_failed')
             }
           }
         }
@@ -1955,18 +2148,17 @@ export function Rayd8PlayerEngine({
       clearMuxRefreshTimer()
       preloadAbortController.abort()
     }
+    // Intentionally omit volatile callback identities (getTokenSafe,
+    // fetchPlaybackPayload, reportPlaybackStartupFailure, resetPlaybackHealth,
+    // forceMediaReload). Those are read via refs so token/health updates cannot
+    // restart the media pipeline in a loop.
   }, [
     experience,
     audioTrack,
-    fetchPlaybackPayload,
-    forceMediaReload,
-    getTokenSafe,
     playbackAuthority,
     playbackMode,
     playbackPlan,
     playbackScheduler,
-    reportPlaybackStartupFailure,
-    resetPlaybackHealth,
     sessionConfig.videoMode,
     sessionType,
     setSingleAvAudioActive,
@@ -2315,6 +2507,8 @@ export function Rayd8PlayerEngine({
 
   const handleRestartPlayback = useCallback(() => {
     recoveryAttemptRef.current += 1
+    startupInstrumentationRef.current.recordRecoveryAttempt('major')
+    startupInstrumentationRef.current.beginAttempt()
     previousRecoveryActionRef.current = 'restart_playback'
     overlayTelemetrySentRef.current = null
     startupCorrelationIdRef.current = createStartupCorrelationId('express-retry')
@@ -2346,6 +2540,7 @@ export function Rayd8PlayerEngine({
 
   const handleReloadSession = useCallback(() => {
     recoveryAttemptRef.current += 1
+    startupInstrumentationRef.current.beginAttempt()
     previousRecoveryActionRef.current = 'reload_session'
     emitSessionStartupIncident({
       kind: 'recovery_action',

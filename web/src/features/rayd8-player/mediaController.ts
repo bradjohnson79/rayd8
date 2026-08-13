@@ -52,6 +52,20 @@ function getUnsupportedStreamMessage() {
   return 'This browser cannot play the current RAYD8® session stream. Please use Safari, Chrome, Edge, or another browser with HLS or MediaSource playback support.'
 }
 
+/**
+ * Prefer native HLS only when the browser reports confident support
+ * (`"probably"`, typically Safari). Chromium-family browsers often return
+ * `"maybe"` for `application/vnd.apple.mpegurl` while their native HLS path
+ * cannot initialize Mux signed streams (stuck readyState=0 / permanent 0%).
+ * Those browsers must use hls.js/MSE instead.
+ */
+export function prefersNativeHls(media: HTMLMediaElement | null | undefined): boolean {
+  if (!media || typeof media.canPlayType !== 'function') {
+    return false
+  }
+  return media.canPlayType('application/vnd.apple.mpegurl') === 'probably'
+}
+
 export async function setMediaSource(input: {
   controllerProfileRef?: MutableRefObject<string | null>
   controllerRef: MutableRefObject<HlsController | null>
@@ -118,7 +132,7 @@ export async function setMediaSource(input: {
 
   diagnostics?.recordSourceLoad?.(sourceUrl)
 
-  if (media.canPlayType('application/vnd.apple.mpegurl')) {
+  if (prefersNativeHls(media)) {
     if (generationRef.current !== requestGeneration) {
       return false
     }
@@ -172,6 +186,15 @@ export async function setMediaSource(input: {
       maxBufferLength: stabilityProfile.maxBufferLength,
       maxMaxBufferLength: stabilityProfile.maxMaxBufferLength,
       startLevel: stabilityProfile.startLevel ?? -1,
+      // Bound hls.js internal retries so a starved/blocked stream cannot
+      // produce an unbounded request storm (INC-2026-08-06-VIDEO-LOOP). The
+      // recovery state machine handles escalation beyond these limits.
+      manifestLoadingMaxRetry: 2,
+      levelLoadingMaxRetry: 2,
+      fragLoadingMaxRetry: 3,
+      manifestLoadingRetryDelay: 500,
+      levelLoadingRetryDelay: 500,
+      fragLoadingRetryDelay: 1000,
     })
     if (controllerProfileRef) {
       controllerProfileRef.current = profileKey

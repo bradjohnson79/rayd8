@@ -54,6 +54,7 @@ export type RecoveryOverlayKind =
   | 'soft_denial'
   | 'init_failure'
   | 'media_start_failure'
+  | 'browser_blocked'
   | 'offline'
   | 'auth_expired'
   | 'none'
@@ -105,7 +106,35 @@ export function mapApiErrorToStartupFailure(input: {
   const httpStatus = input.status
   const apiCode = (input.code || '').toLowerCase()
 
-  if (input.offline || httpStatus === 0 || apiCode === 'network_error') {
+  // Transport-level timeout/abort carry status 0, so they must be classified
+  // before the generic offline branch.
+  if (apiCode === 'request_timeout' || httpStatus === 429) {
+    return {
+      stage: 'PLAYBACK_TOKEN',
+      code: 'REQUEST_TIMEOUT',
+      recoverability: 'retry',
+      correlationId: input.correlationId,
+      occurredAt,
+      technicalMessage: input.message,
+      httpStatus,
+      source: httpStatus === 429 ? 'api' : 'browser',
+    }
+  }
+
+  if (apiCode === 'request_aborted') {
+    return {
+      stage: 'PLAYBACK_TOKEN',
+      code: 'REQUEST_ABORTED',
+      recoverability: 'retry',
+      correlationId: input.correlationId,
+      occurredAt,
+      technicalMessage: input.message,
+      httpStatus,
+      source: 'browser',
+    }
+  }
+
+  if (input.offline || httpStatus === 0 || apiCode === 'network_error' || apiCode === 'edge_html_response') {
     return {
       stage: 'UNKNOWN',
       code: 'NETWORK_OFFLINE',
@@ -189,6 +218,18 @@ export function mapMediaReasonToStartupFailure(input: {
     }
   }
 
+  if (reason === 'BROWSER_BLOCKED') {
+    return {
+      stage: 'PLAYBACK_HEALTH',
+      code: 'BROWSER_BLOCKED',
+      recoverability: 'retry',
+      correlationId: input.correlationId,
+      occurredAt,
+      technicalMessage: reason,
+      source: 'browser',
+    }
+  }
+
   if (reason === 'media_source_not_applied' || reason === 'MEDIA_SOURCE_FAILED') {
     return {
       stage: 'MEDIA_SOURCE_APPLY',
@@ -259,6 +300,10 @@ export function selectRecoveryOverlay(input: {
     return 'soft_denial'
   }
 
+  if (input.failure?.code === 'BROWSER_BLOCKED') {
+    return 'browser_blocked'
+  }
+
   if (input.playbackHealthFailed) {
     return 'media_start_failure'
   }
@@ -299,6 +344,14 @@ export function getRecoveryOverlayCopy(input: {
         kind: 'media_start_failure',
         title: 'Your Session Is Ready, but Playback Did Not Start',
         body: 'The session was prepared, but the media stream did not become ready.',
+        actions: ['restart_playback', 'reload_session', 'return_home'],
+        referenceCode,
+      }
+    case 'browser_blocked':
+      return {
+        kind: 'browser_blocked',
+        title: 'Your Browser Blocked the Video Stream',
+        body: 'Audio is playing, but your browser blocked the video. On Brave, lower Shields for this site; otherwise disable strict extensions or allow media permissions, then restart playback.',
         actions: ['restart_playback', 'reload_session', 'return_home'],
         referenceCode,
       }

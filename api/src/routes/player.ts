@@ -36,10 +36,12 @@ const playbackAccessQuerySchema = z.object({
 
 const sessionStartSchema = z.object({
   experience: experienceSchema,
+  sessionId: z.string().uuid().optional(),
 })
 
 const sessionHeartbeatSchema = z.object({
   sessionId: z.string().uuid(),
+  mediaQualified: z.boolean().optional(),
 })
 
 function getBlockedExperienceMessage(access: ExperienceAccessSummary) {
@@ -168,6 +170,8 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       })
     }
 
+    // Signed URLs are bearer credentials — never let shared caches store them.
+    void reply.header('cache-control', 'no-store')
     return { playback }
   })
 
@@ -205,14 +209,6 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/v1/player/session/start', async (request, reply) => {
     if (!request.auth?.userId) {
-      console.log('SESSION START DEBUG:', {
-        hasUser: false,
-        hoursUsed: undefined,
-        trialEndsAt: undefined,
-        trialExpired: undefined,
-        userId: undefined,
-      })
-
       return reply.code(401).send(getAuthRequiredError())
     }
 
@@ -221,23 +217,12 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       role: request.auth.role,
       userId: request.auth.userId,
     })
-    const trialExpired = trialStatus.reason === 'TRIAL_EXPIRED'
-    const hoursExceeded = trialStatus.reason === 'HOURS_EXCEEDED'
-
-    console.log('SESSION START DEBUG:', {
-      hasUser: true,
-      hoursExceeded,
-      hoursUsed: trialStatus.trial_hours_used,
-      trialEndsAt: trialStatus.trial_ends_at,
-      trialExpired,
-      userId: request.auth.userId,
-    })
 
     if (!trialStatus.allowed && trialStatus.reason) {
       return reply.code(403).send(getTrialAccessError(trialStatus.reason))
     }
 
-    const { experience } = sessionStartSchema.parse(request.body)
+    const { experience, sessionId: clientSessionId } = sessionStartSchema.parse(request.body)
     const access = await getExperienceAccess({
       experience,
       plan: request.auth.plan,
@@ -262,10 +247,12 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       console.warn('stale session soft-reconcile skipped', error)
     }
 
+    // Client supplies the session ID so retries are idempotent (no duplicate
+    // sessions when the network drops the first response).
     const session = await startUsageSession({
       experience,
       plan: request.auth.plan,
-      sessionId: randomUUID(),
+      sessionId: clientSessionId ?? randomUUID(),
       userId: request.auth.userId,
     })
 
@@ -277,7 +264,7 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(401).send(getAuthRequiredError())
     }
 
-    const { sessionId } = sessionHeartbeatSchema.parse(request.body)
+    const { sessionId, mediaQualified } = sessionHeartbeatSchema.parse(request.body)
     const trialStatus = await assertTrialAccess({
       plan: request.auth.plan,
       role: request.auth.role,
@@ -289,6 +276,7 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const session = await heartbeatUsageSession({
+      mediaQualified,
       plan: request.auth.plan,
       sessionId,
       userId: request.auth.userId,
@@ -325,13 +313,14 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(401).send(getAuthRequiredError())
     }
 
-    const { sessionId } = sessionHeartbeatSchema.parse(request.body)
+    const { sessionId, mediaQualified } = sessionHeartbeatSchema.parse(request.body)
     const trialStatus = await assertTrialAccess({
       plan: request.auth.plan,
       role: request.auth.role,
       userId: request.auth.userId,
     })
     const session = await endUsageSession({
+      mediaQualified,
       plan: request.auth.plan,
       sessionId,
       trackUsage: trialStatus.allowed,

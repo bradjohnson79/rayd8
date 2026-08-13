@@ -54,6 +54,7 @@ import {
   type TryPlayResult,
 } from '../rayd8-player/mediaController'
 import { logExpressPlaybackDebug } from '../rayd8-player/expressPlaybackDebug'
+import { readMediaQualified } from '../rayd8-player/mediaQualificationReporter'
 import { PlaybackScheduler } from '../rayd8-player/playbackScheduler'
 
 const PlaybackAuthorityContext = createContext<PlaybackAuthorityController | null>(null)
@@ -477,6 +478,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const audioResumeRef = useRef<() => Promise<boolean>>(async () => true)
   const softDenialTimerRef = useRef<number | null>(null)
   const trackingSessionIdRef = useRef<string | null>(null)
+  // Client-generated session ID, minted once per activation so start retries
+  // are idempotent (no duplicate sessions when a response is dropped).
+  const clientSessionIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     trackingSessionIdRef.current = trackingSessionId
@@ -520,12 +524,15 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
       try {
         if ((options?.transport ?? 'standard') === 'standard') {
-          const response = await endPlaybackSession(sessionId, tokenResult.token)
+          const response = await endPlaybackSession(sessionId, tokenResult.token, {
+            mediaQualified: readMediaQualified(),
+          })
           updateExperienceAccess(response.access)
           return
         }
 
         await endPlaybackSessionReliable(sessionId, tokenResult.token, {
+          mediaQualified: readMediaQualified(),
           transport: 'unload',
         })
       } catch {
@@ -572,6 +579,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
     setAudioError(null)
     setSingleAvAudioActive(false)
     setTrackingSessionId(null)
+    clientSessionIdRef.current =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `r8-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
     setState({
       isActive: true,
       sessionSource: options?.source ?? 'member',
@@ -633,7 +644,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
       }
 
       try {
-        const response = await startPlaybackSession(experience, tokenResult.token)
+        const response = await startPlaybackSession(experience, tokenResult.token, {
+          sessionId: clientSessionIdRef.current ?? undefined,
+        })
 
         if (import.meta.env.DEV) {
           console.log('SESSION RESPONSE:', response)
@@ -739,7 +752,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
       }
 
       try {
-        const response = await heartbeatPlaybackSession(trackingSessionId, tokenResult.token)
+        const response = await heartbeatPlaybackSession(trackingSessionId, tokenResult.token, {
+          mediaQualified: readMediaQualified(),
+        })
 
         if (cancelled) {
           return

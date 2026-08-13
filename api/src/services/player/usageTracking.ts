@@ -8,6 +8,7 @@ import {
   getUsagePeriodSummary,
   MAX_HEARTBEAT_SECONDS,
 } from './usagePeriods.js'
+import { computeQualifiedHeartbeatAccrual } from './usageQualification.js'
 
 function toElapsedSeconds(startedAt: Date, endedAt: Date) {
   return Math.max(0, Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000))
@@ -123,6 +124,24 @@ export async function startUsageSession(input: {
     userId: input.userId,
   })
 
+  // Idempotent start: a client retry with the same session ID returns the
+  // existing session instead of inserting a duplicate.
+  const [existingSession] = await db
+    .select()
+    .from(usageSessions)
+    .where(and(eq(usageSessions.id, input.sessionId), eq(usageSessions.userId, input.userId)))
+    .limit(1)
+
+  if (existingSession) {
+    return {
+      experience: existingSession.experience,
+      id: existingSession.id,
+      minutesWatched: existingSession.minutesWatched,
+      secondsWatched: existingSession.secondsWatched,
+      alreadyStarted: true as const,
+    }
+  }
+
   await db.insert(usageSessions).values({
     experience: input.experience,
     id: input.sessionId,
@@ -145,6 +164,7 @@ export async function startUsageSession(input: {
     id: input.sessionId,
     minutesWatched: 0,
     secondsWatched: 0,
+    alreadyStarted: false as const,
   }
 }
 
@@ -152,6 +172,7 @@ export async function heartbeatUsageSession(input: {
   plan: AppPlan
   sessionId: string
   trackUsage?: boolean
+  mediaQualified?: boolean
   userId: string
 }) {
   if (!db) {
@@ -168,9 +189,26 @@ export async function heartbeatUsageSession(input: {
     return null
   }
 
+  // Heartbeats after end must not accrue or resurrect the session.
+  if (existingSession.endedAt) {
+    return {
+      endedAt: existingSession.endedAt,
+      experience: existingSession.experience,
+      id: existingSession.id,
+      minutesWatched: existingSession.minutesWatched,
+      secondsWatched: existingSession.secondsWatched,
+      alreadyEnded: true as const,
+    }
+  }
+
   const now = new Date()
-  const trackedSeconds = toTrackedHeartbeatSeconds(existingSession.lastHeartbeat, now)
-  const appliedTrackedSeconds = input.trackUsage === false ? 0 : trackedSeconds
+  const elapsedSeconds = toTrackedHeartbeatSeconds(existingSession.lastHeartbeat, now)
+  const { accrualSeconds } = computeQualifiedHeartbeatAccrual({
+    elapsedSeconds,
+    maxHeartbeatSeconds: MAX_HEARTBEAT_SECONDS,
+    mediaQualified: input.mediaQualified,
+  })
+  const appliedTrackedSeconds = input.trackUsage === false ? 0 : accrualSeconds
   const secondsWatched = existingSession.secondsWatched + appliedTrackedSeconds
   const minutesWatched = Math.floor(secondsWatched / 60)
 
@@ -200,6 +238,7 @@ export async function heartbeatUsageSession(input: {
     id: existingSession.id,
     minutesWatched,
     secondsWatched,
+    alreadyEnded: false as const,
   }
 }
 
@@ -207,6 +246,7 @@ export async function endUsageSession(input: {
   plan: AppPlan
   sessionId: string
   trackUsage?: boolean
+  mediaQualified?: boolean
   userId: string
 }) {
   if (!db) {
@@ -240,8 +280,13 @@ export async function endUsageSession(input: {
   }
 
   const endedAt = new Date()
-  const trackedSeconds = toTrackedHeartbeatSeconds(existingSession.lastHeartbeat, endedAt)
-  const appliedTrackedSeconds = input.trackUsage === false ? 0 : trackedSeconds
+  const elapsedSeconds = toTrackedHeartbeatSeconds(existingSession.lastHeartbeat, endedAt)
+  const { accrualSeconds } = computeQualifiedHeartbeatAccrual({
+    elapsedSeconds,
+    maxHeartbeatSeconds: MAX_HEARTBEAT_SECONDS,
+    mediaQualified: input.mediaQualified,
+  })
+  const appliedTrackedSeconds = input.trackUsage === false ? 0 : accrualSeconds
   const secondsWatched = existingSession.secondsWatched + appliedTrackedSeconds
   const minutesWatched = Math.floor(secondsWatched / 60)
 

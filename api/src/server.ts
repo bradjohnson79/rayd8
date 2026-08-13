@@ -2,8 +2,11 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import sensible from '@fastify/sensible'
 import rawBody from 'fastify-raw-body'
+import { randomUUID } from 'node:crypto'
+import { pathToFileURL } from 'node:url'
 import { ZodError } from 'zod'
 import { env } from './env.js'
+import { buildCorsOptions, CORRELATION_ID_HEADER } from './config/cors.js'
 import { verifyDatabaseStartup } from './db/startupChecks.js'
 import { registerAuth } from './plugins/auth.js'
 import { adminAnalyticsRoutes } from './routes/admin/analytics.js'
@@ -26,19 +29,19 @@ import { settingsRoutes } from './routes/settings.js'
 import { stripeWebhookRoutes } from './routes/stripeWebhook.js'
 import { usageRoutes } from './routes/usage.js'
 
-const allowedCorsOrigins = Array.from(
-  new Set([
-    env.APP_URL.trim(),
-    'https://rayd8.app',
-    'https://www.rayd8.app',
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-  ]),
-)
-
 export function buildServer() {
   const app = Fastify({
     logger: env.NODE_ENV !== 'test',
+  })
+
+  // Correlation ID: echo the client's ID or mint one, on every response,
+  // so frontend incidents can be stitched to API logs without PII.
+  app.addHook('onRequest', async (request, reply) => {
+    const incoming = request.headers[CORRELATION_ID_HEADER]
+    const correlationId =
+      typeof incoming === 'string' && incoming.trim().length > 0 ? incoming.trim() : randomUUID()
+    request.correlationId = correlationId
+    void reply.header(CORRELATION_ID_HEADER, correlationId)
   })
 
   app.setErrorHandler((error, request, reply) => {
@@ -56,12 +59,7 @@ export function buildServer() {
     })
   })
 
-  void app.register(cors, {
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
-    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    origin: allowedCorsOrigins,
-  })
+  void app.register(cors, buildCorsOptions())
   void app.register(sensible)
   void app.register(rawBody, {
     field: 'rawBody',
@@ -90,6 +88,7 @@ export function buildServer() {
   void app.register(adminPromoCodeRoutes, { prefix: '/api/admin/promo-codes' })
   void app.register(adminSeoRoutes, { prefix: '/api/admin/seo' })
   void app.register(adminUserRoutes, { prefix: '/api/admin/users' })
+  void app.register(adminUserRoutes, { prefix: '/v1/admin/users' })
 
   return app
 }
@@ -101,7 +100,16 @@ async function start() {
   await app.listen({ port: env.PORT, host: '0.0.0.0' })
 }
 
-start().catch((error) => {
-  app.log.error(error)
-  process.exit(1)
-})
+// Only auto-start when this module is the process entry point. Tests import
+// buildServer() directly; without this guard, importing server.ts would bind
+// the port (colliding with a running dev server) and call process.exit(1).
+const isEntryPoint =
+  typeof process.argv[1] === 'string' &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isEntryPoint) {
+  start().catch((error) => {
+    app.log.error(error)
+    process.exit(1)
+  })
+}

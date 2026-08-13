@@ -22,6 +22,7 @@ export interface SubscriptionState {
     | 'active'
     | 'free'
     | 'past_due_grace'
+    | 'past_due_grace_promo'
     | 'past_due_expired'
     | 'payment_unpaid'
     | 'pending_payment'
@@ -60,8 +61,16 @@ export function getSubscriptionEntitlementPlan(subscription: SubscriptionRecord,
     return subscription.plan
   }
 
-  if (subscription.status === 'past_due' && hasPastDueGrace(subscription, now)) {
-    return subscription.plan
+  if (subscription.status === 'past_due') {
+    // A 100%-off promo subscription has a $0 invoice — there is no payment to
+    // recover, so a spurious past_due event must not strip entitlement.
+    if (subscription.discountPercentOff === 100) {
+      return subscription.plan
+    }
+
+    if (hasPastDueGrace(subscription, now)) {
+      return subscription.plan
+    }
   }
 
   return 'free'
@@ -90,8 +99,14 @@ export function resolveSubscriptionStateFromRecords(records: SubscriptionRecord[
     return {
       activeSubscription,
       entitlementPlan: getSubscriptionEntitlementPlan(activeSubscription, now),
-      paymentRecoveryRequired: activeSubscription.status === 'past_due',
-      reason: activeSubscription.status === 'past_due' ? 'past_due_grace' : 'active',
+      paymentRecoveryRequired:
+        activeSubscription.status === 'past_due' && activeSubscription.discountPercentOff !== 100,
+      reason:
+        activeSubscription.status === 'past_due'
+          ? activeSubscription.discountPercentOff === 100
+            ? 'past_due_grace_promo'
+            : 'past_due_grace'
+          : 'active',
     }
   }
 
@@ -106,7 +121,9 @@ export function resolveSubscriptionStateFromRecords(records: SubscriptionRecord[
     }
   }
 
-  const expiredPastDue = paidRecords.find((record) => record.status === 'past_due')
+  const expiredPastDue = paidRecords.find(
+    (record) => record.status === 'past_due' && record.discountPercentOff !== 100,
+  )
 
   if (expiredPastDue) {
     return {

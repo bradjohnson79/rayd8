@@ -1,14 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
+import type { PlanTier } from '../../app/types'
+import { getMe } from '../../services/me'
+import {
+  AUTH_LOADING_MESSAGE,
+  AUTH_LOADING_SLOW_MESSAGE,
+  useAuthReadiness,
+} from '../auth/useAuthReadiness'
 import { useUpgradeNavigation } from '../auth/useUpgradeNavigation'
 import { immersiveDashboardOutletScrollClassName } from '../dashboard/immersiveDashboardOutlet'
-import { useAuthUser } from '../dashboard/useAuthUser'
 import {
   detectHamsaAppUrl,
   HAMSA_PREP_IMAGE,
   hamsaFeatureCallouts,
   hamsaPreviewCopy,
 } from './hamsaContent'
+import { hasHamsaPlanAccess, resolveHamsaAccessDecision } from './hamsaAccess'
 import { ImmersiveViewport } from '../rayd8-player/ImmersiveViewport'
 
 function HamsaArtwork() {
@@ -145,10 +152,70 @@ function LockedInfoScreen() {
   )
 }
 
-export function HamsaRoutePage() {
-  const user = useAuthUser()
+function HamsaLoadingScreen() {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center px-6 text-white">
+      <div className="max-w-md rounded-3xl border border-white/12 bg-white/[0.045] px-6 py-5 text-center text-sm text-slate-300 backdrop-blur-xl">
+        <p>{AUTH_LOADING_MESSAGE}</p>
+        <p className="mt-3 text-slate-400">{AUTH_LOADING_SLOW_MESSAGE}</p>
+      </div>
+    </div>
+  )
+}
 
-  const hasHamsaAccess = user.plan === 'regen' || user.plan === 'amrita'
+export function HamsaRoutePage() {
+  const { authUser, getTokenSafe, status } = useAuthReadiness()
+  const clerkPlan = authUser?.plan ?? null
+  const shouldVerifyDbPlan = status === 'signed-in' && !hasHamsaPlanAccess(clerkPlan)
+  const [dbBackedPlan, setDbBackedPlan] = useState<PlanTier | null>(null)
+  const [dbPlanChecked, setDbPlanChecked] = useState(false)
+
+  useEffect(() => {
+    if (!shouldVerifyDbPlan) {
+      return
+    }
+
+    let cancelled = false
+
+    async function verifyDbPlan() {
+      const tokenResult = await getTokenSafe()
+
+      if (!tokenResult.token) {
+        if (!cancelled) {
+          setDbBackedPlan(null)
+          setDbPlanChecked(true)
+        }
+        return
+      }
+
+      try {
+        const response = await getMe(tokenResult.token)
+
+        if (!cancelled) {
+          setDbBackedPlan(response.user?.plan ?? null)
+          setDbPlanChecked(true)
+        }
+      } catch {
+        if (!cancelled) {
+          setDbBackedPlan(null)
+          setDbPlanChecked(true)
+        }
+      }
+    }
+
+    void verifyDbPlan()
+
+    return () => {
+      cancelled = true
+    }
+  }, [getTokenSafe, shouldVerifyDbPlan])
+
+  const accessDecision = resolveHamsaAccessDecision({
+    authStatus: status,
+    clerkPlan,
+    dbBackedPlan,
+    dbPlanChecked,
+  })
 
   return (
     <div className={immersiveDashboardOutletScrollClassName}>
@@ -162,7 +229,13 @@ export function HamsaRoutePage() {
           className="pointer-events-none absolute inset-x-0 top-0 z-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent"
         />
         <div className="relative z-10">
-          {hasHamsaAccess ? <HamsaLaunchScreen /> : <LockedInfoScreen />}
+          {accessDecision === 'loading' ? (
+            <HamsaLoadingScreen />
+          ) : accessDecision === 'launch' ? (
+            <HamsaLaunchScreen />
+          ) : (
+            <LockedInfoScreen />
+          )}
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@
  */
 
 import { trackUmamiEvent } from '../../services/umami'
+import { collectBrowserFingerprint, type BrowserFingerprint } from './browserFingerprint'
 import type { PlayerStartupFailure, StartupFailureCode, StartupStage } from './sessionStartupTaxonomy'
 
 export type SessionStartupIncidentKind = 'overlay_shown' | 'recovery_action' | 'recovery_result'
@@ -20,6 +21,18 @@ export type SessionStartupSnapshot = {
   productMode?: string | null
   browserFamily?: string | null
   platformClass?: string | null
+  /** Coarse browser version (major only), from fingerprint when available. */
+  browserVersion?: string | null
+  /** Rendering engine family (blink|gecko|webkit|unknown). */
+  renderingEngine?: string | null
+  /** Coarse OS family. */
+  os?: string | null
+  /** Best-effort private/incognito mode flag; null when unknown. */
+  privateMode?: boolean | null
+  /** Coarse VPN/proxy capability hint; null when unknown. */
+  vpnOrProxyHint?: string | null
+  /** Privacy-feature hints joined by '|' (e.g. "brave_shields_hint|opera_vpn_hint"). */
+  privacyFeatureFlags?: string | null
   documentVisibility?: string | null
   online?: boolean | null
   authReady?: boolean | null
@@ -49,8 +62,19 @@ export type SessionStartupSnapshot = {
   referenceCode?: string | null
   recoveryAction?: string | null
   recoverySucceeded?: boolean | null
+  /** Count of signed playback-URL (token) requests this attempt. */
+  signedUrlRequestCount?: number | null
+  /** Session-cumulative signed playback-URL request count. */
+  signedUrlRequestTotal?: number | null
+  mediaMountCount?: number | null
+  softRecoveryCount?: number | null
+  majorRecoveryCount?: number | null
 }
 
+// Secret-key denylist. Kept narrow and explicit so non-identifying fingerprint
+// fields (browserFamily, browserVersion, renderingEngine, os, privateMode,
+// vpnOrProxyHint, privacyFeatureFlags) are NEVER stripped — none contain any
+// of these substrings. Do not add broad patterns like "version" or "mode".
 const SECRET_KEY =
   /(?:token|jwt|authorization|password|signed_url|bearer|cookie|email|intention|sankalpa|user_id|session_id|playback_id)/i
 const TOKEN_IN_STRING = /token=[^&\s]+/gi
@@ -133,14 +157,38 @@ export function emitSessionStartupIncident(payload: SessionStartupSnapshot) {
         ? ((import.meta.env?.VITE_RELEASE_SHA as string | undefined) ?? null)
         : null)
 
-    const data = sanitizeSessionStartupSnapshot({
+    // Backfill coarse browser/platform fields from the privacy-safe fingerprint
+    // when the caller did not supply them, and always attach the extended
+    // fingerprint fields when collection succeeds.
+    let fingerprint: BrowserFingerprint | null = null
+    try {
+      fingerprint = collectBrowserFingerprint()
+    } catch {
+      fingerprint = null
+    }
+
+    const enriched: SessionStartupSnapshot = {
       ...payload,
       releaseSha,
       documentVisibility:
         payload.documentVisibility ??
         (typeof document !== 'undefined' ? document.visibilityState : null),
       online: payload.online ?? (typeof navigator !== 'undefined' ? navigator.onLine : null),
-    })
+      browserFamily: payload.browserFamily ?? fingerprint?.browserFamily ?? null,
+      platformClass: payload.platformClass ?? fingerprint?.platformClass ?? null,
+      browserVersion: payload.browserVersion ?? fingerprint?.browserVersion ?? null,
+      renderingEngine: payload.renderingEngine ?? fingerprint?.renderingEngine ?? null,
+      os: payload.os ?? fingerprint?.os ?? null,
+      privateMode: payload.privateMode ?? fingerprint?.privateMode ?? null,
+      vpnOrProxyHint: payload.vpnOrProxyHint ?? fingerprint?.vpnOrProxyHint ?? null,
+      privacyFeatureFlags:
+        payload.privacyFeatureFlags ??
+        (fingerprint && fingerprint.privacyFeatures.length > 0
+          ? fingerprint.privacyFeatures.join('|')
+          : null),
+    }
+
+    const data = sanitizeSessionStartupSnapshot(enriched)
 
     trackUmamiEvent('session_startup_incident', data)
   } catch {

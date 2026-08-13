@@ -13,6 +13,8 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().default(3001),
   APP_URL: z.string().default('http://localhost:5173'),
+  /** Optional extra CORS origin for staging/preview (comma-separated allowed). */
+  EXTRA_CORS_ORIGIN: z.string().optional(),
   DATABASE_URL: z.string().optional(),
   CLERK_SECRET_KEY: z.string().optional(),
   CLERK_PUBLISHABLE_KEY: z.string().optional(),

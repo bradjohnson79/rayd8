@@ -93,14 +93,83 @@ async function waitForServer(server) {
   throw new Error('Timed out waiting for preview server')
 }
 
-async function launchBrowser() {
-  if (browserName === 'firefox') return firefox.launch()
-  if (browserName === 'webkit') return webkit.launch()
+// Browser launchers for the additional Chromium-based channels. These keep the
+// existing smoke/soak behavior intact and never print signed URLs or JWTs.
+
+const CHROMIUM_AUTOMATION_ARGS = [
+  '--no-first-run',
+  '--no-default-browser-check',
+  '--disable-background-networking',
+  '--disable-component-update',
+]
+
+async function launchChromiumDefault() {
   try {
     return await chromium.launch({ channel: 'chrome' })
   } catch {
     return chromium.launch()
   }
+}
+
+async function launchEdge() {
+  try {
+    return await chromium.launch({ channel: 'msedge' })
+  } catch {
+    return chromium.launch({
+      executablePath: '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    })
+  }
+}
+
+async function launchOpera() {
+  return chromium.launch({
+    executablePath: '/Applications/Opera.app/Contents/MacOS/Opera',
+    args: CHROMIUM_AUTOMATION_ARGS,
+  })
+}
+
+// Brave Shields OFF requires a pre-seeded persistent profile where Shields have
+// been disabled for the test origin (Brave persists per-site shield state in the
+// profile). We do NOT toggle Shields via UI automation — that path is fragile. If
+// the seeded profile does not exist, we fall back to a fresh ephemeral Brave
+// context (Shields ON) and log a warning so the operator knows to seed the profile.
+async function launchBrave() {
+  const executablePath = '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'
+  const args = CHROMIUM_AUTOMATION_ARGS
+  const shields = (process.env.RAYD8_BRAVE_SHIELDS ?? '').toLowerCase()
+
+  if (shields === 'off') {
+    const profileDir = resolve(webRoot, 'e2e/.profiles/brave-shields-off')
+    if (existsSync(profileDir)) {
+      const context = await chromium.launchPersistentContext(profileDir, {
+        executablePath,
+        args,
+      })
+      // Adapt the persistent context to the Browser-like surface (newContext/close)
+      // used by main(). Viewport/mobile options passed to newContext() are ignored
+      // for Shields-OFF runs — the seeded profile owns that state.
+      return {
+        newContext: async () => context,
+        close: async () => context.close(),
+      }
+    }
+    console.warn(
+      `[mux-playback-stability] RAYD8_BRAVE_SHIELDS=off but pre-seeded profile not found at ${profileDir}. ` +
+        'Falling back to default ephemeral Brave profile (Shields ON). Seed the profile once by ' +
+        'launching Brave with that userDataDir and disabling Shields for the test origin.',
+    )
+  }
+
+  return chromium.launch({ executablePath, args })
+}
+
+async function launchBrowser() {
+  if (browserName === 'firefox') return firefox.launch()
+  if (browserName === 'webkit') return webkit.launch()
+  if (browserName === 'brave') return launchBrave()
+  if (browserName === 'opera') return launchOpera()
+  if (browserName === 'edge') return launchEdge()
+  return launchChromiumDefault()
 }
 
 function redact(value) {
@@ -694,11 +763,32 @@ async function main() {
 
     report.finishedAt = new Date().toISOString()
     const syncPass = report.session?.syncAnalysis?.pass
+    const progressSamples = Array.isArray(report.session?.samples) ? report.session.samples : []
+    const maxVideoTime = progressSamples.reduce(
+      (max, sample) => Math.max(max, Number(sample?.videoCurrentTime) || 0),
+      0,
+    )
+    const maxAudioTime = progressSamples.reduce(
+      (max, sample) => Math.max(max, Number(sample?.audioCurrentTime) || 0),
+      0,
+    )
+    // Permanent 0% / never-initialized media must not count as a green smoke.
+    // Chromium "maybe" native HLS previously produced AUTHENTICATED_RUN_COMPLETE
+    // with sync.pass=true while currentTime stayed at 0 for the whole soak.
+    const madePlaybackProgress = maxVideoTime >= 1 || maxAudioTime >= 1
+    report.playbackProgress = {
+      maxVideoTime,
+      maxAudioTime,
+      madePlaybackProgress,
+      sampleCount: progressSamples.length,
+    }
     report.verdict =
       report.authenticated && report.session?.started
         ? syncPass === false
           ? 'AUTHENTICATED_RUN_SYNC_BUDGET_FAIL'
-          : 'AUTHENTICATED_RUN_COMPLETE'
+          : madePlaybackProgress
+            ? 'AUTHENTICATED_RUN_COMPLETE'
+            : 'AUTHENTICATED_RUN_NO_PROGRESS'
         : report.authenticated
           ? 'AUTH_PRESENT_BUT_SESSION_START_UNCONFIRMED'
           : 'SHELL_ONLY_NO_AUTH'
@@ -739,7 +829,10 @@ async function main() {
     if (mode === 'soak' && !report.authenticated) {
       process.exitCode = 2
     }
-    if (report.verdict === 'AUTHENTICATED_RUN_SYNC_BUDGET_FAIL') {
+    if (
+      report.verdict === 'AUTHENTICATED_RUN_SYNC_BUDGET_FAIL' ||
+      report.verdict === 'AUTHENTICATED_RUN_NO_PROGRESS'
+    ) {
       process.exitCode = 3
     }
   } finally {

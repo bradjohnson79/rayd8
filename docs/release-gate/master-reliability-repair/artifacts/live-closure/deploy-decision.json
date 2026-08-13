@@ -1,0 +1,21 @@
+{
+  "decision": "Path B — production deploy",
+  "rationale": "Render rayd8-api has previews.generation=off and no staging service. Creating temporary staging infrastructure is not quick/practical; deterministic gates are green.",
+  "apiServiceId": "srv-d7nst5j7uimc73bhq9gg",
+  "apiUrl": "https://rayd8-api.onrender.com",
+  "apiAlias": "https://api.rayd8.app",
+  "webProject": "rayd8-web",
+  "webUrl": "https://rayd8.app",
+  "deployOrder": ["api", "web"],
+  "releaseBranch": "release/rayd8-live-smoke-closure",
+  "apiDeploySha": "2d1ed42465ddd6d24c5e73534de050f6098c0200",
+  "webPlayerDeploySha": "8511e67daf46ffbc1a5a9e959de8328a5348a559",
+  "certificationTipSha": "d4a28e0d6d687f9c4000b06ce6b26de10acc9d05",
+  "finalVerdict": "GO",
+  "scorecard": "PASS 28 / FAIL 0 / SKIP 0 / UNEXECUTED 0",
+  "cleanShaRerun": {
+    "deterministic": "CONDITIONAL GO",
+    "live": "GO",
+    "timestamp": "2026-08-07T17:58:43Z"
+  }
+}
