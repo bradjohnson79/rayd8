@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../../db/client.js'
 import { subscriptions, usagePeriods, users } from '../../db/schema.js'
 import type { AppPlan, Experience } from './accessPolicy.js'
@@ -45,11 +45,41 @@ function toUsageBucketPlan(plan: AppPlan): UsageBucketPlan | null {
   return null
 }
 
+const MAX_MONTHLY_USAGE_WINDOW_MS = 40 * 24 * 60 * 60 * 1000
+
 function getUtcMonthWindow(now: Date) {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
 
   return { end, start }
+}
+
+export function resolvePaidUsageWindow(input: {
+  currentPeriodEnd: Date | null
+  currentPeriodStart: Date | null
+  now?: Date
+}) {
+  const fallback = getUtcMonthWindow(input.now ?? new Date())
+
+  if (
+    input.currentPeriodStart &&
+    input.currentPeriodEnd &&
+    input.currentPeriodEnd.getTime() - input.currentPeriodStart.getTime() <= MAX_MONTHLY_USAGE_WINDOW_MS
+  ) {
+    return {
+      periodEnd: input.currentPeriodEnd,
+      periodStart: input.currentPeriodStart,
+      periodType: 'billing_cycle' as const,
+    }
+  }
+
+  // Year-long promo/comp periods must not consume the 250-hour REGEN pool
+  // across the entire grant. Usage resets on the UTC calendar month.
+  return {
+    periodEnd: fallback.end,
+    periodStart: fallback.start,
+    periodType: 'billing_cycle' as const,
+  }
 }
 
 export function getFreeUsagePeriodStart(userCreatedAt: Date | null | undefined) {
@@ -94,20 +124,21 @@ async function resolveUsagePeriod(input: { plan: UsageBucketPlan; userId: string
       status: subscriptions.status,
     })
     .from(subscriptions)
-    .where(and(eq(subscriptions.userId, input.userId), eq(subscriptions.plan, input.plan)))
+    .where(
+      and(
+        eq(subscriptions.userId, input.userId),
+        eq(subscriptions.plan, input.plan),
+        inArray(subscriptions.status, ['active', 'trialing', 'past_due']),
+      ),
+    )
     .orderBy(desc(subscriptions.currentPeriodEnd), desc(subscriptions.createdAt))
     .limit(1)
 
-  if (
-    activeSubscription?.status === 'active' &&
-    activeSubscription.currentPeriodStart &&
-    activeSubscription.currentPeriodEnd
-  ) {
-    return {
-      periodEnd: activeSubscription.currentPeriodEnd,
-      periodStart: activeSubscription.currentPeriodStart,
-      periodType: 'billing_cycle' as const,
-    }
+  if (activeSubscription?.status === 'active' || activeSubscription?.status === 'trialing') {
+    return resolvePaidUsageWindow({
+      currentPeriodEnd: activeSubscription.currentPeriodEnd,
+      currentPeriodStart: activeSubscription.currentPeriodStart,
+    })
   }
 
   return {
