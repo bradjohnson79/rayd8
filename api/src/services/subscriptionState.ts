@@ -1,6 +1,7 @@
 import { desc, eq } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { subscriptions } from '../db/schema.js'
+import { isAccountHoldActive } from './subscriptionPause.js'
 
 export type BillingPlan = 'free' | 'regen' | 'amrita'
 export type PaidBillingPlan = Exclude<BillingPlan, 'free'>
@@ -45,6 +46,10 @@ export function hasPastDueGrace(subscription: Pick<SubscriptionRecord, 'createdA
 
 export function getSubscriptionEntitlementPlan(subscription: SubscriptionRecord, now = new Date()): BillingPlan {
   if (!isPaidPlan(subscription.plan)) {
+    return 'free'
+  }
+
+  if (isAccountHoldActive(subscription, now)) {
     return 'free'
   }
 
@@ -107,6 +112,17 @@ export function resolveSubscriptionStateFromRecords(records: SubscriptionRecord[
             ? 'past_due_grace_promo'
             : 'past_due_grace'
           : 'active',
+    }
+  }
+
+  const holdPaused = paidRecords.find((record) => isAccountHoldActive(record, now))
+
+  if (holdPaused) {
+    return {
+      activeSubscription: holdPaused,
+      entitlementPlan: 'free',
+      paymentRecoveryRequired: false,
+      reason: 'paused',
     }
   }
 

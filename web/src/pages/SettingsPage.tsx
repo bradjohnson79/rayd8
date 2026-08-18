@@ -13,9 +13,13 @@ import {
   cancelBillingSubscription,
   createBillingPortal,
   getBillingSubscriptionStatus,
+  pauseBillingSubscription,
+  resumeBillingSubscription,
+  type BillingAccountStatus,
   type BillingSubscriptionStatus,
   type CancellationReason,
 } from '../services/billing'
+import { resolveSettingsBillingView } from './settingsBillingView'
 
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
 
@@ -69,6 +73,8 @@ function getSubscriptionStatusCopy(
   userPlan: string,
   subscription: BillingSubscriptionStatus | null,
   isLoading: boolean,
+  onHold = false,
+  pauseResumesAt: string | null = null,
 ) {
   if (isLoading) {
     return {
@@ -79,6 +85,13 @@ function getSubscriptionStatusCopy(
 
   const isSubscribedPlan = userPlan === 'regen' || userPlan === 'amrita'
   const planLabel = formatPlanLabel(userPlan)
+
+  if (onHold) {
+    return {
+      detail: `Your ${planLabel} access and billing are on hold until ${formatBillingDate(pauseResumesAt)}. Access and billing resume automatically, or you can resume now.`,
+      label: 'On hold',
+    }
+  }
 
   if (!subscription || !isSubscribedPlan) {
     return {
@@ -107,6 +120,21 @@ function getSubscriptionStatusCopy(
   }
 }
 
+function createEmptyBillingAccountStatus(): BillingAccountStatus {
+  return {
+    canPause: false,
+    canResume: false,
+    entitlementPlan: 'free',
+    pauseBlockReason: null,
+    pauseResumesAt: null,
+    pauseStartedAt: null,
+    paused: false,
+    paymentRecoveryRequired: false,
+    reason: 'free',
+    subscription: null,
+  }
+}
+
 function toBillingEntitlementPlan(plan: string): 'free' | 'regen' | 'amrita' {
   return plan === 'regen' || plan === 'amrita' ? plan : 'free'
 }
@@ -118,15 +146,16 @@ export function SettingsPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [language, setLanguage] = useState(() => readLanguagePreference())
   const [isLoadingSubscription, setIsLoadingSubscription] = useState(user.isAuthenticated)
-  const [subscription, setSubscription] = useState<BillingSubscriptionStatus | null>(null)
-  const [billingEntitlementPlan, setBillingEntitlementPlan] = useState<'free' | 'regen' | 'amrita'>(
-    toBillingEntitlementPlan(user.plan),
-  )
-  const [paymentRecoveryRequired, setPaymentRecoveryRequired] = useState(false)
+  const [billingAccount, setBillingAccount] = useState<BillingAccountStatus>(() => ({
+    ...createEmptyBillingAccountStatus(),
+    entitlementPlan: toBillingEntitlementPlan(user.plan),
+  }))
   const [clerkFocus, setClerkFocus] = useState<ClerkFocus>('profile')
   const [activeCheckout, setActiveCheckout] = useState(false)
   const [activePortal, setActivePortal] = useState(false)
+  const [activeHold, setActiveHold] = useState(false)
   const [activeCancellation, setActiveCancellation] = useState(false)
+  const [pauseModalOpen, setPauseModalOpen] = useState(false)
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [cancelStep, setCancelStep] = useState<CancellationStep>('reasons')
   const [selectedReasons, setSelectedReasons] = useState<CancellationReason[]>([])
@@ -134,12 +163,24 @@ export function SettingsPage() {
   const [cancelValidationMessage, setCancelValidationMessage] = useState<string | null>(null)
   const clerkCardRef = useRef<HTMLDivElement | null>(null)
 
-  const effectiveBillingPlan = billingEntitlementPlan === 'free' ? user.plan : billingEntitlementPlan
-  const isSubscribedMember = effectiveBillingPlan === 'regen' || effectiveBillingPlan === 'amrita'
-  const currentPlanLabel = formatPlanLabel(effectiveBillingPlan)
+  const billingView = useMemo(
+    () => resolveSettingsBillingView(billingAccount, user.plan),
+    [billingAccount, user.plan],
+  )
+  const subscription = billingAccount.subscription
+  const paymentRecoveryRequired = billingAccount.paymentRecoveryRequired
+  const isSubscribedMember = billingView.isSubscribedMember
+  const currentPlanLabel = formatPlanLabel(billingView.displayPlan)
   const subscriptionStatus = useMemo(
-    () => getSubscriptionStatusCopy(effectiveBillingPlan, subscription, isLoadingSubscription),
-    [effectiveBillingPlan, isLoadingSubscription, subscription],
+    () =>
+      getSubscriptionStatusCopy(
+        billingView.displayPlan,
+        subscription,
+        isLoadingSubscription,
+        billingView.onHold,
+        billingView.pauseResumesAt,
+      ),
+    [billingView.displayPlan, billingView.onHold, billingView.pauseResumesAt, isLoadingSubscription, subscription],
   )
 
   useEffect(() => {
@@ -151,9 +192,7 @@ export function SettingsPage() {
 
     async function loadSubscriptionStatus() {
       if (!user.isAuthenticated) {
-        setSubscription(null)
-        setBillingEntitlementPlan('free')
-        setPaymentRecoveryRequired(false)
+        setBillingAccount(createEmptyBillingAccountStatus())
         setIsLoadingSubscription(false)
         return
       }
@@ -163,29 +202,25 @@ export function SettingsPage() {
       try {
         const token = await getAuthToken()
 
-      if (!token || cancelled) {
-        if (!cancelled && !token) {
-          setStatusMessage(SESSION_EXPIRED_MESSAGE)
-          setSubscription(null)
-        }
+        if (!token || cancelled) {
+          if (!cancelled && !token) {
+            setStatusMessage(SESSION_EXPIRED_MESSAGE)
+            setBillingAccount(createEmptyBillingAccountStatus())
+          }
           return
         }
 
         const response = await getBillingSubscriptionStatus(token)
 
         if (!cancelled) {
-          setBillingEntitlementPlan(response.entitlementPlan)
-          setPaymentRecoveryRequired(response.paymentRecoveryRequired)
-          setSubscription(response.subscription)
+          setBillingAccount(response)
         }
       } catch (error) {
         if (!cancelled) {
           setStatusMessage(
             error instanceof Error ? error.message : 'Unable to load your current billing status.',
           )
-          setSubscription(null)
-          setBillingEntitlementPlan('free')
-          setPaymentRecoveryRequired(false)
+          setBillingAccount(createEmptyBillingAccountStatus())
         }
       } finally {
         if (!cancelled) {
@@ -310,16 +345,21 @@ export function SettingsPage() {
         token,
       )
 
-      setSubscription((currentValue) =>
-        currentValue
+      setBillingAccount((currentValue) =>
+        currentValue.subscription
           ? {
               ...currentValue,
-              cancelAtPeriodEnd: response.cancelAtPeriodEnd,
-              currentPeriodEnd: response.currentPeriodEnd,
-              status: response.status,
-              stripeSubscriptionId: response.stripeSubscriptionId,
+              canPause: false,
+              pauseBlockReason: 'cancel_scheduled',
+              subscription: {
+                ...currentValue.subscription,
+                cancelAtPeriodEnd: response.cancelAtPeriodEnd,
+                currentPeriodEnd: response.currentPeriodEnd,
+                status: response.status,
+                stripeSubscriptionId: response.stripeSubscriptionId,
+              },
             }
-          : null,
+          : currentValue,
       )
       setStatusMessage(
         `Cancellation scheduled. Your ${currentPlanLabel} access continues until ${formatBillingDate(response.currentPeriodEnd)}.`,
@@ -331,6 +371,53 @@ export function SettingsPage() {
       )
     } finally {
       setActiveCancellation(false)
+    }
+  }
+
+  async function handleConfirmPause() {
+    setActiveHold(true)
+    setStatusMessage(null)
+
+    try {
+      const token = await getAuthToken()
+
+      if (!token) {
+        setStatusMessage(SESSION_EXPIRED_MESSAGE)
+        return
+      }
+
+      const response = await pauseBillingSubscription(token)
+      setBillingAccount(response)
+      setPauseModalOpen(false)
+      setStatusMessage(
+        `Account hold started. Access and billing stay paused until ${formatBillingDate(response.pauseResumesAt)}.`,
+      )
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Unable to start a temporary hold right now.')
+    } finally {
+      setActiveHold(false)
+    }
+  }
+
+  async function handleResumeAccess() {
+    setActiveHold(true)
+    setStatusMessage(null)
+
+    try {
+      const token = await getAuthToken()
+
+      if (!token) {
+        setStatusMessage(SESSION_EXPIRED_MESSAGE)
+        return
+      }
+
+      const response = await resumeBillingSubscription(token)
+      setBillingAccount(response)
+      setStatusMessage('Access and billing have been resumed.')
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Unable to resume access right now.')
+    } finally {
+      setActiveHold(false)
     }
   }
 
@@ -357,7 +444,7 @@ export function SettingsPage() {
             </div>
             <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.05] px-4 py-4">
               <dt className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Current plan</dt>
-              <dd className="mt-3 text-sm font-medium text-white">{formatPlanLabel(user.plan)}</dd>
+              <dd className="mt-3 text-sm font-medium text-white">{currentPlanLabel}</dd>
             </div>
             <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.05] px-4 py-4">
               <dt className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Subscription status</dt>
@@ -463,10 +550,12 @@ export function SettingsPage() {
           <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/60">Subscription management</p>
           <h2 className="mt-3 text-2xl font-semibold text-white">Billing and cancellation</h2>
           <p className="mt-4 text-sm leading-7 text-slate-300">
-            {paymentRecoveryRequired
+            {billingView.onHold
+              ? `No REGEN or AMRITA access and no charge until ${formatBillingDate(billingView.pauseResumesAt)}. Access and billing resume automatically, or resume now.`
+              : paymentRecoveryRequired
               ? 'Resolve billing in the secure Stripe portal to restore paid access. New checkout is disabled while a payment issue is open.'
               : isSubscribedMember
-              ? 'Manage your Stripe billing or schedule cancellation. Access continues until the end of the current billing period after cancellation is confirmed.'
+              ? 'Manage your Stripe billing, pause access for 1 month, or schedule cancellation. Access continues until the end of the current billing period after cancellation is confirmed.'
               : 'Upgrade to REGEN or AMRITA to unlock secure billing management and pooled monthly access across the RAYD8® ecosystem.'}
           </p>
 
@@ -477,12 +566,14 @@ export function SettingsPage() {
                   {isSubscribedMember ? `RAYD8® ${currentPlanLabel}` : 'Upgrade to REGEN'}
                 </h3>
                 <p className="mt-3 text-sm leading-6 text-slate-300">
-                  {paymentRecoveryRequired
+                  {billingView.onHold
+                    ? `Your ${currentPlanLabel} membership is on a 30-day hold. There is no access and no charge until ${formatBillingDate(billingView.pauseResumesAt)}.`
+                    : paymentRecoveryRequired
                     ? 'Your subscription needs billing attention. Use Manage Billing to update payment details.'
                     : isSubscribedMember
                     ? subscription?.cancelAtPeriodEnd
                       ? `Cancellation is already scheduled. Access remains active until ${formatBillingDate(subscription.currentPeriodEnd)}.`
-                      : 'Manage your Stripe billing details or cancel the subscription with required feedback.'
+                      : 'Manage your Stripe billing details, pause for 1 month, or cancel the subscription with required feedback.'
                     : 'Open secure Stripe Checkout to upgrade this account to REGEN.'}
                 </p>
               </div>
@@ -491,8 +582,8 @@ export function SettingsPage() {
               </span>
             </div>
 
-            {isSubscribedMember || paymentRecoveryRequired ? (
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            {!billingView.showUpgradeCheckout ? (
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <button
                   className="rounded-2xl bg-emerald-300/20 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-300/30 disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={activePortal || isLoadingSubscription}
@@ -501,15 +592,35 @@ export function SettingsPage() {
                 >
                   {activePortal ? 'Opening billing...' : 'Manage Billing'}
                 </button>
-                {isSubscribedMember ? (
+                {billingView.canResume ? (
                   <button
-                    className="rounded-2xl border border-rose-300/20 bg-rose-300/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-rose-300/20 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={Boolean(subscription?.cancelAtPeriodEnd) || isLoadingSubscription}
-                    onClick={openCancellationFlow}
+                    className="rounded-2xl bg-emerald-500/90 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={activeHold || isLoadingSubscription}
+                    onClick={() => void handleResumeAccess()}
                     type="button"
                   >
-                    {subscription?.cancelAtPeriodEnd ? 'Cancellation Scheduled' : 'Cancel Subscription'}
+                    {activeHold ? 'Resuming access...' : 'Resume access'}
                   </button>
+                ) : null}
+                {isSubscribedMember && !billingView.onHold ? (
+                  <>
+                    <button
+                      className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-amber-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={!billingView.canPause || activeHold || isLoadingSubscription}
+                      onClick={() => setPauseModalOpen(true)}
+                      type="button"
+                    >
+                      Pause for 1 month
+                    </button>
+                    <button
+                      className="rounded-2xl border border-rose-300/20 bg-rose-300/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-rose-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={Boolean(subscription?.cancelAtPeriodEnd) || isLoadingSubscription}
+                      onClick={openCancellationFlow}
+                      type="button"
+                    >
+                      {subscription?.cancelAtPeriodEnd ? 'Cancellation Scheduled' : 'Cancel Subscription'}
+                    </button>
+                  </>
                 ) : null}
               </div>
             ) : (
@@ -522,6 +633,9 @@ export function SettingsPage() {
                 {activeCheckout ? 'Opening checkout...' : 'Upgrade to REGEN'}
               </button>
             )}
+            {isSubscribedMember && !billingView.onHold && !billingView.canPause && billingView.pauseBlockCopy ? (
+              <p className="mt-4 text-sm leading-6 text-slate-400">{billingView.pauseBlockCopy}</p>
+            ) : null}
           </div>
 
           {!user.isAuthenticated ? (
@@ -531,6 +645,20 @@ export function SettingsPage() {
           ) : null}
         </div>
       </section>
+
+      <PauseHoldModal
+        onClose={() => {
+          if (!activeHold) {
+            setPauseModalOpen(false)
+          }
+        }}
+        onConfirm={() => void handleConfirmPause()}
+        open={pauseModalOpen}
+        resumeAtLabel={formatBillingDate(
+          billingView.pauseResumesAt ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        )}
+        submitting={activeHold}
+      />
 
       <CancellationModal
         currentPeriodEnd={subscription?.currentPeriodEnd ?? null}
@@ -548,6 +676,57 @@ export function SettingsPage() {
         submitting={activeCancellation}
         validationMessage={cancelValidationMessage}
       />
+    </div>
+  )
+}
+
+function PauseHoldModal({
+  onClose,
+  onConfirm,
+  open,
+  resumeAtLabel,
+  submitting,
+}: {
+  onClose: () => void
+  onConfirm: () => void
+  open: boolean
+  resumeAtLabel: string
+  submitting: boolean
+}) {
+  if (!open) {
+    return null
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+      <div className="w-full max-w-xl rounded-[2rem] border border-white/10 bg-slate-950/95 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+        <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/60">Account hold</p>
+        <h2 className="mt-3 text-2xl font-semibold text-white">Pause for 1 month?</h2>
+        <p className="mt-4 text-sm leading-7 text-slate-300">
+          Access and billing both stop until{' '}
+          <span className="font-medium text-white">{resumeAtLabel}</span>. You can resume anytime.
+          Access and billing resume automatically at the end of the hold. This can be used once every
+          12 months.
+        </p>
+        <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button
+            className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-white/20 hover:bg-white/5"
+            disabled={submitting}
+            onClick={onClose}
+            type="button"
+          >
+            Keep access
+          </button>
+          <button
+            className="rounded-2xl bg-amber-300/20 px-4 py-3 text-sm font-medium text-white transition hover:bg-amber-300/30 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={submitting}
+            onClick={onConfirm}
+            type="button"
+          >
+            {submitting ? 'Starting hold...' : 'Confirm 1-month hold'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -10,6 +10,13 @@ export type CancellationReason =
 
 export type BillingPlan = 'regen' | 'amrita'
 
+export type AccountHoldBlockReason =
+  | 'already_paused'
+  | 'cooldown'
+  | 'cancel_scheduled'
+  | 'payment_recovery'
+  | 'no_subscription'
+
 export interface BillingSubscriptionStatus {
   cancelAtPeriodEnd: boolean
   currentPeriodEnd: string | null
@@ -18,6 +25,19 @@ export interface BillingSubscriptionStatus {
   plan: BillingPlan
   status: string
   stripeSubscriptionId: string
+}
+
+export interface BillingAccountStatus {
+  canPause: boolean
+  canResume: boolean
+  entitlementPlan: 'free' | BillingPlan
+  pauseBlockReason: AccountHoldBlockReason | null
+  pauseResumesAt: string | null
+  pauseStartedAt: string | null
+  paused: boolean
+  paymentRecoveryRequired: boolean
+  reason: string
+  subscription: BillingSubscriptionStatus | null
 }
 
 export async function getBillingConfig() {
@@ -29,12 +49,29 @@ export async function getBillingConfig() {
 }
 
 export async function getBillingSubscriptionStatus(token: string) {
-  return apiRequest<{
-    entitlementPlan: 'free' | BillingPlan
-    paymentRecoveryRequired: boolean
-    reason: string
-    subscription: BillingSubscriptionStatus | null
-  }>('/v1/billing/subscription', undefined, token)
+  return apiRequest<BillingAccountStatus>('/v1/billing/subscription', undefined, token)
+}
+
+export async function pauseBillingSubscription(token: string) {
+  return apiRequest<BillingAccountStatus>(
+    '/v1/billing/pause',
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+    token,
+  )
+}
+
+export async function resumeBillingSubscription(token: string) {
+  return apiRequest<BillingAccountStatus>(
+    '/v1/billing/resume',
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+    token,
+  )
 }
 
 export async function createBillingPortal(token: string) {

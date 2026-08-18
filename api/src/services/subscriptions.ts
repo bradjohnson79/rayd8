@@ -23,6 +23,13 @@ import {
   resolveSubscriptionStateFromRecords,
   type BillingPlan,
 } from './subscriptionState.js'
+import {
+  getAccountHoldBlockReason,
+  getAccountHoldResumeAt,
+  isAccountHoldActive,
+  isStripeManagedSubscriptionId,
+  resolveBillingPauseFlags,
+} from './subscriptionPause.js'
 import { getAffiliateAttributionForUser } from './referrals.js'
 import { recordAffiliateTrackingEvent } from './affiliates/tracking.js'
 import { recordPromoCodeRedemption } from './admin/promoCodes.js'
@@ -615,6 +622,10 @@ export async function createCheckoutSession(input: {
     const existingRank = MANAGED_PLAN_RANK[existingPlan]
     const requestedRank = MANAGED_PLAN_RANK[input.plan]
 
+    if (subscriptionState.reason === 'paused' || isAccountHoldActive(existingSubscription)) {
+      throw new Error('This account is on a temporary hold. Resume access before changing plans.')
+    }
+
     if (subscriptionState.reason === 'payment_unpaid' || subscriptionState.reason === 'past_due_expired') {
       throw new Error('Resolve Billing: update your payment method in the Customer Portal before starting a new checkout.')
     }
@@ -911,10 +922,31 @@ function extractSubscriptionDiscountPercentOff(subscription: Stripe.Subscription
   return typeof legacyPercentOff === 'number' ? legacyPercentOff : null
 }
 
+function extractSubscriptionPauseHold(
+  subscription: Stripe.Subscription,
+  existing: { pauseResumesAt: Date | null; pauseStartedAt: Date | null } | null,
+) {
+  const resumesAt = fromUnixTimestamp(subscription.pause_collection?.resumes_at ?? null)
+
+  if (resumesAt) {
+    return {
+      pauseResumesAt: resumesAt,
+      pauseStartedAt: existing?.pauseStartedAt ?? new Date(),
+    }
+  }
+
+  return {
+    pauseResumesAt: null,
+    pauseStartedAt: existing?.pauseStartedAt ?? null,
+  }
+}
+
 async function upsertSubscriptionRecord(input: {
   cancelAtPeriodEnd: boolean
   customerId: string
   discountPercentOff?: number | null
+  pauseResumesAt?: Date | null
+  pauseStartedAt?: Date | null
   plan: PersistedPlan
   planType: ManagedPlanType
   currentPeriodStart: Date | null
@@ -950,6 +982,14 @@ async function upsertSubscriptionRecord(input: {
       : input.status === 'active' || input.status === 'trialing'
         ? null
         : existingSubscription?.pastDueStartedAt ?? null
+  const pauseStartedAt =
+    input.pauseStartedAt !== undefined
+      ? input.pauseStartedAt
+      : existingSubscription?.pauseStartedAt ?? null
+  const pauseResumesAt =
+    input.pauseResumesAt !== undefined
+      ? input.pauseResumesAt
+      : existingSubscription?.pauseResumesAt ?? null
 
   await assertStripeCustomerBelongsToUser({
     stripeCustomerId: input.customerId,
@@ -969,6 +1009,8 @@ async function upsertSubscriptionRecord(input: {
       currentPeriodStart: input.currentPeriodStart,
       currentPeriodEnd: input.currentPeriodEnd,
       discountPercentOff: input.discountPercentOff ?? null,
+      pauseStartedAt,
+      pauseResumesAt,
       pastDueStartedAt,
       statusChangedAt,
       stripeEventCreatedAt: input.stripeEventCreatedAt ?? null,
@@ -984,6 +1026,8 @@ async function upsertSubscriptionRecord(input: {
         currentPeriodStart: input.currentPeriodStart,
         currentPeriodEnd: input.currentPeriodEnd,
         discountPercentOff: input.discountPercentOff ?? existingSubscription?.discountPercentOff ?? null,
+        pauseStartedAt,
+        pauseResumesAt,
         pastDueStartedAt,
         statusChangedAt,
         stripeEventCreatedAt: input.stripeEventCreatedAt ?? existingSubscription?.stripeEventCreatedAt ?? null,
@@ -1193,6 +1237,8 @@ async function activateManagedSubscriptionRecord(input: {
   currentPeriodEnd: Date | null
   currentPeriodStart: Date | null
   discountPercentOff?: number | null
+  pauseResumesAt?: Date | null
+  pauseStartedAt?: Date | null
   plan: ManagedPlan
   planType: ManagedPlanType
   status: string
@@ -1464,6 +1510,8 @@ export async function upsertUserSubscription(input: {
   currentPeriodEnd?: Date | null
   currentPeriodStart?: Date | null
   discountPercentOff?: number | null
+  pauseResumesAt?: Date | null
+  pauseStartedAt?: Date | null
   plan: PersistedPlan
   planType?: ManagedPlanType
   status: string
@@ -1483,6 +1531,8 @@ export async function upsertUserSubscription(input: {
       currentPeriodStart: input.currentPeriodStart ?? null,
       currentPeriodEnd: input.currentPeriodEnd ?? null,
       discountPercentOff: input.discountPercentOff ?? null,
+      pauseResumesAt: input.pauseResumesAt,
+      pauseStartedAt: input.pauseStartedAt,
       stripeEventCreatedAt: input.stripeEventCreatedAt ?? null,
     })
     return
@@ -1499,6 +1549,8 @@ export async function upsertUserSubscription(input: {
     currentPeriodStart: input.currentPeriodStart ?? null,
     currentPeriodEnd: input.currentPeriodEnd ?? null,
     discountPercentOff: input.discountPercentOff ?? null,
+    pauseResumesAt: input.pauseResumesAt,
+    pauseStartedAt: input.pauseStartedAt,
     stripeEventCreatedAt: input.stripeEventCreatedAt ?? null,
   })
 
@@ -1999,6 +2051,8 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
   const currentPeriodStart = fromUnixTimestamp(subscription.items.data[0]?.current_period_start)
   const currentPeriodEnd = fromUnixTimestamp(subscription.items.data[0]?.current_period_end)
 
+  const pauseHold = extractSubscriptionPauseHold(subscription, existingSubscription)
+
   await upsertUserSubscription({
     clerkUserId: userId,
     stripeCustomerId,
@@ -2010,6 +2064,8 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
     currentPeriodStart,
     currentPeriodEnd,
     discountPercentOff: extractSubscriptionDiscountPercentOff(subscription),
+    pauseResumesAt: pauseHold.pauseResumesAt,
+    pauseStartedAt: pauseHold.pauseStartedAt,
     stripeEventCreatedAt,
   })
 }
@@ -2329,9 +2385,27 @@ export async function createBillingPortalSession(input: { userId: string }) {
   }
 }
 
+function toBillingPauseFlags(
+  subscription: {
+    cancelAtPeriodEnd: boolean
+    pauseResumesAt: Date | null
+    pauseStartedAt: Date | null
+    status: string
+  } | null,
+  paymentRecoveryRequired: boolean,
+  now = new Date(),
+) {
+  return {
+    ...resolveBillingPauseFlags(subscription, { paymentRecoveryRequired }, now),
+    pauseResumesAt: subscription?.pauseResumesAt?.toISOString() ?? null,
+    pauseStartedAt: subscription?.pauseStartedAt?.toISOString() ?? null,
+  }
+}
+
 export async function getBillingStatus(userId: string) {
   const state = await getSubscriptionStateForUser(userId)
   const subscription = state.activeSubscription
+  const pauseFlags = toBillingPauseFlags(subscription, state.paymentRecoveryRequired)
 
   if (!subscription) {
     return {
@@ -2339,6 +2413,7 @@ export async function getBillingStatus(userId: string) {
       paymentRecoveryRequired: state.paymentRecoveryRequired,
       reason: state.reason,
       subscription: null,
+      ...pauseFlags,
     }
   }
 
@@ -2355,7 +2430,115 @@ export async function getBillingStatus(userId: string) {
       status: subscription.status,
       stripeSubscriptionId: subscription.stripeSubscriptionId,
     },
+    ...pauseFlags,
   }
+}
+
+function getAccountHoldErrorMessage(
+  reason: ReturnType<typeof getAccountHoldBlockReason>,
+) {
+  if (reason === 'already_paused') {
+    return 'This account is already on a temporary hold.'
+  }
+
+  if (reason === 'cooldown') {
+    return 'A temporary hold can be used once every 12 months.'
+  }
+
+  if (reason === 'cancel_scheduled') {
+    return 'A hold is not available while cancellation is already scheduled.'
+  }
+
+  if (reason === 'payment_recovery') {
+    return 'Resolve Billing: update your payment method in the Customer Portal before starting a hold.'
+  }
+
+  return 'No active subscription was found for this account.'
+}
+
+export async function pauseSubscriptionForUser(userId: string, now = new Date()) {
+  const state = await getSubscriptionStateForUser(userId, now)
+  const subscription = state.activeSubscription
+  const blockReason = getAccountHoldBlockReason(
+    subscription,
+    { paymentRecoveryRequired: state.paymentRecoveryRequired },
+    now,
+  )
+
+  if (!subscription || blockReason) {
+    throw new Error(getAccountHoldErrorMessage(blockReason))
+  }
+
+  const pauseStartedAt = now
+  const pauseResumesAt = getAccountHoldResumeAt(now)
+
+  if (isStripeManagedSubscriptionId(subscription.stripeSubscriptionId)) {
+    if (!stripeClient) {
+      throw new Error('Stripe is not configured. Add the Stripe secret key and portal settings.')
+    }
+
+    await stripeClient.subscriptions.update(subscription.stripeSubscriptionId, {
+      pause_collection: {
+        behavior: 'void',
+        resumes_at: Math.floor(pauseResumesAt.getTime() / 1000),
+      },
+    })
+  }
+
+  await upsertSubscriptionRecord({
+    userId,
+    customerId: subscription.stripeCustomerId,
+    stripeSubscriptionId: subscription.stripeSubscriptionId,
+    status: subscription.status,
+    plan: subscription.plan,
+    planType: subscription.planType,
+    cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+    currentPeriodStart: subscription.currentPeriodStart,
+    currentPeriodEnd: subscription.currentPeriodEnd,
+    discountPercentOff: subscription.discountPercentOff,
+    pauseStartedAt,
+    pauseResumesAt,
+  })
+  await syncManagedPlanForUser(userId)
+
+  return getBillingStatus(userId)
+}
+
+export async function resumeSubscriptionForUser(userId: string, now = new Date()) {
+  const state = await getSubscriptionStateForUser(userId, now)
+  const subscription = state.activeSubscription
+
+  if (!subscription || !isAccountHoldActive(subscription, now)) {
+    throw new Error('This account is not currently on a temporary hold.')
+  }
+
+  if (isStripeManagedSubscriptionId(subscription.stripeSubscriptionId)) {
+    if (!stripeClient) {
+      throw new Error('Stripe is not configured. Add the Stripe secret key and portal settings.')
+    }
+
+    await stripeClient.subscriptions.update(subscription.stripeSubscriptionId, {
+      pause_collection: '',
+    } as Stripe.SubscriptionUpdateParams)
+  }
+
+  await upsertSubscriptionRecord({
+    userId,
+    customerId: subscription.stripeCustomerId,
+    stripeSubscriptionId: subscription.stripeSubscriptionId,
+    status: subscription.status,
+    plan: subscription.plan,
+    planType: subscription.planType,
+    cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+    currentPeriodStart: subscription.currentPeriodStart,
+    currentPeriodEnd: subscription.currentPeriodEnd,
+    discountPercentOff: subscription.discountPercentOff,
+    pauseStartedAt: subscription.pauseStartedAt,
+    pauseResumesAt: null,
+  })
+  await syncManagedPlanForUser(userId)
+
+  return getBillingStatus(userId)
 }
 
 export async function cancelSubscriptionAtPeriodEnd(input: {

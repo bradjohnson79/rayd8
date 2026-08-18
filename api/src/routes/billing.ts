@@ -8,6 +8,8 @@ import {
   createCheckoutSession,
   getCheckoutAffiliateMetadata,
   getBillingStatus,
+  pauseSubscriptionForUser,
+  resumeSubscriptionForUser,
   verifyCheckoutSession,
   type CancellationReason,
 } from '../services/subscriptions.js'
@@ -117,6 +119,46 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
       }
     }
 
+    if (message.includes('already on a temporary hold')) {
+      return {
+        code: 'ACCOUNT_HOLD_ACTIVE',
+        error: message,
+        statusCode: 409,
+      }
+    }
+
+    if (message.includes('once every 12 months')) {
+      return {
+        code: 'ACCOUNT_HOLD_COOLDOWN',
+        error: message,
+        statusCode: 409,
+      }
+    }
+
+    if (message.includes('cancellation is already scheduled')) {
+      return {
+        code: 'ACCOUNT_HOLD_UNAVAILABLE',
+        error: message,
+        statusCode: 409,
+      }
+    }
+
+    if (message.includes('not currently on a temporary hold')) {
+      return {
+        code: 'ACCOUNT_HOLD_INACTIVE',
+        error: message,
+        statusCode: 409,
+      }
+    }
+
+    if (message.includes('on a temporary hold')) {
+      return {
+        code: 'ACCOUNT_HOLD_ACTIVE',
+        error: message,
+        statusCode: 409,
+      }
+    }
+
     return {
       code: 'BILLING_ERROR',
       error: message,
@@ -218,6 +260,32 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
       })
 
       return result
+    } catch (error) {
+      return respondWithBillingError(reply, error)
+    }
+  })
+
+  app.post('/v1/billing/pause', async (request, reply) => {
+    if (!request.auth?.userId) {
+      return sendAuthRequired(reply)
+    }
+
+    try {
+      await syncUserFromClerk(request.auth.userId)
+      return await pauseSubscriptionForUser(request.auth.userId)
+    } catch (error) {
+      return respondWithBillingError(reply, error)
+    }
+  })
+
+  app.post('/v1/billing/resume', async (request, reply) => {
+    if (!request.auth?.userId) {
+      return sendAuthRequired(reply)
+    }
+
+    try {
+      await syncUserFromClerk(request.auth.userId)
+      return await resumeSubscriptionForUser(request.auth.userId)
     } catch (error) {
       return respondWithBillingError(reply, error)
     }
