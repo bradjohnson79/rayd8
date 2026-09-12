@@ -172,35 +172,54 @@ was altered.
 
 ## 8. Deploy status
 
-Merged to `main` and pushed (`f4dfa09`, then `3087351` for a JSX build fix).
+Merged to `main` and pushed (`f4dfa09`, then `3087351` for a JSX build fix, then `46a4351`).
 
 | Surface | Commit | Status |
 | --- | --- | --- |
 | Stripe (production) | — | **Live.** Reissue already applied and verified. |
 | Web (Vercel `rayd8-web`) | `3087351` | **Live.** `PromoCodes-BjrTfA5x.js` serves the exhausted badge, used/cap column, and Reissue action. |
-| API (Render `rayd8-api`) | `f4dfa09` | **Pending.** Still serving pre-change code at time of writing (~50 min after push). |
+| API (Render `rayd8-api`) | `46a4351` | **Live** (deploy `dep-daiu9boae00c73fverc0`, finished `2026-09-12T23:49:49Z`). |
 
-### Interim behavior (important)
+### Why the API deploy was delayed (root cause)
 
-The deployed frontend against the not-yet-deployed API:
+The Render API was **not** deployed for ~6.5 h after push despite the service reporting
+`autoDeploy: yes`, `autoDeployTrigger: commit`, `branch: main`. Confirmed via
+`render deploys list srv-d7nst5j7uimc73bhq9gg`:
 
-- **Safe:** the list falls back to `display_status ?? stripe_sync_status`, so it still renders
-  correctly and does not crash on missing fields.
-- **Not functional:** `POST /:id/reissue` and the `status=exhausted` filter return `404`/
-  ignored until Render ships. **Clicking Reissue in production will fail** with
-  "Promo code action failed." until the API deploy completes.
+- Last API commit deployed: `3bb647a` at `2026-08-18T17:42:42Z`.
+- No deploy record at all existed for `f4dfa09`/`3087351`/`46a4351` — the Sep 12 pushes never
+  queued a build. The SPA frontend (Vercel) deployed instantly from the same pushes, so the
+  mismatch (web live, api stale) is explained by the Render side, not by a bad commit.
 
-The API half is additive and backward-compatible, so it needs no coordinated rollout window.
-Render has no `render.yaml` and no deploy hook in the repo (`previews.generation=off`); the
-service is `srv-d7nst5j7uimc73bhq9gg`. If it does not deploy on its own, trigger a manual
-deploy from the Render dashboard and re-check:
+Remediation: deployed manually. The service is reachable from the authenticated Render CLI
+(`render whoami` → Brad Johnson), so a dashboard click was not required:
 
 ```
-curl -s -o /dev/null -w '%{http_code}\n' -X POST \
-  https://rayd8-api.onrender.com/api/admin/promo-codes/<any-uuid>/reissue \
-  -H 'Content-Type: application/json' -d '{}'
-# 404 = old code still running; 401 = deployed (auth required)
+render deploys create srv-d7nst5j7uimc73bhq9gg --confirm
 ```
+
+Verification (post-deploy):
+
+```
+reissue        -> 401   (route exists; AUTH_REQUIRED)
+validate-stripe -> 401  (control route)
+```
+
+`404` before the deploy → `401` after confirms the new route is serving.
 
 Note `api.rayd8.app` is a CNAME to the same backend, so it follows automatically.
+
+### Follow-up: auto-deploy is unreliable
+
+Because the service is configured for commit-triggered auto-deploy on `main` but silently did
+not queue a build for the Sep 12 pushes, treat `main` → API deploys as untrusted. Reconnect the
+GitHub integration / verify webhook delivery in the Render dashboard, or add a deploy hook so a
+missed build is detectable. Until then, confirm each API change with the 404→401 probe above.
+
+### Interim behavior (historical)
+
+While the API was still pre-change, the frontend degraded safely: the list falls back to
+`display_status ?? stripe_sync_status`, so it rendered correctly and did not crash on missing
+fields, but `POST /:id/reissue` and the `status=exhausted` filter returned `404` and clicking
+Reissue in production failed with "Promo code action failed." This window is now closed.
 
