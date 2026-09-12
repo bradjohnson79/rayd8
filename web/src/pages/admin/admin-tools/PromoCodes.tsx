@@ -582,7 +582,7 @@ export function AdminPromoCodesPage() {
           />
         </FieldWithHelp>
         <FieldWithHelp
-          help="Maximum number of times this promo code can be used. Leave blank for unlimited. Stripe cannot raise this later, so an exhausted code must be reissued.">
+          help="Maximum number of times this promo code can be used. Leave blank for unlimited. Stripe cannot raise this later, so an exhausted code must be reissued."
           label="Max Redemptions"
         >
           <input
