@@ -209,15 +209,54 @@ validate-stripe -> 401  (control route)
 
 Note `api.rayd8.app` is a CNAME to the same backend, so it follows automatically.
 
-### Follow-up: auto-deploy is unreliable
+### Follow-up: auto-deploy is broken (root-caused, not yet fixed)
 
-Because the service is configured for commit-triggered auto-deploy on `main` but silently did
-not queue a build for the Sep 12 pushes, treat `main` → API deploys as untrusted. Reconnect the
-GitHub integration / verify webhook delivery in the Render dashboard, or add a deploy hook so a
-missed build is detectable. Until then, confirm each API change with the 404→401 probe above.
+The service reports commit-triggered auto-deploy on `main`, but **GitHub push notifications
+never reach Render**. Evidence gathered via the Render CLI/API and GitHub API:
 
-Corroborated: a follow-up docs push (`ac80638`) also produced **no** deploy record, so the
-webhook is not firing at all rather than the commits being filtered out (e.g. by path ignores).
+| Check | Result |
+| --- | --- |
+| `rayd8-api` trigger histogram (all 20 deploys) | `api=18`, `deployed_by_render=1`, `service_updated=1`, **`new_commit=0`** |
+| `prime-api` (sibling service, `theprimementor` repo) | uses `new_commit` — **auto-deploy works there** |
+| `buildFilter` on `rayd8-api` | `null` — not path filtering |
+| Repo/branch match | `github.com/bradjohnson79/rayd8` @ `main` = the pushed remote/branch |
+| Manual `deploys create` with that commit | **builds + goes live** — so Render can read the repo (app has clone access) |
+| GitHub repo webhooks (`/hooks`) | empty — connection is app-based, not a repo webhook |
+| GitHub Deployments on the repo | only `vercel[bot]`; Render creates none |
+| After `services update --repo/--branch/--auto-deploy` + push (`36c77e3`) | still **no** deploy record |
+
+Interpretation: the Render GitHub App can **clone** the repo but its **push webhook is not
+eventing** for this service. The all-time zero `new_commit` count means this has likely never
+worked for `rayd8-api`; deploys only ever happened manually or via `deployed_by_render`.
+
+Push-vs-scheduled is the discriminator: Render's scheduled "auto-deploy" poll on a git-backed
+service shows up as `auto_deploy` / `new_commit`. `prime-api` receiving `new_commit` proves the
+platform path works and the defect is scoped to `rayd8-api`'s connection.
+
+Remediation options (in order):
+
+1. **Dashboard → `rayd8-api` → Settings → Git**: reconnect / relink the GitHub repo for the
+   service. This re-establishes the push subscription. **Requires the dashboard** — there is no
+   API/CLI path that recreates the webhook.
+2. **Deploy hook + GitHub Actions** (recommended durable fallback): add
+   `.github/workflows/deploy-api.yml` that runs tests then `curl <deploy-hook-url>` on pushes to
+   `main` touching `api/`. The hook URL is generated in **Settings → Deploy Hook** (secret
+   deploy-hook *management* is dashboard-only; the public REST API has no deploy-hook endpoint —
+   verified against `api-docs.render.com/openapi/render-public-api-1.json`, which only exposes
+   outbound `/webhooks`). Store it as the `RENDER_DEPLOY_HOOK_URL` repo secret.
+   - Caveat: the local Render CLI's API key (`rnd_…`) expires 2026-09-15, so it is not suitable
+     as a long-lived CI secret; use a persistent deploy hook instead.
+3. Until fixed, treat `main` → API as untrusted and always confirm with the probe below, or
+   deploy manually: `render deploys create srv-d7nst5j7uimc73bhq9gg --confirm`.
+
+Missed-deploy probe for any future API change:
+
+```
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  https://rayd8-api.onrender.com/api/admin/promo-codes/<any-uuid>/reissue \
+  -H 'Content-Type: application/json' -d '{}'
+# 404 = stale API; 401 = current
+```
 
 ### Interim behavior (historical)
 
