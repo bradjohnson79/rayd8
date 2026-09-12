@@ -169,3 +169,38 @@ was altered.
 - Audit other codes with a low `max_redemptions` against `times_redeemed` to catch
   near-exhaustion before customers hit it. The new **Exhausted** filter makes this a
   one-click check.
+
+## 8. Deploy status
+
+Merged to `main` and pushed (`f4dfa09`, then `3087351` for a JSX build fix).
+
+| Surface | Commit | Status |
+| --- | --- | --- |
+| Stripe (production) | — | **Live.** Reissue already applied and verified. |
+| Web (Vercel `rayd8-web`) | `3087351` | **Live.** `PromoCodes-BjrTfA5x.js` serves the exhausted badge, used/cap column, and Reissue action. |
+| API (Render `rayd8-api`) | `f4dfa09` | **Pending.** Still serving pre-change code at time of writing (~50 min after push). |
+
+### Interim behavior (important)
+
+The deployed frontend against the not-yet-deployed API:
+
+- **Safe:** the list falls back to `display_status ?? stripe_sync_status`, so it still renders
+  correctly and does not crash on missing fields.
+- **Not functional:** `POST /:id/reissue` and the `status=exhausted` filter return `404`/
+  ignored until Render ships. **Clicking Reissue in production will fail** with
+  "Promo code action failed." until the API deploy completes.
+
+The API half is additive and backward-compatible, so it needs no coordinated rollout window.
+Render has no `render.yaml` and no deploy hook in the repo (`previews.generation=off`); the
+service is `srv-d7nst5j7uimc73bhq9gg`. If it does not deploy on its own, trigger a manual
+deploy from the Render dashboard and re-check:
+
+```
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  https://rayd8-api.onrender.com/api/admin/promo-codes/<any-uuid>/reissue \
+  -H 'Content-Type: application/json' -d '{}'
+# 404 = old code still running; 401 = deployed (auth required)
+```
+
+Note `api.rayd8.app` is a CNAME to the same backend, so it follows automatically.
+
