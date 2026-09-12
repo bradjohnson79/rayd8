@@ -1,0 +1,61 @@
+{
+  "capturedAt": "2026-09-12T16:11:00Z",
+  "branch": "fix/promo-code-exhaustion-reissue",
+  "action": "Reissued REGEN1MONTH as a fresh unlimited Stripe coupon + promotion code",
+  "command": "npm run promos:reissue -- --code=REGEN1MONTH --unlimited --apply",
+  "before": {
+    "stripeCouponId": "uZXag4J0",
+    "stripeCouponValid": false,
+    "stripePromotionCodeId": "promo_1U8nt5GPXfP6Qy0mUafRop6k",
+    "stripePromotionCodeActive": false,
+    "maxRedemptions": 1,
+    "timesRedeemed": 1
+  },
+  "after": {
+    "stripeCouponId": "veRSYNxh",
+    "stripeCouponValid": true,
+    "stripeCouponPercentOff": 100,
+    "stripeCouponDuration": "once",
+    "stripeCouponMaxRedemptions": null,
+    "stripeCouponTimesRedeemed": 0,
+    "stripeCouponRedeemBy": null,
+    "stripeCouponAppliesTo": null,
+    "stripePromotionCodeId": "promo_1UEtV7GPXfP6Qy0mBbVEFhVI",
+    "stripePromotionCodeText": "REGEN1MONTH",
+    "stripePromotionCodeActive": true,
+    "stripePromotionCodeMaxRedemptions": null,
+    "stripePromotionCodeTimesRedeemed": 0,
+    "stripePromotionCodeExpiresAt": null,
+    "stripePromotionCodeLinkedCouponVia": "promotion.coupon",
+    "stripePromotionCodeLinkedCouponId": "veRSYNxh",
+    "restrictions": {
+      "first_time_transaction": false,
+      "minimum_amount": null,
+      "minimum_amount_currency": null
+    }
+  },
+  "retiredOldObjects": {
+    "promo_1U8nt5GPXfP6Qy0mUafRop6k": {
+      "active": false,
+      "note": "Left in place (Stripe retains history) but no longer redeemable."
+    }
+  },
+  "database": {
+    "code": "REGEN1MONTH",
+    "is_active": true,
+    "max_redemptions": null,
+    "times_redeemed": 1,
+    "expires_at": null,
+    "stripe_coupon_id": "veRSYNxh",
+    "stripe_promotion_code_id": "promo_1UEtV7GPXfP6Qy0mBbVEFhVI",
+    "stripe_sync_status": "synced",
+    "stripe_sync_error": null,
+    "updated_at": "2026-09-12T16:10:01.974Z",
+    "redemptionRowsPreserved": 1
+  },
+  "customerImpact": {
+    "codeTextUnchanged": true,
+    "note": "Customers still enter REGEN1MONTH. It now yields 100% off for one billing cycle with no redemption cap, so it works for the next customer (renovace.elpetr@gmail.com) and beyond.",
+    "priorRedemption": "1936034135@qq.com (sub_1UA2wGGPXfP6Qy0mnqmElrDU) keeps its original 100% off discount; the reissue does not disturb existing subscriptions."
+  }
+}

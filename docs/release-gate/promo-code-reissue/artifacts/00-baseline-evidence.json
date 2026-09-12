@@ -1,0 +1,76 @@
+{
+  "capturedAt": "2026-09-12T15:55:00Z",
+  "branch": "fix/promo-code-exhaustion-reissue",
+  "baselineCommit": "3bb647a",
+  "report": "Promo code REGEN1MONTH rejected at Stripe Checkout with 'This promotion code is invalid.'",
+  "stripeEnvironment": "live",
+  "stripeAccount": "acct_1TOa1cGPXfP6Qy0m (Rayd8 production account)",
+  "stripePromotionCode": {
+    "id": "promo_1U8nt5GPXfP6Qy0mUafRop6k",
+    "code": "REGEN1MONTH",
+    "active": false,
+    "expires_at": null,
+    "max_redemptions": 1,
+    "times_redeemed": 1,
+    "restrictions": {
+      "first_time_transaction": false,
+      "minimum_amount": null,
+      "minimum_amount_currency": null
+    }
+  },
+  "stripeCoupon": {
+    "id": "uZXag4J0",
+    "percent_off": 100,
+    "duration": "once",
+    "max_redemptions": 1,
+    "times_redeemed": 1,
+    "redeem_by": null,
+    "valid": false,
+    "applies_to_products": []
+  },
+  "localPromoCodeRow": {
+    "code": "REGEN1MONTH",
+    "applies_to_plan": "regen",
+    "discount_type": "percent",
+    "percent_off": 100,
+    "duration": "once",
+    "is_active": true,
+    "archived_at": null,
+    "expires_at": null,
+    "max_redemptions": 1,
+    "times_redeemed": 1,
+    "stripe_environment": "live",
+    "stripe_coupon_id": "uZXag4J0",
+    "stripe_promotion_code_id": "promo_1U8nt5GPXfP6Qy0mUafRop6k",
+    "stripe_sync_status": "synced",
+    "stripe_sync_error": null,
+    "created_at": "2026-08-26T20:57:35.304Z",
+    "updated_at": "2026-08-30T07:14:04.036Z"
+  },
+  "onlyRedemption": {
+    "id": "bf87afa8-7e16-4355-bd7c-e5d70e49618d",
+    "code": "REGEN1MONTH",
+    "status": "applied",
+    "customer_email": "1936034135@qq.com",
+    "user_id": "user_3Ha9uRGUQUhoykAKUpsB7JeYgdw",
+    "stripe_checkout_session_id": "cs_live_b1PPCy4qkL4bOHnzZteZAAY3P3UPE28XBtQlDboLfIui50jbd0oJNUOEiT",
+    "stripe_subscription_id": "sub_1UA2wGGPXfP6Qy0mnqmElrDU",
+    "amount_discounted": 1999,
+    "currency": "usd",
+    "created_at": "2026-08-30T07:14:04.027Z"
+  },
+  "rootCause": [
+    "REGEN1MONTH was created with max_redemptions = 1 (single-use).",
+    "The single allowed redemption was consumed on 2026-08-30 by 1936034135@qq.com (sub_1UA2wGGPXfP6Qy0mnqmElrDU, $19.99 / 100% off).",
+    "Stripe exhausts the coupon (times_redeemed == max_redemptions -> valid = false) and permanently inactivates the promotion code.",
+    "Stripe does not allow raising max_redemptions on an existing coupon, and promotion codes that reached their limit cannot be reactivated.",
+    "A second customer (renovace.elpetr@gmail.com) therefore receives 'This promotion code is invalid.'"
+  ],
+  "adminConsoleDefect": [
+    "The list view reads stripe_sync_status, which was last written before the redemption, so the exhausted code still renders as SYNCED.",
+    "The recordPromoCodeRedemption path only refreshes times_redeemed, never re-derives stripe_sync_status / is_active after a redemption.",
+    "The list shows 'Recorded redemptions' but never the redemption cap, so '1 of 1' is indistinguishable from '1 of 1000'.",
+    "Expires renders 'No expiration', which is accurate but unrelated to the redemption-cap failure.",
+    "Exhaustion is only detected by the on-demand Validate action; the list never surfaces it."
+  ]
+}

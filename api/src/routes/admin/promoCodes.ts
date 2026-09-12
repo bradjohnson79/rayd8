@@ -11,6 +11,7 @@ import {
   listPromoCodes,
   recreateMissingPromoCode,
   refreshPromoCodeFromStripe,
+  reissuePromoCode,
   repairPromoCodeSync,
   restorePromoCode,
   updatePromoCode,
@@ -29,6 +30,7 @@ const promoCodeListQuerySchema = z.object({
     'all',
     'archived',
     'error',
+    'exhausted',
     'expired',
     'inactive',
     'mismatch',
@@ -57,6 +59,10 @@ const updatePromoCodeSchema = z.object({
   description: z.string().max(1000).optional().nullable(),
   isActive: z.boolean().optional(),
   name: z.string().min(1).max(120).optional(),
+})
+
+const reissuePromoCodeSchema = z.object({
+  maxRedemptions: z.number().int().positive().optional().nullable(),
 })
 
 function respondWithPromoCodeError(reply: FastifyReply, error: unknown) {
@@ -93,6 +99,7 @@ function respondWithPromoCodeError(reply: FastifyReply, error: unknown) {
 
   if (
     message.includes('Cannot repair sync') ||
+    message.includes('Cannot reissue') ||
     message.includes('Expiration date') ||
     message.includes('Fixed amount') ||
     message.includes('Max redemptions') ||
@@ -207,6 +214,22 @@ export const adminPromoCodeRoutes: FastifyPluginAsync = async (app) => {
   app.post('/:id/recreate-if-missing', { preHandler: requireAdminAccess }, async (request, reply) => {
     const { id } = promoCodeIdSchema.parse(request.params)
     return runPromoCodeAction(reply, () => recreateMissingPromoCode(id), (promoCode) => ({ promoCode }))
+  })
+
+  app.post('/:id/reissue', { preHandler: requireAdminAccess }, async (request, reply) => {
+    try {
+      const { id } = promoCodeIdSchema.parse(request.params)
+      const payload = reissuePromoCodeSchema.parse(request.body ?? {})
+      const promoCode = await reissuePromoCode(id, { maxRedemptions: payload.maxRedemptions })
+
+      if (!promoCode) {
+        return reply.code(404).send({ error: 'Promo code not found.' })
+      }
+
+      return { promoCode }
+    } catch (error) {
+      return respondWithPromoCodeError(reply, error)
+    }
   })
 
   app.post('/:id/archive', { preHandler: requireAdminAccess }, async (request, reply) => {

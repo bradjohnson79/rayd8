@@ -15,6 +15,37 @@ type PromoCodeDuration = 'forever' | 'once' | 'repeating'
 type PromoCodePlan = 'all' | 'amrita' | 'regen'
 type PromoCodeSyncStatus = 'error' | 'inactive' | 'mismatch' | 'missing' | 'pending' | 'synced'
 
+/**
+ * Presentational status shown in the admin console. Extends the persisted Stripe
+ * sync status with two derived states so the list can never report a dead code as
+ * healthy:
+ * - `exhausted` — the redemption cap has been consumed; Stripe permanently
+ *   inactivates these promotion codes and they cannot be reactivated.
+ * - `archived` — hidden locally, Stripe records left intact.
+ */
+export type PromoCodeDisplayStatus = 'archived' | 'exhausted' | PromoCodeSyncStatus
+
+export interface PromoCodeExhaustionInput {
+  maxRedemptions: number | null
+  recordedRedemptions: number
+}
+
+/**
+ * A promo code is exhausted when its redemption cap has been consumed. This is a
+ * distinct failure mode from expiration: Stripe returns "This promotion code is
+ * invalid." for an exhausted code even when `expires_at` is unset, and the code
+ * can never be reactivated. Only a fresh coupon + promotion code (a reissue) restores it.
+ */
+export function isPromoCodeExhausted(input: PromoCodeExhaustionInput): boolean {
+  const { maxRedemptions, recordedRedemptions } = input
+
+  if (maxRedemptions == null || maxRedemptions <= 0) {
+    return false
+  }
+
+  return recordedRedemptions >= maxRedemptions
+}
+
 function normalizePromoDuration(value: string): PromoCodeDuration {
   if (value === 'forever' || value === 'once' || value === 'repeating') {
     return value
@@ -32,14 +63,17 @@ export interface AdminPromoCodeRecord {
   currency: string
   description: string | null
   discount_type: PromoCodeDiscountType
+  display_status: PromoCodeDisplayStatus
   duration: PromoCodeDuration
   duration_in_months: number | null
   expires_at: string | null
   id: string
   is_active: boolean
+  is_exhausted: boolean
   max_redemptions: number | null
   name: string
   percent_off: number | null
+  remaining_redemptions: number | null
   stripe_coupon_id: string | null
   stripe_environment: string
   stripe_promotion_code_id: string | null
@@ -94,7 +128,14 @@ export interface UpdatePromoCodeInput {
 export interface ListPromoCodesInput {
   query?: string
   sort?: 'created' | 'expires' | 'redemptions' | 'status'
-  status?: 'active' | 'all' | 'archived' | 'expired' | 'inactive' | PromoCodeSyncStatus
+  status?:
+    | 'active'
+    | 'all'
+    | 'archived'
+    | 'exhausted'
+    | 'expired'
+    | 'inactive'
+    | PromoCodeSyncStatus
 }
 
 const codePattern = /^[A-Z0-9_-]{3,40}$/
@@ -149,6 +190,16 @@ function serializePromoCode(
   row: typeof rayd8PromoCodes.$inferSelect,
   redemptionCount = row.timesRedeemed,
 ): AdminPromoCodeRecord {
+  const isExhausted = isPromoCodeExhausted({
+    maxRedemptions: row.maxRedemptions,
+    recordedRedemptions: redemptionCount,
+  })
+  const displayStatus: PromoCodeDisplayStatus = row.archivedAt
+    ? 'archived'
+    : isExhausted
+      ? 'exhausted'
+      : row.stripeSyncStatus
+
   return {
     amount_off: row.amountOff,
     applies_to_plan: row.appliesToPlan,
@@ -158,14 +209,18 @@ function serializePromoCode(
     currency: row.currency,
     description: row.description,
     discount_type: row.discountType,
+    display_status: displayStatus,
     duration: row.duration,
     duration_in_months: row.durationInMonths,
     expires_at: row.expiresAt?.toISOString() ?? null,
     id: row.id,
     is_active: row.isActive,
+    is_exhausted: isExhausted,
     max_redemptions: row.maxRedemptions,
     name: row.name,
     percent_off: row.percentOff,
+    remaining_redemptions:
+      row.maxRedemptions == null ? null : Math.max(0, row.maxRedemptions - redemptionCount),
     stripe_coupon_id: row.stripeCouponId,
     stripe_environment: row.stripeEnvironment,
     stripe_promotion_code_id: row.stripePromotionCodeId,
@@ -371,6 +426,7 @@ export async function listPromoCodes(input: ListPromoCodesInput = {}) {
         active: 0,
         archived: 0,
         errors: 0,
+        exhausted: 0,
         expired: 0,
         inactive: 0,
         total: 0,
@@ -385,9 +441,15 @@ export async function listPromoCodes(input: ListPromoCodesInput = {}) {
   const query = input.query?.trim().toLowerCase()
   const status = input.status ?? 'all'
 
+  const redemptionCountFor = (row: typeof rayd8PromoCodes.$inferSelect) =>
+    redemptionCounts.get(row.id) ?? 0
+  const isExhaustedFor = (row: typeof rayd8PromoCodes.$inferSelect) =>
+    isPromoCodeExhausted({ maxRedemptions: row.maxRedemptions, recordedRedemptions: redemptionCountFor(row) })
+
   const filtered = rows.filter((row) => {
     const isExpired = Boolean(row.expiresAt && row.expiresAt.getTime() <= now)
     const isArchived = Boolean(row.archivedAt)
+    const isExhausted = isExhaustedFor(row)
 
     if (query && !`${row.code} ${row.name} ${row.description ?? ''}`.toLowerCase().includes(query)) {
       return false
@@ -401,8 +463,13 @@ export async function listPromoCodes(input: ListPromoCodesInput = {}) {
       return false
     }
 
+    if (status === 'exhausted') {
+      return isExhausted
+    }
+
+    // An exhausted code is permanently unusable at checkout, so it is never "active".
     if (status === 'active') {
-      return row.isActive && !isExpired
+      return row.isActive && !isExpired && !isExhausted
     }
 
     if (status === 'inactive') {
@@ -435,11 +502,18 @@ export async function listPromoCodes(input: ListPromoCodesInput = {}) {
 
   return {
     environment: stripeEnvironment(),
-    promoCodes: sorted.map((row) => serializePromoCode(row, redemptionCounts.get(row.id) ?? 0)),
+    promoCodes: sorted.map((row) => serializePromoCode(row, redemptionCountFor(row))),
     summary: {
-      active: rows.filter((row) => row.isActive && !row.archivedAt && (!row.expiresAt || row.expiresAt.getTime() > now)).length,
+      active: rows.filter(
+        (row) =>
+          row.isActive &&
+          !row.archivedAt &&
+          !isExhaustedFor(row) &&
+          (!row.expiresAt || row.expiresAt.getTime() > now),
+      ).length,
       archived: rows.filter((row) => row.archivedAt).length,
       errors: rows.filter((row) => ['error', 'mismatch', 'missing'].includes(row.stripeSyncStatus)).length,
+      exhausted: rows.filter((row) => !row.archivedAt && isExhaustedFor(row)).length,
       expired: rows.filter((row) => row.expiresAt && row.expiresAt.getTime() <= now).length,
       inactive: rows.filter((row) => !row.isActive && !row.archivedAt).length,
       total: rows.length,
@@ -769,6 +843,27 @@ export async function validatePromoCodeWithStripe(id: string): Promise<AdminProm
         messages.push('Stripe promotion code is inactive.')
       }
 
+      const lifetimeRedeemed = promotionCode.times_redeemed ?? coupon.times_redeemed ?? 0
+      const effectiveMax = promotionCode.max_redemptions ?? coupon.max_redemptions ?? existing.maxRedemptions
+
+      if (
+        isPromoCodeExhausted({
+          maxRedemptions: effectiveMax,
+          recordedRedemptions: lifetimeRedeemed,
+        })
+      ) {
+        status = 'inactive'
+        messages.push(
+          `Redemption cap reached (${lifetimeRedeemed}/${effectiveMax}). Stripe has permanently inactivated this promotion code and it cannot be reactivated. Use Reissue to mint a fresh coupon and promotion code with the same code text.`,
+        )
+      }
+
+      if (!coupon.valid) {
+        messages.push(
+          'Stripe reports the underlying coupon as invalid. Checkout will reject this code until it is reissued.',
+        )
+      }
+
       if (promotionCode.code.toUpperCase() !== existing.code) {
         status = 'mismatch'
         messages.push('Stripe promotion code text does not match local record.')
@@ -1080,6 +1175,124 @@ export async function recreateMissingPromoCode(id: string) {
   }
 }
 
+/**
+ * Reissues a promo code that Stripe can no longer honour.
+ *
+ * Stripe permanently invalidates a promotion code once its coupon is exhausted
+ * (`times_redeemed == max_redemptions`) or its `expires_at` has passed, and such
+ * codes can never be reactivated. The same restriction applies to a coupon's
+ * `max_redemptions` — it cannot be raised after creation. The only supported
+ * recovery is to mint a brand new coupon + promotion code.
+ *
+ * This reuses the existing code text so customers keep the same code, retires the
+ * unusable Stripe objects, and leaves local redemption history intact.
+ */
+export async function reissuePromoCode(id: string, input: { maxRedemptions?: number | null } = {}) {
+  if (!db) {
+    throw new Error('Database is not configured.')
+  }
+
+  if (!stripeClient) {
+    throw new Error('Stripe is not configured.')
+  }
+
+  const existing = await getPromoCodeById(id)
+
+  if (!existing) {
+    return null
+  }
+
+  const localRedemptionCount = await getRedemptionCountForPromoCode(existing.id)
+  const historicalRedemptions = Math.max(localRedemptionCount, existing.timesRedeemed)
+
+  const maxRedemptions = input.maxRedemptions === undefined ? existing.maxRedemptions : input.maxRedemptions
+
+  if (maxRedemptions != null && maxRedemptions <= historicalRedemptions) {
+    throw new Error(
+      `Max redemptions must be greater than the ${historicalRedemptions} redemption(s) already recorded for ${existing.code}. Leave it blank for unlimited.`,
+    )
+  }
+
+  const productIds = await getProductIdsForPlan(existing.appliesToPlan)
+  const metadata = {
+    rayd8_applies_to_plan: existing.appliesToPlan,
+    rayd8_code: existing.code,
+    rayd8_reissued_from_local_id: existing.id,
+  }
+
+  // Retire the unusable Stripe objects first. Promotion codes that reached their
+  // limit cannot be reactivated, so this is best-effort and must never block the reissue.
+  if (existing.stripePromotionCodeId) {
+    await stripeClient.promotionCodes
+      .update(existing.stripePromotionCodeId, { active: false })
+      .catch(() => null)
+  }
+
+  let coupon: Stripe.Coupon | null = null
+  let promotionCode: Stripe.PromotionCode | null = null
+
+  try {
+    coupon = await stripeClient.coupons.create({
+      applies_to: productIds ? { products: productIds } : undefined,
+      amount_off: existing.discountType === 'amount' ? existing.amountOff ?? undefined : undefined,
+      currency: existing.discountType === 'amount' ? existing.currency : undefined,
+      duration: existing.duration,
+      duration_in_months: existing.duration === 'repeating' ? existing.durationInMonths ?? undefined : undefined,
+      max_redemptions: maxRedemptions ?? undefined,
+      metadata,
+      name: existing.name,
+      percent_off: existing.discountType === 'percent' ? existing.percentOff ?? undefined : undefined,
+      redeem_by: toUnixSeconds(existing.expiresAt),
+    })
+
+    promotionCode = await stripeClient.promotionCodes.create({
+      active: true,
+      code: existing.code,
+      expires_at: toUnixSeconds(existing.expiresAt),
+      max_redemptions: maxRedemptions ?? undefined,
+      metadata,
+      promotion: {
+        coupon: coupon.id,
+        type: 'coupon',
+      },
+    })
+
+    const [record] = await db
+      .update(rayd8PromoCodes)
+      .set({
+        archivedAt: null,
+        isActive: true,
+        maxRedemptions,
+        stripeCouponId: coupon.id,
+        stripeEnvironment: stripeEnvironment(),
+        stripePromotionCodeId: promotionCode.id,
+        stripeSyncError: null,
+        stripeSyncStatus: 'synced',
+        timesRedeemed: localRedemptionCount,
+        updatedAt: new Date(),
+      })
+      .where(eq(rayd8PromoCodes.id, id))
+      .returning()
+
+    return serializePromoCode(record)
+  } catch (error) {
+    if (promotionCode) {
+      await stripeClient.promotionCodes.update(promotionCode.id, { active: false }).catch(() => null)
+    }
+
+    if (coupon) {
+      await stripeClient.coupons.del(coupon.id).catch((cleanupError) => {
+        console.error('Unable to clean up orphaned Stripe coupon after promo code reissue failure.', {
+          couponId: coupon?.id,
+          error: cleanupError instanceof Error ? cleanupError.message : 'Unknown cleanup error',
+        })
+      })
+    }
+
+    throw error
+  }
+}
+
 export async function recordPromoCodeRedemption(input: {
   amountDiscounted?: number | null
   code?: string | null
@@ -1181,9 +1394,21 @@ export async function recordPromoCodeRedemption(input: {
   }
 
   const localRedemptionCount = await getRedemptionCountForPromoCode(promoCode.id)
+  const isExhaustedLocally = isPromoCodeExhausted({
+    maxRedemptions: promoCode.maxRedemptions,
+    recordedRedemptions: localRedemptionCount,
+  })
+
+  // Keep the persisted sync status truthful: an exhausted code is permanently
+  // unusable at checkout, so it must never continue to read as `synced`.
   await db
     .update(rayd8PromoCodes)
     .set({
+      isActive: isExhaustedLocally ? false : promoCode.isActive,
+      stripeSyncError: isExhaustedLocally
+        ? `Redemption cap reached (${localRedemptionCount}/${promoCode.maxRedemptions}). Stripe has permanently inactivated this promotion code; use Reissue to restore it.`
+        : promoCode.stripeSyncError,
+      stripeSyncStatus: isExhaustedLocally ? 'inactive' : promoCode.stripeSyncStatus,
       timesRedeemed: localRedemptionCount,
       updatedAt: new Date(),
     })

@@ -8,10 +8,11 @@ function isLocalPostgresUrl(value: string) {
 }
 
 const databaseUrl = env.DATABASE_URL ?? null
-const postgresClient = databaseUrl
+const postgresClientHandle = databaseUrl
   ? postgres(databaseUrl, {
       max: isLocalPostgresUrl(databaseUrl) ? 1 : 5,
     })
   : null
 
-export const db = postgresClient ? drizzlePostgres(postgresClient, { schema }) : null
+export const db = postgresClientHandle ? drizzlePostgres(postgresClientHandle, { schema }) : null
+export const postgresClient = postgresClientHandle

@@ -885,6 +885,7 @@ export type AdminPromoCodeSyncStatus =
   | 'missing'
   | 'pending'
   | 'synced'
+export type AdminPromoCodeDisplayStatus = 'archived' | 'exhausted' | AdminPromoCodeSyncStatus
 
 export interface AdminPromoCodeRecord {
   amount_off: number | null
@@ -895,14 +896,17 @@ export interface AdminPromoCodeRecord {
   currency: string
   description: string | null
   discount_type: AdminPromoCodeDiscountType
+  display_status: AdminPromoCodeDisplayStatus
   duration: AdminPromoCodeDuration
   duration_in_months: number | null
   expires_at: string | null
   id: string
   is_active: boolean
+  is_exhausted: boolean
   max_redemptions: number | null
   name: string
   percent_off: number | null
+  remaining_redemptions: number | null
   stripe_coupon_id: string | null
   stripe_environment: string
   stripe_promotion_code_id: string | null
@@ -934,6 +938,7 @@ export interface AdminPromoCodeListResponse {
     active: number
     archived: number
     errors: number
+    exhausted: number
     expired: number
     inactive: number
     total: number
@@ -1049,6 +1054,21 @@ export async function recreateAdminPromoCodeIfMissing(id: string, token: string)
   return apiRequest<{ promoCode: AdminPromoCodeRecord }>(
     `/api/admin/promo-codes/${encodeURIComponent(id)}/recreate-if-missing`,
     { method: 'POST' },
+    token,
+  )
+}
+
+export async function reissueAdminPromoCode(
+  id: string,
+  payload: { maxRedemptions?: number | null },
+  token: string,
+) {
+  return apiRequest<{ promoCode: AdminPromoCodeRecord }>(
+    `/api/admin/promo-codes/${encodeURIComponent(id)}/reissue`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
     token,
   )
 }

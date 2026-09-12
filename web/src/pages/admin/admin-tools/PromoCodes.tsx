@@ -8,6 +8,7 @@ import {
   getAdminPromoCodeDetails,
   getAdminPromoCodes,
   recreateAdminPromoCodeIfMissing,
+  reissueAdminPromoCode,
   validateAdminPromoCode,
   refreshAdminPromoCodeFromStripe,
   repairAdminPromoCodeSync,
@@ -57,6 +58,14 @@ function formatDiscount(promoCode: AdminPromoCodeRecord) {
   return `$${((promoCode.amount_off ?? 0) / 100).toFixed(2)} off`
 }
 
+function formatRedemptionUsage(promoCode: AdminPromoCodeRecord) {
+  if (promoCode.max_redemptions == null) {
+    return `${promoCode.times_redeemed} / unlimited`
+  }
+
+  return `${promoCode.times_redeemed} / ${promoCode.max_redemptions}`
+}
+
 function formatMoneyFromCents(amount: number | null, currency: string) {
   return new Intl.NumberFormat('en-US', {
     currency: currency.toUpperCase(),
@@ -67,6 +76,12 @@ function formatMoneyFromCents(amount: number | null, currency: string) {
 function statusClass(status: string) {
   if (status === 'archived') {
     return 'border-slate-200/25 bg-slate-300/10 text-slate-100'
+  }
+
+  // Exhausted codes are permanently unusable at checkout even though they do not
+  // expire, so they must be visually distinct from a healthy `synced` code.
+  if (status === 'exhausted') {
+    return 'border-orange-200/35 bg-orange-300/12 text-orange-100'
   }
 
   if (status === 'synced') {
@@ -150,6 +165,7 @@ export function AdminPromoCodesPage() {
     active: 0,
     archived: 0,
     errors: 0,
+    exhausted: 0,
     expired: 0,
     inactive: 0,
     total: 0,
@@ -199,6 +215,7 @@ export function AdminPromoCodesPage() {
       { label: 'Total codes', value: summary.total },
       { label: 'Active', value: summary.active },
       { label: 'Needs review', value: summary.errors },
+      { label: 'Exhausted', value: summary.exhausted },
       { label: 'Recorded redemptions', value: summary.totalRedemptions },
     ],
     [summary],
@@ -280,7 +297,7 @@ export function AdminPromoCodesPage() {
   }
 
   async function runAction(
-    action: 'archive' | 'deactivate' | 'recreate' | 'refresh' | 'repair' | 'restore' | 'validate',
+    action: 'archive' | 'deactivate' | 'recreate' | 'refresh' | 'reissue' | 'repair' | 'restore' | 'validate',
     promoCode: AdminPromoCodeRecord,
   ) {
     setError(null)
@@ -324,6 +341,60 @@ export function AdminPromoCodesPage() {
 
         const response = await recreateAdminPromoCodeIfMissing(promoCode.id, token)
         setStatusMessage(`${response.promoCode.code} now has active Stripe IDs.`)
+      }
+
+      if (action === 'reissue') {
+        const currentCap = promoCode.max_redemptions
+        // Pre-fill the existing cap unless it is already provably too small — an
+        // exhausted cap can never satisfy the "greater than recorded" rule.
+        const suggestedCap = promoCode.is_exhausted || currentCap == null ? '' : String(currentCap)
+
+        const answer = window.prompt(
+          [
+            `Reissue ${promoCode.code} in Stripe?`,
+            '',
+            promoCode.is_exhausted
+              ? `This code is exhausted (${promoCode.times_redeemed} / ${currentCap ?? 'unlimited'} used). Stripe has permanently inactivated it and cannot reactivate it, which is why customers see "This promotion code is invalid."`
+              : 'This mints a brand new Stripe coupon and promotion code with the same code text.',
+            '',
+            `Customers keep entering ${promoCode.code}. Redemption history stays intact.`,
+            'Type a new redemption cap, or type UNLIMITED for no cap:',
+          ].join('\n'),
+          suggestedCap,
+        )
+
+        if (answer === null) {
+          return
+        }
+
+        const trimmedCap = answer.trim()
+
+        if (trimmedCap === '') {
+          setError('Enter a redemption cap or type UNLIMITED for no cap.')
+          return
+        }
+
+        let nextMaxRedemptions: number | null = null
+
+        if (trimmedCap.toUpperCase() !== 'UNLIMITED') {
+          const parsedCap = Number(trimmedCap)
+
+          if (!Number.isInteger(parsedCap) || parsedCap <= 0) {
+            setError('Max redemptions must be a positive whole number, or UNLIMITED for no cap.')
+            return
+          }
+
+          nextMaxRedemptions = parsedCap
+        }
+
+        const response = await reissueAdminPromoCode(promoCode.id, { maxRedemptions: nextMaxRedemptions }, token)
+        setStatusMessage(
+          `${response.promoCode.code} was reissued in Stripe and is active again${
+            response.promoCode.max_redemptions == null
+              ? ' with no redemption cap.'
+              : ` with a cap of ${response.promoCode.max_redemptions}.`
+          }`,
+        )
       }
 
       if (action === 'deactivate') {
@@ -393,7 +464,7 @@ export function AdminPromoCodesPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {summaryCards.map((card) => (
           <article
             className="rounded-[1.5rem] border border-white/12 bg-white/[0.045] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.18)] backdrop-blur-2xl"
@@ -511,7 +582,7 @@ export function AdminPromoCodesPage() {
           />
         </FieldWithHelp>
         <FieldWithHelp
-          help="Maximum number of times this promo code can be used. Leave blank if unlimited is supported."
+          help="Maximum number of times this promo code can be used. Leave blank for unlimited. Stripe cannot raise this later, so an exhausted code must be reissued.">
           label="Max Redemptions"
         >
           <input
@@ -590,6 +661,7 @@ export function AdminPromoCodesPage() {
             >
               <option value="all">All active view</option>
               <option value="active">Active</option>
+              <option value="exhausted">Exhausted</option>
               <option value="inactive">Inactive</option>
               <option value="expired">Expired</option>
               <option value="synced">Synced</option>
@@ -625,7 +697,7 @@ export function AdminPromoCodesPage() {
                 <th className="px-5 py-4">Discount</th>
                 <th className="px-5 py-4">Duration</th>
                 <th className="px-5 py-4">Status</th>
-                <th className="px-5 py-4">Recorded redemptions</th>
+                <th className="px-5 py-4">Redemptions (used / cap)</th>
                 <th className="px-5 py-4">Expires</th>
                 <th className="px-5 py-4">Actions</th>
               </tr>
@@ -636,7 +708,7 @@ export function AdminPromoCodesPage() {
               ) : promoCodes.length ? (
                 promoCodes.map((promoCode) => {
                   const isArchived = Boolean(promoCode.archived_at)
-                  const displayStatus = isArchived ? 'archived' : promoCode.stripe_sync_status
+                  const displayStatus = promoCode.display_status ?? (isArchived ? 'archived' : promoCode.stripe_sync_status)
                   const buttonClass =
                     'rounded-xl border border-white/12 px-3 py-2 text-xs text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45'
                   const isActionPending = (action: string) => actionPendingId === `${action}:${promoCode.id}`
@@ -660,8 +732,20 @@ export function AdminPromoCodesPage() {
                         <span className={['rounded-full border px-3 py-1 text-xs uppercase tracking-[0.2em]', statusClass(displayStatus)].join(' ')}>
                           {displayStatus}
                         </span>
+                        {promoCode.is_exhausted && !isArchived ? (
+                          <span className="mt-2 block max-w-[16rem] text-xs leading-5 text-orange-200/90">
+                            Cap reached. Stripe rejected this code at checkout; reissue to restore it.
+                          </span>
+                        ) : null}
                       </td>
-                      <td className="px-5 py-4">{promoCode.times_redeemed}</td>
+                      <td className="px-5 py-4">
+                        {formatRedemptionUsage(promoCode)}
+                        {promoCode.max_redemptions != null && !promoCode.is_exhausted ? (
+                          <span className="mt-1 block text-xs text-slate-500">
+                            {promoCode.remaining_redemptions} remaining
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="px-5 py-4">{formatDate(promoCode.expires_at)}</td>
                       <td className="px-5 py-4">
                         <div className="flex flex-wrap gap-2">
@@ -693,6 +777,16 @@ export function AdminPromoCodesPage() {
                                   {isActionPending('recreate') ? 'Recreating...' : 'Recreate'}
                                 </button>
                               ) : null}
+                              {promoCode.is_exhausted ? (
+                                <button
+                                  className="rounded-xl border border-orange-200/40 bg-orange-300/16 px-3 py-2 text-xs font-semibold text-orange-50 transition hover:bg-orange-300/24 disabled:cursor-not-allowed disabled:opacity-45"
+                                  disabled={hasPendingAction}
+                                  onClick={() => void runAction('reissue', promoCode)}
+                                  type="button"
+                                >
+                                  {isActionPending('reissue') ? 'Reissuing...' : 'Reissue'}
+                                </button>
+                              ) : null}
                               <button className={buttonClass} disabled={hasPendingAction} onClick={() => void runAction('deactivate', promoCode)} type="button">
                                 {isActionPending('deactivate') ? 'Deactivating...' : 'Deactivate'}
                               </button>
@@ -722,6 +816,22 @@ export function AdminPromoCodesPage() {
               <h2 className="mt-2 text-2xl font-semibold text-white">{activePromoCode.code}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-400">{activePromoCode.description ?? 'No description provided.'}</p>
               <p className="mt-2 text-sm text-slate-300">Plan: {formatPlanLabel(activePromoCode.applies_to_plan)}</p>
+              <p className="mt-2 text-sm text-slate-300">
+                Redemptions: {formatRedemptionUsage(activePromoCode)}
+                {activePromoCode.max_redemptions == null ? '' : ` • ${activePromoCode.remaining_redemptions} remaining`}
+              </p>
+              {activePromoCode.is_exhausted ? (
+                <p className="mt-3 max-w-2xl rounded-2xl border border-orange-200/30 bg-orange-300/12 px-4 py-3 text-sm leading-6 text-orange-50">
+                  This code has consumed its redemption cap. Stripe has permanently inactivated the promotion code and
+                  customers now see “This promotion code is invalid.” even though it has not expired. Use Reissue to mint
+                  a fresh coupon and promotion code with the same code text.
+                </p>
+              ) : null}
+              {activePromoCode.stripe_sync_error ? (
+                <p className="mt-3 max-w-2xl rounded-2xl border border-amber-200/25 bg-amber-300/10 px-4 py-3 text-sm leading-6 text-amber-50">
+                  {activePromoCode.stripe_sync_error}
+                </p>
+              ) : null}
             </div>
             <div className="text-sm text-slate-300">
               <p>Coupon: {activePromoCode.stripe_coupon_id ?? 'Missing'}</p>

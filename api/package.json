@@ -19,6 +19,8 @@
     "test:mux-ttl": "vitest run src/services/admin/muxAdmin.ttl.test.ts",
     "test:session-end-reliability": "vitest run src/services/player/usageTracking.end.idempotency.test.ts",
     "test:session-reconciliation": "vitest run src/services/player/staleSessionReconciliation.test.ts",
+    "test:promo-code-exhaustion": "vitest run src/services/admin/promoCodes.exhaustion.test.ts src/services/admin/promoCodes.test.ts src/services/subscriptions.promoCodes.test.ts",
+    "promos:reissue": "tsx scripts/reissue-promo-code.ts",
     "sessions:reconcile": "tsx scripts/reconcile-stale-sessions.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
