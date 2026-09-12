@@ -216,6 +216,9 @@ not queue a build for the Sep 12 pushes, treat `main` → API deploys as untrust
 GitHub integration / verify webhook delivery in the Render dashboard, or add a deploy hook so a
 missed build is detectable. Until then, confirm each API change with the 404→401 probe above.
 
+Corroborated: a follow-up docs push (`ac80638`) also produced **no** deploy record, so the
+webhook is not firing at all rather than the commits being filtered out (e.g. by path ignores).
+
 ### Interim behavior (historical)
 
 While the API was still pre-change, the frontend degraded safely: the list falls back to
