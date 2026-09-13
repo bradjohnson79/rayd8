@@ -1,0 +1,1 @@
+Auto-deploy probe 2026-09-13T15:48Z — verifies native new_commit trigger fires for rayd8-api after GitHub App repo access + source re-link. Safe to delete once auto-deploy is confirmed working.
