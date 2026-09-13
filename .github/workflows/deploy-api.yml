@@ -1,0 +1,45 @@
+# Deploys the rayd8 API (Render service rayd8-api) when api/ or shared
+# config changes land on main.
+#
+# Why this exists: the Render GitHub App connection for this service does not
+# receive push events (verified 2026-09-12 — zero new_commit triggers across the
+# service's entire deploy history; sibling services using the GitHub App get
+# them fine). This workflow is the durable push-to-deploy path. It fires
+# Render's deploy hook, which builds the latest commit on main.
+#
+# If Render's native auto-deploy is ever repaired, this becomes redundant but
+# harmless: both paths deploy the same latest-commit on main, and Render
+# coalesces concurrent deploys of the same commit.
+name: Deploy rayd8 API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - '.github/workflows/deploy-api.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        env:
+          DEPLOY_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "::error::RENDER_DEPLOY_HOOK_URL secret is not set"
+            exit 1
+          fi
+          echo "Triggering Render deploy hook for rayd8-api at $(date -u +%H:%M:%SZ)"
+          # The hook queues a deploy of the latest commit on main. It returns
+          # 200 immediately; Render builds asynchronously.
+          curl --fail --silent --show-error --max-time 60 "$DEPLOY_URL"
+          echo "Deploy hook accepted"
