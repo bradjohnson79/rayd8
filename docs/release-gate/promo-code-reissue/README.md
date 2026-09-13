@@ -209,7 +209,15 @@ validate-stripe -> 401  (control route)
 
 Note `api.rayd8.app` is a CNAME to the same backend, so it follows automatically.
 
-### Follow-up: auto-deploy is broken (root-caused, not yet fixed)
+### Follow-up: auto-deploy is broken (root-caused; push-to-deploy restored via deploy hook)
+
+**Resolved 2026-09-13**: `.github/workflows/deploy-api.yml` now fires the service's deploy hook
+on pushes to `main` touching `api/` (hook URL stored as the `RENDER_DEPLOY_HOOK_URL` repo
+secret). Verified end-to-end: push `9ee44b7` → Actions run → deploy hook → Render
+`deploy_hook` trigger → `live` in ~2 min. The broken native webhook remains broken (worth
+relinking from the dashboard someday: Settings → Build & Deploy → Source), but push-to-deploy
+no longer depends on it. The deploy-hook key grants deploy rights for this service only;
+regenerate it in the dashboard if it leaks.
 
 The service reports commit-triggered auto-deploy on `main`, but **GitHub push notifications
 never reach Render**. Evidence gathered via the Render CLI/API and GitHub API:
