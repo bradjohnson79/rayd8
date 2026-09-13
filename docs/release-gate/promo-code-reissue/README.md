@@ -209,18 +209,42 @@ validate-stripe -> 401  (control route)
 
 Note `api.rayd8.app` is a CNAME to the same backend, so it follows automatically.
 
-### Follow-up: auto-deploy is broken (root-caused; push-to-deploy restored via deploy hook)
+### Follow-up: auto-deploy was broken (root-caused and FIXED 2026-09-13)
 
-**Resolved 2026-09-13**: `.github/workflows/deploy-api.yml` now fires the service's deploy hook
-on pushes to `main` touching `api/` (hook URL stored as the `RENDER_DEPLOY_HOOK_URL` repo
-secret). Verified end-to-end: push `9ee44b7` → Actions run → deploy hook → Render
-`deploy_hook` trigger → `live` in ~2 min. The broken native webhook remains broken (worth
-relinking from the dashboard someday: Settings → Build & Deploy → Source), but push-to-deploy
-no longer depends on it. The deploy-hook key grants deploy rights for this service only;
-regenerate it in the dashboard if it leaks.
+**Native auto-deploy is fixed.** The final probe push (`ca89e65`, workflow disabled) triggered a
+`new_commit` deploy that went `live` in ~90s with no duplicate builds:
 
-The service reports commit-triggered auto-deploy on `main`, but **GitHub push notifications
-never reach Render**. Evidence gathered via the Render CLI/API and GitHub API:
+```
+live ca89e65 new_commit 2026-09-13T15:52:33   ← native GitHub App push event
+```
+
+**Root cause (two stacked defects):**
+
+1. **`rayd8` was missing from the Render GitHub App installation.** The app was installed with
+   "Only select repositories" = `theprimementor` only. `rayd8` (a public repo) could always be
+   *cloned* without app access, which is why manual deploys built fine — but the app receives
+   **no push events** for repos outside its access list, so `new_commit` never fired. Fix:
+   GitHub → Settings → Applications → Render → Repository access → add `bradjohnson79/rayd8`.
+2. **The service's source was then re-linked through the app credential** (dashboard →
+   `rayd8-api` → Settings → Source → Edit → select `bradjohnson79/rayd8` → Deploy). The repo
+   appeared in Render's repo picker only *after* fix #1 landed ("3m ago" in the picker).
+
+**Test methodology note:** empty commits (`git commit --allow-empty`) do **not** trigger
+auto-deploys — the first two probes were false negatives. A real file change under `api/`
+(`037ed93`) triggered `new_commit` within 6 seconds.
+
+**Fallback history:** before the root-cause fix, `.github/workflows/deploy-api.yml` fired the
+service's deploy hook on pushes to `main` touching `api/` (hook URL stored as the
+`RENDER_DEPLOY_HOOK_URL` repo secret). Once native auto-deploy was verified, the workflow was
+disabled (renamed to `deploy-api.yml.disabled`) to eliminate the duplicate parallel build each
+push was causing (observed: `new_commit` + `deploy_hook` both building the same commit). To
+re-enable the fallback, rename it back — the `RENDER_DEPLOY_HOOK_URL` secret remains set. The
+deploy-hook key grants deploy rights for this service only; regenerate it in the dashboard if
+it leaks.
+
+The service reported commit-triggered auto-deploy on `main`, but **GitHub push notifications
+never reached Render**. Evidence gathered via the Render CLI/API and GitHub API (all
+pre-diagnosis; superseded by the fix above):
 
 | Check | Result |
 | --- | --- |
@@ -233,29 +257,31 @@ never reach Render**. Evidence gathered via the Render CLI/API and GitHub API:
 | GitHub Deployments on the repo | only `vercel[bot]`; Render creates none |
 | After `services update --repo/--branch/--auto-deploy` + push (`36c77e3`) | still **no** deploy record |
 
-Interpretation: the Render GitHub App can **clone** the repo but its **push webhook is not
-eventing** for this service. The all-time zero `new_commit` count means this has likely never
-worked for `rayd8-api`; deploys only ever happened manually or via `deployed_by_render`.
+Interpretation: the Render GitHub App could **clone** the repo but received **no push events**
+for it, because the repo was not in the app installation's access list (the confirmed root
+cause). The all-time zero `new_commit` count means this had likely never worked for
+`rayd8-api`; deploys only ever happened manually or via `deployed_by_render`.
 
 Push-vs-scheduled is the discriminator: Render's scheduled "auto-deploy" poll on a git-backed
 service shows up as `auto_deploy` / `new_commit`. `prime-api` receiving `new_commit` proves the
 platform path works and the defect is scoped to `rayd8-api`'s connection.
 
-Remediation options (in order):
+Remediation (executed 2026-09-13, in this order):
 
-1. **Dashboard → `rayd8-api` → Settings → Git**: reconnect / relink the GitHub repo for the
-   service. This re-establishes the push subscription. **Requires the dashboard** — there is no
-   API/CLI path that recreates the webhook.
-2. **Deploy hook + GitHub Actions** (recommended durable fallback): add
-   `.github/workflows/deploy-api.yml` that runs tests then `curl <deploy-hook-url>` on pushes to
-   `main` touching `api/`. The hook URL is generated in **Settings → Deploy Hook** (secret
-   deploy-hook *management* is dashboard-only; the public REST API has no deploy-hook endpoint —
-   verified against `api-docs.render.com/openapi/render-public-api-1.json`, which only exposes
-   outbound `/webhooks`). Store it as the `RENDER_DEPLOY_HOOK_URL` repo secret.
-   - Caveat: the local Render CLI's API key (`rnd_…`) expires 2026-09-15, so it is not suitable
-     as a long-lived CI secret; use a persistent deploy hook instead.
-3. Until fixed, treat `main` → API as untrusted and always confirm with the probe below, or
-   deploy manually: `render deploys create srv-d7nst5j7uimc73bhq9gg --confirm`.
+1. **GitHub → Settings → Applications → Render → Repository access**: added
+   `bradjohnson79/rayd8` to the app installation (was "Only select repositories" =
+   `theprimementor` only). This is what restored push-event delivery.
+2. **Dashboard → `rayd8-api` → Settings → Source → Edit**: re-selected
+   `bradjohnson79/rayd8` through the app credential and clicked Deploy to re-link the
+   subscription. (Dashboard-only path — no API/CLI equivalent.)
+3. **Verified end-to-end** with a real (non-empty) commit under `api/`:
+   `037ed93` → `new_commit` trigger within 6s → `live`. Final verification push `ca89e65`
+   (fallback workflow disabled) went `live` via `new_commit` alone.
+4. **Retired the interim GitHub Actions fallback** (`.github/workflows/deploy-api.yml` →
+   `.disabled`) since native auto-deploy now covers push-to-deploy; the workflow was causing a
+   duplicate parallel build per push. The `RENDER_DEPLOY_HOOK_URL` secret remains set for
+   emergencies: `render deploys create srv-d7nst5j7uimc73bhq9gg --confirm` or re-enable the
+   workflow.
 
 Missed-deploy probe for any future API change:
 
