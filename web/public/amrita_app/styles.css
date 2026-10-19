@@ -776,9 +776,31 @@ h2 {
   color: rgba(255, 255, 255, 0.7);
 }
 
+.runtime-chrome-top > .runtime-chrome-actions,
+.runtime-chrome-bottom {
+  gap: 4px;
+  padding: 4px;
+}
+
+.runtime-chrome .runtime-button {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.runtime-chrome .runtime-button svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
 .runtime-popover {
   right: max(18px, env(safe-area-inset-right));
-  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 76px);
+  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 40px);
   width: min(360px, calc(100vw - 36px));
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 24px;

@@ -7,6 +7,37 @@ const AMPLIFICATION_LEVELS = [
 
 const CHROME_IDLE_MS = 2400;
 
+const GLYPHS = {
+  amplify: '<path d="M4 10v4h3l4 3V7L7 10H4"/><path d="M15 9.5a3.2 3.2 0 0 1 0 5M17.2 7.2a6 6 0 0 1 0 9.6"/>',
+  audio: '<path d="M9 17V7l9-2v10"/><circle cx="7.5" cy="17" r="2"/><circle cx="16.5" cy="15" r="2"/>',
+  duration: '<circle cx="12" cy="12" r="7"/><path d="M12 8.5V12l2.5 2"/>',
+  exit: '<path d="M7 7l10 10M17 7L7 17"/>',
+  'exit-fullscreen': '<path d="M4 8h4V4M16 4v4h4M20 16h-4v4M8 20v-4H4"/>',
+  filters: '<path d="M4 7h16M4 12h16M4 17h16"/><circle cx="8" cy="7" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="10" cy="17" r="1.6" fill="currentColor" stroke="none"/>',
+  fullscreen: '<path d="M8 4H4v4M16 4h4v4M20 16v4h-4M4 16v4h4"/>',
+  pause: '<path d="M8 6h3v12H8zM13 6h3v12h-3z" fill="currentColor" stroke="none"/>',
+  photo: '<path d="M5 8h3l1.5-2h5L16 8h3v9H5z"/><circle cx="12" cy="12.5" r="2.4"/>',
+  speed: '<path d="M5 16a7 7 0 1 1 14 0"/><path d="M12 16l4-4"/>',
+  start: '<path d="M8 6.5v11l9.5-5.5z" fill="currentColor" stroke="none"/>',
+};
+
+function glyph(name) {
+  return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${GLYPHS[name] ?? ''}</svg>`;
+}
+
+function chromeButton({ action, icon, label, panel, secondary = false }) {
+  const actionAttr = action ? ` data-runtime-action="${action}"` : '';
+  const panelAttr = panel ? ` data-runtime-panel="${panel}"` : '';
+  const secondaryClass = secondary ? ' secondary' : '';
+  return `<button class="runtime-button${secondaryClass}" type="button" aria-label="${label}"${actionAttr}${panelAttr}>${glyph(icon)}</button>`;
+}
+
+function setIconButton(button, label, icon) {
+  if (!button) return;
+  button.setAttribute('aria-label', label);
+  button.innerHTML = glyph(icon);
+}
+
 export function createRuntimeControls({
   actions,
   audioTracks,
@@ -37,18 +68,18 @@ export function createRuntimeControls({
           <p class="runtime-status" data-runtime-status>Preparing sequence</p>
         </div>
         <div class="runtime-chrome-actions">
-          <button class="runtime-button" type="button" data-runtime-action="fullscreen">Fullscreen</button>
-          <button class="runtime-button secondary" type="button" data-runtime-action="exit">Exit</button>
+          ${chromeButton({ action: 'fullscreen', icon: 'fullscreen', label: 'Fullscreen' })}
+          ${chromeButton({ action: 'exit', icon: 'exit', label: 'Exit', secondary: true })}
         </div>
       </div>
       <div class="runtime-chrome-bottom">
-        <button class="runtime-button" type="button" data-runtime-action="pause">Pause</button>
-        <button class="runtime-button" type="button" data-runtime-panel="speed">Speed</button>
-        <button class="runtime-button" type="button" data-runtime-panel="filters">Filters</button>
-        <button class="runtime-button" type="button" data-runtime-panel="duration">Duration</button>
-        <button class="runtime-button" type="button" data-runtime-panel="amplification">Amplify</button>
-        <button class="runtime-button" type="button" data-runtime-panel="audio">Audio</button>
-        <button class="runtime-button" type="button" data-runtime-panel="photo">Photo</button>
+        ${chromeButton({ action: 'pause', icon: 'pause', label: 'Pause' })}
+        ${chromeButton({ icon: 'speed', label: 'Speed', panel: 'speed' })}
+        ${chromeButton({ icon: 'filters', label: 'Filters', panel: 'filters' })}
+        ${chromeButton({ icon: 'duration', label: 'Duration', panel: 'duration' })}
+        ${chromeButton({ icon: 'amplify', label: 'Amplify', panel: 'amplification' })}
+        ${chromeButton({ icon: 'audio', label: 'Audio', panel: 'audio' })}
+        ${chromeButton({ icon: 'photo', label: 'Photo', panel: 'photo' })}
       </div>
     `;
     container.appendChild(root);
@@ -78,10 +109,13 @@ export function createRuntimeControls({
   function update() {
     if (!root) return;
     const state = getState();
-    root.querySelector('[data-runtime-action="pause"]').textContent =
-      state.runtime === 'paused' ? 'Resume' : 'Pause';
-    root.querySelector('[data-runtime-action="fullscreen"]').textContent =
-      state.isFullscreen ? 'Exit Fullscreen' : 'Fullscreen';
+    const paused = state.runtime === 'paused';
+    setIconButton(root.querySelector('[data-runtime-action="pause"]'), paused ? 'Resume' : 'Pause', paused ? 'start' : 'pause');
+    setIconButton(
+      root.querySelector('[data-runtime-action="fullscreen"]'),
+      state.isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
+      state.isFullscreen ? 'exit-fullscreen' : 'fullscreen',
+    );
     root.dataset.amplification = state.amplification;
 
     root.querySelectorAll('[data-runtime-panel]').forEach((button) => {
