@@ -245,7 +245,9 @@ async function applyMediaSource(sourceUrl, requestId) {
     return true;
   }
 
-  if (audioElement.canPlayType('application/vnd.apple.mpegurl')) {
+  // Chromium often answers "maybe" for HLS and then fails to decode a Mux playlist.
+  // Native playback is used only when the browser reports "probably", as Safari does.
+  if (audioElement.canPlayType('application/vnd.apple.mpegurl') === 'probably') {
     const applied = await attachNativeSource(sourceUrl, requestId);
     if (applied) currentSourceUrl = sourceUrl;
     return applied;
