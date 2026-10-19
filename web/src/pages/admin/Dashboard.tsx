@@ -204,7 +204,7 @@ function AdminDashboardHome({
             <p className="mt-2 text-base font-semibold text-white">Stable admin previews</p>
             <p className="mt-2 text-sm text-slate-300">
               Open isolated preview dashboards for Free Trial or REGEN directly from the admin
-              sidebar. AMRITA is available as a preview route for control-panel review.
+              sidebar. HAMSA, AMRITA, and Prime open their control panels for review.
             </p>
             <div className="mt-4 flex flex-col gap-2 text-sm">
               <Link
@@ -221,9 +221,21 @@ function AdminDashboardHome({
               </Link>
               <Link
                 className="rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3 font-medium text-white transition hover:bg-white/10"
+                to="/admin/hamsa"
+              >
+                HAMSA Preview
+              </Link>
+              <Link
+                className="rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3 font-medium text-white transition hover:bg-white/10"
                 to="/admin/amrita"
               >
                 AMRITA Preview
+              </Link>
+              <Link
+                className="rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3 font-medium text-white transition hover:bg-white/10"
+                to="/admin/prime"
+              >
+                Prime Preview
               </Link>
             </div>
           </div>
@@ -374,37 +386,69 @@ function AdminDashboardHome({
         </section>
 
         <section className="grid gap-4 lg:grid-cols-3">
-          {[
-            {
-              description: 'Launch the shared fullscreen player with the Expansion session shell.',
-              label: 'RAYD8® Expansion',
-              type: 'expansion' as const,
-            },
-            {
-              description: 'Launch the shared fullscreen player with the Premium session shell.',
-              label: 'RAYD8® Premium',
-              type: 'premium' as const,
-            },
-            {
-              description: 'Launch the shared fullscreen player with the REGEN session shell.',
-              label: 'RAYD8® REGEN',
-              type: 'regen' as const,
-            },
-          ].map((card) => (
+          {(
+            [
+              {
+                description: 'Launch the shared fullscreen player with the Expansion session shell.',
+                kind: 'session' as const,
+                label: 'RAYD8® Expansion',
+                type: 'expansion' as const,
+              },
+              {
+                description: 'Launch the shared fullscreen player with the Premium session shell.',
+                kind: 'session' as const,
+                label: 'RAYD8® Premium',
+                type: 'premium' as const,
+              },
+              {
+                description: 'Launch the shared fullscreen player with the REGEN session shell.',
+                kind: 'session' as const,
+                label: 'RAYD8® REGEN',
+                type: 'regen' as const,
+              },
+              {
+                description: 'Open the HAMSA virtual healing hand.',
+                href: '/admin/hamsa',
+                kind: 'panel' as const,
+                label: 'RAYD8® HAMSA',
+              },
+              {
+                description: 'Open the Amrita control panel.',
+                href: '/admin/amrita',
+                kind: 'panel' as const,
+                label: 'RAYD8® Amrita',
+              },
+              {
+                description: 'Open the Prime control panel.',
+                href: '/admin/prime',
+                kind: 'panel' as const,
+                label: 'RAYD8® Prime',
+              },
+            ] as const
+          ).map((card) => (
             <article
               className="rounded-[1.75rem] border border-white/12 bg-white/[0.05] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.18)] backdrop-blur-2xl"
-              key={card.type}
+              key={card.label}
             >
               <p className="text-xs uppercase tracking-[0.3em] text-violet-200/60">Session launch</p>
               <h2 className="mt-3 text-xl font-semibold text-white">{card.label}</h2>
               <p className="mt-3 text-sm leading-6 text-slate-300">{card.description}</p>
-              <button
-                className="mt-5 rounded-2xl bg-violet-300/20 px-4 py-3 text-sm font-medium text-white transition hover:bg-violet-300/30"
-                onClick={() => startSession(card.type, { source: 'admin' })}
-                type="button"
-              >
-                Open fullscreen player
-              </button>
+              {card.kind === 'panel' ? (
+                <Link
+                  className="mt-5 inline-block rounded-2xl bg-violet-300/20 px-4 py-3 text-sm font-medium text-white transition hover:bg-violet-300/30"
+                  to={card.href}
+                >
+                  {card.href === '/admin/hamsa' ? 'Open HAMSA' : card.href === '/admin/amrita' ? 'Open Amrita control panel' : 'Open Prime control panel'}
+                </Link>
+              ) : (
+                <button
+                  className="mt-5 rounded-2xl bg-violet-300/20 px-4 py-3 text-sm font-medium text-white transition hover:bg-violet-300/30"
+                  onClick={() => startSession(card.type, { source: 'admin' })}
+                  type="button"
+                >
+                  Open fullscreen player
+                </button>
+              )}
             </article>
           ))}
         </section>

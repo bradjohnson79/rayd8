@@ -73,7 +73,9 @@ const previewItems = [
   { disabled: false, label: 'Admin Dashboard', to: '/admin' },
   { disabled: false, label: 'Free Trial Preview', to: '/admin/preview/free' },
   { disabled: false, label: 'REGEN Preview', to: '/admin/preview/regen' },
+  { disabled: false, label: 'HAMSA', to: '/admin/hamsa' },
   { disabled: false, label: 'AMRITA', to: '/admin/amrita' },
+  { disabled: false, label: 'Prime', to: '/admin/prime' },
 ]
 
 function PreviewRouteSection({ onClose }: { onClose: () => void }) {

@@ -38,6 +38,11 @@ const AdminHamsaPage = lazy(() =>
 const AdminAmritaPage = lazy(() =>
   import('../pages/admin/Amrita').then((module) => ({ default: module.AdminAmritaPage })),
 )
+const PrimeSessionPage = lazy(() =>
+  import('../features/prime/PrimeSessionPage').then((module) => ({
+    default: module.PrimeSessionPage,
+  })),
+)
 const AdminGlobalPlayersPage = lazy(() =>
   import('../pages/admin/GlobalPlayers').then((module) => ({
     default: module.AdminGlobalPlayersPage,
@@ -157,6 +162,7 @@ export const adminRoutes: RouteObject = {
             { path: 'regen', element: lazyElement(<AdminRegenPage />) },
             { path: 'hamsa', element: lazyElement(<AdminHamsaPage />) },
             { path: 'amrita', element: lazyElement(<AdminAmritaPage />) },
+            { path: 'prime', element: lazyElement(<PrimeSessionPage />) },
             { path: 'global-players', element: lazyElement(<AdminGlobalPlayersPage />) },
             {
               path: 'global-players/:playerId',
