@@ -1,0 +1,94 @@
+openapi: 3.0.3
+info:
+  title: RAYD8 isolated reliability subset
+  version: 1.0.0
+  description: >
+    Non-destructive contract for the isolated Schemathesis runner.
+    Checkout is specified only as an authentication rejection.
+    The webhook is specified only for a server with Stripe credentials removed.
+servers:
+  - url: http://127.0.0.1:3099
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        '200':
+          description: Service is responding.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [ok, service]
+                properties:
+                  ok:
+                    type: boolean
+                  service:
+                    type: string
+  /v1/billing/config:
+    get:
+      operationId: billingConfig
+      responses:
+        '200':
+          description: Billing configuration flags. False when credentials are absent.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [stripeConfigured, regenConfigured, amritaConfigured]
+                properties:
+                  stripeConfigured:
+                    type: boolean
+                  regenConfigured:
+                    type: boolean
+                  amritaConfigured:
+                    type: boolean
+  /v1/billing/checkout:
+    post:
+      operationId: createCheckout
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan:
+                  type: string
+      responses:
+        '401':
+          description: Authentication is required before any checkout is created.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [code, error]
+                properties:
+                  code:
+                    type: string
+                  error:
+                    type: string
+  /v1/billing/webhook:
+    post:
+      operationId: stripeWebhook
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '503':
+          description: Stripe is not configured in the isolated runner.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [error]
+                properties:
+                  error:
+                    type: string
