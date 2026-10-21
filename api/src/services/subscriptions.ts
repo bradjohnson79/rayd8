@@ -21,6 +21,7 @@ import { dispatchNotification } from './notifications/dispatchNotification.js'
 import {
   getSubscriptionStateForUser,
   resolveSubscriptionStateFromRecords,
+  subscriptionBlocksNewCheckout,
   type BillingPlan,
 } from './subscriptionState.js'
 import {
@@ -612,7 +613,9 @@ export async function createCheckoutSession(input: {
   }
 
   const subscriptionState = await getSubscriptionStateForUser(input.userId)
-  const existingSubscription = subscriptionState.activeSubscription
+  const existingSubscription = subscriptionBlocksNewCheckout(subscriptionState)
+    ? subscriptionState.activeSubscription
+    : null
 
   if (existingSubscription) {
     const existingPlan = existingSubscription.plan
@@ -667,7 +670,7 @@ export async function createCheckoutSession(input: {
     }
   }
 
-  if (subscriptionState.paymentRecoveryRequired) {
+  if (subscriptionState.paymentRecoveryRequired && subscriptionState.reason !== 'pending_payment') {
     throw new Error('Resolve Billing: update your payment method in the Customer Portal before starting a new checkout.')
   }
 

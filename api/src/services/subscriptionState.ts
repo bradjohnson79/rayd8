@@ -156,7 +156,7 @@ export function resolveSubscriptionStateFromRecords(records: SubscriptionRecord[
     return {
       activeSubscription: pendingPayment,
       entitlementPlan: 'free',
-      paymentRecoveryRequired: true,
+      paymentRecoveryRequired: false,
       reason: 'pending_payment',
     }
   }
@@ -189,6 +189,14 @@ export function resolveSubscriptionStateFromRecords(records: SubscriptionRecord[
     paymentRecoveryRequired: false,
     reason: 'free',
   }
+}
+
+export function subscriptionBlocksNewCheckout(state: SubscriptionState) {
+  if (state.reason === 'pending_payment' || state.reason === 'canceled') {
+    return false
+  }
+
+  return state.reason === 'paused' || state.paymentRecoveryRequired || state.entitlementPlan !== 'free'
 }
 
 export async function getSubscriptionStateForUser(userId: string, now = new Date()) {
