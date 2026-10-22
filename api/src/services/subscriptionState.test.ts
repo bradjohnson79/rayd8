@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   resolveSubscriptionStateFromRecords,
   subscriptionBlocksNewCheckout,
+  subscriptionConfirmsAccess,
   type SubscriptionRecord,
 } from './subscriptionState.js'
 
@@ -213,5 +214,34 @@ describe('subscription state entitlement policy', () => {
     expect(state.entitlementPlan).toBe('amrita')
     expect(state.reason).toBe('past_due_grace')
     expect(subscriptionBlocksNewCheckout(state)).toBe(true)
+  })
+
+  it('keeps two abandoned Amrita checkouts unpaid and eligible for a new purchase', () => {
+    const state = resolveSubscriptionStateFromRecords([
+      subscription({
+        currentPeriodEnd: new Date('2026-11-21T21:01:59.000Z'),
+        currentPeriodStart: new Date('2026-10-21T21:01:59.000Z'),
+        status: 'incomplete',
+        stripeSubscriptionId: 'sub_incomplete_latest',
+      }),
+      subscription({
+        currentPeriodEnd: new Date('2026-11-21T20:21:32.000Z'),
+        currentPeriodStart: new Date('2026-10-21T20:21:32.000Z'),
+        status: 'incomplete',
+        stripeSubscriptionId: 'sub_incomplete_earlier',
+      }),
+      subscription({
+        status: 'incomplete_expired',
+        stripeSubscriptionId: 'sub_expired',
+      }),
+    ])
+
+    expect(state.entitlementPlan).toBe('free')
+    expect(state.reason).toBe('pending_payment')
+    expect(subscriptionBlocksNewCheckout(state)).toBe(false)
+    expect(subscriptionConfirmsAccess('incomplete')).toBe(false)
+    expect(subscriptionConfirmsAccess('incomplete_expired')).toBe(false)
+    expect(subscriptionConfirmsAccess('active')).toBe(true)
+    expect(subscriptionConfirmsAccess('trialing')).toBe(true)
   })
 })

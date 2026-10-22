@@ -199,6 +199,10 @@ export function subscriptionBlocksNewCheckout(state: SubscriptionState) {
   return state.reason === 'paused' || state.paymentRecoveryRequired || state.entitlementPlan !== 'free'
 }
 
+export function subscriptionConfirmsAccess(status: string) {
+  return status === 'active' || status === 'trialing'
+}
+
 export async function getSubscriptionStateForUser(userId: string, now = new Date()) {
   if (!db) {
     return resolveSubscriptionStateFromRecords([], now)

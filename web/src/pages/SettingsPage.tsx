@@ -16,7 +16,6 @@ import {
   pauseBillingSubscription,
   resumeBillingSubscription,
   type BillingAccountStatus,
-  type BillingSubscriptionStatus,
   type CancellationReason,
 } from '../services/billing'
 import { resolveSettingsBillingView } from './settingsBillingView'
@@ -67,57 +66,6 @@ function formatBillingDate(value: string | null) {
     day: 'numeric',
     year: 'numeric',
   })
-}
-
-function getSubscriptionStatusCopy(
-  userPlan: string,
-  subscription: BillingSubscriptionStatus | null,
-  isLoading: boolean,
-  onHold = false,
-  pauseResumesAt: string | null = null,
-) {
-  if (isLoading) {
-    return {
-      detail: 'Checking the latest billing state from Stripe.',
-      label: 'Loading subscription status',
-    }
-  }
-
-  const isSubscribedPlan = userPlan === 'regen' || userPlan === 'amrita'
-  const planLabel = formatPlanLabel(userPlan)
-
-  if (onHold) {
-    return {
-      detail: `Your ${planLabel} access and billing are on hold until ${formatBillingDate(pauseResumesAt)}. Access and billing resume automatically, or you can resume now.`,
-      label: 'On hold',
-    }
-  }
-
-  if (!subscription || !isSubscribedPlan) {
-    return {
-      detail: 'You are currently using the Free plan. Upgrade to REGEN or AMRITA to unlock billing controls.',
-      label: 'Not subscribed',
-    }
-  }
-
-  if (subscription.cancelAtPeriodEnd) {
-    return {
-      detail: `Your ${planLabel} access remains active until ${formatBillingDate(subscription.currentPeriodEnd)}.`,
-      label: 'Cancels at period end',
-    }
-  }
-
-  if (subscription.status === 'past_due' || subscription.status === 'unpaid') {
-    return {
-      detail: 'Your billing needs attention. Use Manage Billing to review the Stripe subscription.',
-      label: 'Payment issue',
-    }
-  }
-
-  return {
-    detail: `Your ${planLabel} subscription is active through ${formatBillingDate(subscription.currentPeriodEnd)}.`,
-    label: 'Active',
-  }
 }
 
 function createEmptyBillingAccountStatus(): BillingAccountStatus {
@@ -171,17 +119,15 @@ export function SettingsPage() {
   const paymentRecoveryRequired = billingAccount.paymentRecoveryRequired
   const isSubscribedMember = billingView.isSubscribedMember
   const currentPlanLabel = formatPlanLabel(billingView.displayPlan)
-  const subscriptionStatus = useMemo(
-    () =>
-      getSubscriptionStatusCopy(
-        billingView.displayPlan,
-        subscription,
-        isLoadingSubscription,
-        billingView.onHold,
-        billingView.pauseResumesAt,
-      ),
-    [billingView.displayPlan, billingView.onHold, billingView.pauseResumesAt, isLoadingSubscription, subscription],
-  )
+  const subscriptionStatus = isLoadingSubscription
+    ? {
+        detail: 'Checking the latest billing state from Stripe.',
+        label: 'Loading subscription status',
+      }
+    : {
+        detail: billingView.statusDetail,
+        label: billingView.statusLabel,
+      }
 
   useEffect(() => {
     window.localStorage.setItem(LANGUAGE_PREFERENCE_STORAGE_KEY, language)

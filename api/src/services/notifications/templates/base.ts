@@ -25,6 +25,25 @@ export function escapeHtml(value: string) {
     .replaceAll("'", '&#39;')
 }
 
+export function formatEmailDate(value: string | null | undefined) {
+  if (!value) {
+    return 'Unavailable'
+  }
+
+  const parsed = new Date(value)
+
+  if (Number.isNaN(parsed.getTime())) {
+    return 'Unavailable'
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+    year: 'numeric',
+  }).format(parsed)
+}
+
 export function text(value: string | number | null | undefined, fallback: string) {
   if (value === null || value === undefined || value === '') {
     return fallback
@@ -68,7 +87,7 @@ export function renderKeyValueTable(items: Array<{ label: string; value: string 
         <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);color:#8e9cc3;font-size:13px;font-weight:600;vertical-align:top;width:38%;">
           ${escapeHtml(item.label)}
         </td>
-        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);color:#ffffff;font-size:14px;vertical-align:top;">
+        <td class="rayd8-value" style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);color:#ffffff;font-size:14px;vertical-align:top;">
           ${escapeHtml(text(item.value, 'Unavailable'))}
         </td>
       </tr>
@@ -122,7 +141,22 @@ export function renderRayd8Email(options: Rayd8EmailOptions) {
     : ''
 
   return `
-    <div style="margin:0;padding:32px 16px;background:radial-gradient(circle at top,#1d2c59 0%,#090d17 46%,#05070d 100%);">
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
+        <style>
+          .rayd8-value a,
+          .rayd8-value a:link,
+          .rayd8-value a:visited {
+            color: #ffffff !important;
+            text-decoration: none !important;
+          }
+        </style>
+      </head>
+      <body style="margin:0;padding:0;">
+    <div class="rayd8-email" style="margin:0;padding:32px 16px;background:radial-gradient(circle at top,#1d2c59 0%,#090d17 46%,#05070d 100%);">
       <div style="max-width:680px;margin:0 auto;border-radius:30px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);background:rgba(6,10,20,0.98);box-shadow:0 22px 70px rgba(0,0,0,0.45);">
         <div style="padding:34px 32px 28px;background:linear-gradient(135deg,rgba(28,42,82,0.98) 0%,rgba(21,29,56,0.98) 50%,rgba(63,20,94,0.94) 100%);border-bottom:1px solid rgba(255,255,255,0.08);">
           <div style="margin:0 0 14px;color:#9be4ff;font-size:12px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;">
@@ -154,5 +188,7 @@ export function renderRayd8Email(options: Rayd8EmailOptions) {
         </div>
       </div>
     </div>
+      </body>
+    </html>
   `
 }

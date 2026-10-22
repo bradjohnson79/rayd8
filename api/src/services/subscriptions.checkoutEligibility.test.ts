@@ -156,9 +156,28 @@ vi.mock('./admin/promoCodes.js', () => ({ recordPromoCodeRedemption: vi.fn() }))
 vi.mock('./notifications/dispatchNotification.js', () => ({ dispatchNotification: vi.fn() }))
 vi.mock('./referrals.js', () => ({ getAffiliateAttributionForUser: vi.fn() }))
 vi.mock('./affiliates/tracking.js', () => ({ recordAffiliateTrackingEvent: vi.fn() }))
-vi.mock('./billingConflictReview.js', () => ({
-  getBillingConflictReviewStatus: vi.fn(async () => ({ reasons: [], reviewRequired: false })),
-}))
+vi.mock('./billingConflictReview.js', async () => {
+  const actual = await vi.importActual<typeof import('./billingConflictReview.js')>(
+    './billingConflictReview.js',
+  )
+
+  return {
+    ...actual,
+    getBillingConflictReviewStatus: vi.fn(async () => {
+      const overlappingSubscriptionCount = subscriptionRows.filter(
+        (row) =>
+          (row.plan === 'regen' || row.plan === 'amrita') &&
+          actual.subscriptionCountsAsCheckoutOverlap(row.status),
+      ).length
+
+      return actual.billingReviewFromCounts({
+        billingConflictFlag: false,
+        distinctCustomerCount: 1,
+        overlappingSubscriptionCount,
+      })
+    }),
+  }
+})
 vi.mock('./billingIdentity.js', () => ({
   assertStripeCustomerBelongsToUser: vi.fn(),
   resolveStripeCustomerForUser: vi.fn(async () => 'cus_test'),
@@ -195,6 +214,32 @@ describe('checkout eligibility lifecycle', () => {
     expect(subscriptionUpdate).not.toHaveBeenCalled()
     expect(subscriptionCancel).not.toHaveBeenCalled()
     expect(invoiceVoid).not.toHaveBeenCalled()
+  })
+
+  it('opens a new Checkout Session after two abandoned incomplete checkouts', async () => {
+    subscriptionRows = [
+      subscription({
+        currentPeriodEnd: new Date('2026-11-21T21:01:59.000Z'),
+        currentPeriodStart: new Date('2026-10-21T21:01:59.000Z'),
+        status: 'incomplete',
+        stripeSubscriptionId: 'sub_incomplete_latest',
+      }),
+      subscription({
+        status: 'incomplete',
+        stripeSubscriptionId: 'sub_incomplete_earlier',
+      }),
+      subscription({ status: 'incomplete_expired' }),
+    ]
+    const { createCheckoutSession } = await import('./subscriptions.js')
+    const session = await createCheckoutSession({
+      email: 'member@example.test',
+      plan: 'amrita',
+      userId: 'user_expired',
+    })
+
+    expect(session?.url).toBe('https://checkout.stripe.test/cs_test_new')
+    expect(sessionCreate).toHaveBeenCalledTimes(1)
+    expect(subscriptionUpdate).not.toHaveBeenCalled()
   })
 
   it('opens a new Checkout Session after a fully canceled subscription', async () => {

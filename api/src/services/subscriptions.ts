@@ -22,6 +22,7 @@ import {
   getSubscriptionStateForUser,
   resolveSubscriptionStateFromRecords,
   subscriptionBlocksNewCheckout,
+  subscriptionConfirmsAccess,
   type BillingPlan,
 } from './subscriptionState.js'
 import {
@@ -2073,9 +2074,10 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
   })
 }
 
-async function handleSubscriptionCreated(event: Stripe.CustomerSubscriptionCreatedEvent) {
-  const subscription = event.data.object
-  await syncSubscriptionFromStripe(subscription, fromUnixTimestamp(event.created))
+async function notifySubscriptionConfirmed(subscription: Stripe.Subscription) {
+  if (!subscriptionConfirmsAccess(subscription.status)) {
+    return
+  }
 
   const existingSubscription = await findSubscriptionContext(subscription.id)
   const userId = subscription.metadata.userId ?? existingSubscription?.userId
@@ -2104,8 +2106,22 @@ async function handleSubscriptionCreated(event: Stripe.CustomerSubscriptionCreat
   })
 }
 
+async function handleSubscriptionCreated(event: Stripe.CustomerSubscriptionCreatedEvent) {
+  const subscription = event.data.object
+  await syncSubscriptionFromStripe(subscription, fromUnixTimestamp(event.created))
+  await notifySubscriptionConfirmed(subscription)
+}
+
 async function handleSubscriptionUpdated(event: Stripe.CustomerSubscriptionUpdatedEvent) {
-  await syncSubscriptionFromStripe(event.data.object, fromUnixTimestamp(event.created))
+  const subscription = event.data.object
+  const previous = await findSubscriptionContext(subscription.id)
+  await syncSubscriptionFromStripe(subscription, fromUnixTimestamp(event.created))
+
+  if (subscriptionConfirmsAccess(previous?.status ?? '')) {
+    return
+  }
+
+  await notifySubscriptionConfirmed(subscription)
 }
 
 async function handleSubscriptionDeleted(event: Stripe.CustomerSubscriptionDeletedEvent) {

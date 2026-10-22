@@ -1,5 +1,5 @@
 import type { SubscriptionCreatedPayload } from '../notificationEvents.js'
-import { getRayd8Url, renderInfoCard, renderKeyValueTable, renderParagraph, renderRayd8Email, text } from './base.js'
+import { formatEmailDate, getRayd8Url, renderInfoCard, renderKeyValueTable, renderParagraph, renderRayd8Email } from './base.js'
 
 export function renderSubscriptionCreatedTemplate(payload: SubscriptionCreatedPayload) {
   const subject = `Your RAYD8 ${payload.plan.toUpperCase()} subscription is active`
@@ -13,8 +13,8 @@ export function renderSubscriptionCreatedTemplate(payload: SubscriptionCreatedPa
         renderKeyValueTable([
           { label: 'Plan', value: payload.plan.toUpperCase() },
           { label: 'Subscription ID', value: payload.subscriptionId },
-          { label: 'Billing period start', value: text(payload.currentPeriodStart, 'Unavailable') },
-          { label: 'Billing period end', value: text(payload.currentPeriodEnd, 'Unavailable') },
+          { label: 'Billing period start', value: formatEmailDate(payload.currentPeriodStart) },
+          { label: 'Billing period end', value: formatEmailDate(payload.currentPeriodEnd) },
         ]),
       ),
       renderParagraph('Your monthly watch allowance and subscription controls are available from the account area.'),
