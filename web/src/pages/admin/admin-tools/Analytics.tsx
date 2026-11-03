@@ -979,7 +979,7 @@ export function AdminAnalyticsPage() {
               title="Opportunity Keywords"
             />
             <EmptyIntelligenceState
-              message="Current metadata suggests future coverage around digital wellness, med bed alternative, scalar-inspired visual resonance, and REGEN recovery."
+              message="Current metadata suggests future coverage around digital wellness, scalar-inspired visual resonance, and REGEN recovery."
               title="Missing Keyword Opportunities"
             />
           </div>

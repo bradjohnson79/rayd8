@@ -65,7 +65,7 @@ export const HeroSection = memo(function HeroSection({ reducedEffects = false }:
                 '-1px 0 0 rgba(0,0,0,0.7), 1px 0 0 rgba(0,0,0,0.7), 0 -1px 0 rgba(0,0,0,0.7), 0 1px 0 rgba(0,0,0,0.7), 0 10px 30px rgba(0,0,0,0.28)',
             }}
           >
-            The Med Bed Alternative for Your Home
+            Scalar Rejuvenation Technology
           </h1>
           <p
             className="mt-5 max-w-2xl text-base leading-8 text-slate-200/90 sm:mt-6 sm:text-lg"
