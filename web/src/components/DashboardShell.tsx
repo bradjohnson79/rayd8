@@ -1,4 +1,4 @@
-import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
+import { Show, SignUpButton, UserButton } from '@clerk/react'
 import { useEffect, useState, type PropsWithChildren, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import type { AuthUser } from '../app/types'
@@ -171,14 +171,12 @@ export function DashboardShell({
                     </Show>
                     {withGuestActions ? (
                       <Show when="signed-out">
-                        <SignInButton mode="modal">
-                          <button
-                            className={`rounded-2xl border px-4 py-2 text-sm font-medium text-white shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-xl transition ${accentCopy.button}`}
-                            type="button"
-                          >
-                            Sign in
-                          </button>
-                        </SignInButton>
+                        <Link
+                          className={`rounded-2xl border px-4 py-2 text-sm font-medium text-white shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-xl transition ${accentCopy.button}`}
+                          to="/login"
+                        >
+                          Sign in
+                        </Link>
                         <SignUpButton mode="modal">
                           <button
                             className="rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-2 text-sm font-medium text-white shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-white/10"
@@ -246,14 +244,12 @@ export function DashboardShell({
                     </Show>
                     {withGuestActions ? (
                       <Show when="signed-out">
-                        <SignInButton mode="modal">
-                          <button
-                            className={`rounded-2xl border px-4 py-2 text-sm font-medium text-white shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-xl transition ${accentCopy.button}`}
-                            type="button"
-                          >
-                            Sign in
-                          </button>
-                        </SignInButton>
+                        <Link
+                          className={`rounded-2xl border px-4 py-2 text-sm font-medium text-white shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-xl transition ${accentCopy.button}`}
+                          to="/login"
+                        >
+                          Sign in
+                        </Link>
                         <SignUpButton mode="modal">
                           <button
                             className="rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-2 text-sm font-medium text-white shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-white/10"

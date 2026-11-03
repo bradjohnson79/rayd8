@@ -6,7 +6,7 @@ import { useAuthReadiness } from '../features/auth/useAuthReadiness'
 import { normalizeReferralCode } from '../services/referrals'
 
 export function SignupReferralPage() {
-  const { openSignIn, openSignUp, signOut } = useClerk()
+  const { openSignUp, signOut } = useClerk()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { status } = useAuthReadiness()
@@ -114,7 +114,7 @@ export function SignupReferralPage() {
                 </button>
                 <button
                   className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/[0.04] px-6 py-3 text-sm font-medium text-white transition hover:bg-white/[0.08]"
-                  onClick={() => void openSignIn()}
+                  onClick={() => navigate('/login')}
                   type="button"
                 >
                   Already have an account?

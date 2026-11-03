@@ -81,6 +81,7 @@ export function createRuntimeControls({
         ${chromeButton({ icon: 'audio', label: 'Audio', panel: 'audio' })}
         ${chromeButton({ icon: 'photo', label: 'Photo', panel: 'photo' })}
       </div>
+      <button class="runtime-persistent-stop" type="button" data-runtime-action="exit">Stop</button>
     `;
     container.appendChild(root);
     statusElement = root.querySelector('[data-runtime-status]');

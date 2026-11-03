@@ -72,23 +72,25 @@ function normalizeRouteError(error: unknown) {
   if (isRouteErrorResponse(error)) {
     return {
       details: error.data,
-      status: `${error.status} ${error.statusText}`.trim(),
-      title: 'This route could not be rendered.',
+      status: error.status === 404 ? 'Page not found' : 'Something went wrong',
+      title: error.status === 404 ? 'This page does not exist.' : 'This screen could not be opened.',
     }
   }
 
   if (error instanceof Error) {
+    const rawTitle = error.message || ''
+    const developerText = /hey developer/i.test(rawTitle)
     return {
-      details: error.stack,
-      status: 'Application error',
-      title: error.message || 'Something unexpected interrupted this screen.',
+      details: null,
+      status: 'Something went wrong',
+      title: developerText || !rawTitle ? 'This screen could not be opened.' : rawTitle,
     }
   }
 
   return {
-    details: typeof error === 'string' ? error : null,
-    status: 'Unexpected error',
-    title: 'Something unexpected interrupted this screen.',
+    details: null,
+    status: 'Something went wrong',
+    title: 'This screen could not be opened.',
   }
 }
 
@@ -138,19 +140,6 @@ export function AppRouteErrorBoundary({
               {copy.secondaryLabel}
             </a>
           </div>
-
-          {normalizedError.details ? (
-            <details className="mt-8 rounded-[1.6rem] border border-white/10 bg-black/20 p-5 text-sm text-slate-300">
-              <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.3em] text-white/62">
-                Technical details
-              </summary>
-              <pre className="mt-4 overflow-x-auto whitespace-pre-wrap break-words text-xs leading-6 text-slate-300">
-                {typeof normalizedError.details === 'string'
-                  ? normalizedError.details
-                  : JSON.stringify(normalizedError.details, null, 2)}
-              </pre>
-            </details>
-          ) : null}
         </div>
       </div>
     </div>
