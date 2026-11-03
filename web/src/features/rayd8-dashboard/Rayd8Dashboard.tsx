@@ -1,4 +1,4 @@
-import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
+import { Show, SignUpButton, UserButton } from '@clerk/react'
 import {
   useCallback,
   useEffect,
@@ -107,6 +107,19 @@ function getTrialDashboardWarnings(input: {
 
 function formatWholeHours(seconds: number | null) {
   return Math.floor(Math.max(0, seconds ?? 0) / 3600).toLocaleString()
+}
+
+const AMRITA_VIDEO_POOL_SECONDS = 500 * 60 * 60
+
+function resolveAmritaVideoPool(access: ExperienceAccessSummary) {
+  const usedSeconds = Math.max(0, access.usage?.totalUsedSeconds ?? access.usedSeconds ?? 0)
+  const reportedLimit = access.limitSeconds
+  const limitSeconds = reportedLimit && reportedLimit > 0 ? reportedLimit : AMRITA_VIDEO_POOL_SECONDS
+  const remainingSeconds = Math.max(0, limitSeconds - usedSeconds)
+  const usagePercent = limitSeconds > 0 ? Math.min(100, (usedSeconds / limitSeconds) * 100) : 0
+  const isBlocked = Boolean(reportedLimit && reportedLimit > 0 && access.isBlocked)
+
+  return { isBlocked, limitSeconds, remainingSeconds, usagePercent, usedSeconds }
 }
 
 function getTrialBannerTone(level: TrialNotificationLevel | undefined) {
@@ -1237,14 +1250,12 @@ function MemberAccountCluster({
             </div>
           </Show>
           <Show when="signed-out">
-            <SignInButton mode="modal">
-              <button
-                className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-sm font-medium text-white shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-emerald-300/20"
-                type="button"
-              >
-                Sign in
-              </button>
-            </SignInButton>
+            <Link
+              className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-sm font-medium text-white shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-emerald-300/20"
+              to="/login"
+            >
+              Sign in
+            </Link>
             <SignUpButton mode="modal">
               <button
                 className="rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-2 text-sm font-medium text-white shadow-[0_10px_36px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-white/10"
@@ -1733,6 +1744,37 @@ function FeatureTag({ children }: { children: ReactNode }) {
   )
 }
 
+function AmritaVideoPool({ access }: { access: ExperienceAccessSummary }) {
+  const pool = resolveAmritaVideoPool(access)
+
+  return (
+    <div className="mt-4 rounded-[1.4rem] border border-cyan-200/15 bg-cyan-200/[0.05] px-4 py-5 shadow-[0_18px_55px_rgba(8,145,178,0.12)] sm:px-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.28em] text-cyan-100/70">AMRITA video sessions</p>
+          <p className="mt-3 text-2xl font-semibold text-white sm:text-3xl">
+            {formatWholeHours(pool.usedSeconds)} / {formatWholeHours(pool.limitSeconds)} Hours
+          </p>
+          <p className="mt-2 text-xs text-cyan-100/60">500 monthly hours for video sessions</p>
+        </div>
+        <p className="text-sm text-white/62">
+          {pool.isBlocked
+            ? 'Monthly limit reached'
+            : `${formatWholeHours(pool.remainingSeconds)} hours remaining this cycle`}
+        </p>
+      </div>
+      <p className="mt-4 text-xs text-cyan-100/70">{formatUsagePercent(pool.usagePercent)}</p>
+      <div className="mt-4 h-4 overflow-hidden rounded-full bg-white/10">
+        <div
+          className="h-full rounded-full bg-[linear-gradient(90deg,rgba(103,232,249,0.9),rgba(196,181,253,0.92),rgba(34,211,238,1))]"
+          style={{ width: `${pool.usagePercent}%` }}
+        />
+      </div>
+      <p className="mt-4 text-sm leading-6 text-cyan-50/80">AMRITA app use is unlimited.</p>
+    </div>
+  )
+}
+
 function DashboardUsageSummary({
   access,
   plan,
@@ -1795,31 +1837,7 @@ function DashboardUsageSummary({
           </div>
         </div>
       ) : plan === 'amrita' ? (
-        <div className="mt-4 rounded-[1.4rem] border border-cyan-200/15 bg-cyan-200/[0.05] px-4 py-5 shadow-[0_18px_55px_rgba(8,145,178,0.12)] sm:px-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.28em] text-cyan-100/70">
-                AMRITA Monthly Pool
-              </p>
-              <p className="mt-3 text-2xl font-semibold text-white sm:text-3xl">
-                {formatWholeHours(access.regen.usedSeconds)} / {formatWholeHours(access.regen.limitSeconds)} Hours
-              </p>
-              <p className="mt-2 text-xs text-cyan-100/60">2x REGEN monthly allowance</p>
-            </div>
-            <p className="text-sm text-white/62">
-              {access.regen.isBlocked
-                ? 'Monthly limit reached'
-                : `${formatRuntimeClock(access.regen.remainingSeconds)} remaining this cycle`}
-            </p>
-          </div>
-          <p className="mt-4 text-xs text-cyan-100/70">{formatUsagePercent(access.regen.usagePercent)}</p>
-          <div className="mt-4 h-4 overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-[linear-gradient(90deg,rgba(103,232,249,0.9),rgba(196,181,253,0.92),rgba(34,211,238,1))]"
-              style={{ width: `${Math.min(100, access.regen.usagePercent ?? 0)}%` }}
-            />
-          </div>
-        </div>
+        <AmritaVideoPool access={access.regen} />
       ) : null}
     </div>
   )

@@ -1,4 +1,4 @@
-import { Show, SignInButton, UserButton } from '@clerk/react'
+import { Show, UserButton } from '@clerk/react'
 import { Link } from 'react-router-dom'
 import { useAuthReadiness } from '../auth/useAuthReadiness'
 import { ConversionButton } from './components/ConversionButton'
@@ -36,14 +36,12 @@ export default function NavbarAuthCluster() {
       ) : (
         <>
           <div className="hidden items-center gap-2 sm:flex">
-            <SignInButton mode="modal">
-              <button
-                className="rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-sm text-white/80 transition hover:bg-white/[0.08] hover:text-white"
-                type="button"
-              >
-                Sign in
-              </button>
-            </SignInButton>
+            <Link
+              className="rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-sm text-white/80 transition hover:bg-white/[0.08] hover:text-white"
+              to="/login"
+            >
+              Sign in
+            </Link>
             <Link
               className="rounded-full bg-white px-4 py-2 text-sm font-medium !text-slate-950 transition hover:bg-emerald-50 hover:!text-slate-950 visited:!text-slate-950"
               to="/subscription?plan=free"

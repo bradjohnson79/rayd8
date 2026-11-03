@@ -21,6 +21,7 @@ const AMRITA_APP_URL = '/amrita_app/index.html'
 function AmritaLaunchScreen() {
   const trackedRef = useRef(false)
   const [iframeElement, setIframeElement] = useState<HTMLIFrameElement | null>(null)
+  const [iframeReady, setIframeReady] = useState(false)
 
   useAdaptiveSessionLifecycle(true)
   useAdaptiveIframeTarget(iframeElement)
@@ -37,14 +38,23 @@ function AmritaLaunchScreen() {
   }, [])
 
   return (
-    <main className="h-[100dvh] min-h-[100dvh] w-screen overflow-hidden bg-[#02030a] text-white">
+    <main className="relative h-[100dvh] min-h-[100dvh] w-screen overflow-hidden bg-[#02030a] text-white">
       <iframe
         allow="autoplay; fullscreen; clipboard-read; clipboard-write; screen-wake-lock"
         className="block h-full w-full border-0 bg-[#02030a]"
+        onLoad={() => setIframeReady(true)}
         ref={setIframeElement}
         src={AMRITA_APP_URL}
         title="RAYD8 Amrita main menu"
       />
+      {iframeReady ? null : (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#02030a] px-6">
+          <div className="max-w-md rounded-3xl border border-cyan-100/12 bg-white/[0.045] px-6 py-5 text-center">
+            <p className="text-xs uppercase tracking-[0.28em] text-cyan-100/70">AMRITA</p>
+            <p className="mt-3 text-sm text-slate-200">Loading the AMRITA app.</p>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

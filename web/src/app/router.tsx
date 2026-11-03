@@ -50,6 +50,12 @@ const PrivacyPolicyPage = lazy(() =>
 const TermsOfServicePage = lazy(() =>
   import('../pages/TermsOfServicePage').then((module) => ({ default: module.TermsOfServicePage })),
 )
+const SignInRedirectPage = lazy(() =>
+  import('../pages/SignInRedirectPage').then((module) => ({ default: module.SignInRedirectPage })),
+)
+const NotFoundPage = lazy(() =>
+  import('../pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })),
+)
 const Rayd8AffiliatePage = lazy(() =>
   import('../pages/Rayd8AffiliatePage').then((module) => ({
     default: module.Rayd8AffiliatePage,
@@ -84,6 +90,7 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <AppShell />,
+    errorElement: <AppRouteErrorBoundary scope="public" />,
     children: [
       {
         path: 'amrita_app/*',
@@ -126,6 +133,16 @@ export const router = createBrowserRouter([
         element: lazyElement(<TermsOfServicePage />),
       },
       {
+        path: 'login',
+        errorElement: <AppRouteErrorBoundary scope="public" />,
+        element: lazyElement(<SignInRedirectPage />),
+      },
+      {
+        path: 'signin',
+        errorElement: <AppRouteErrorBoundary scope="public" />,
+        element: lazyElement(<SignInRedirectPage />),
+      },
+      {
         path: '/',
         errorElement: <AppRouteErrorBoundary scope="member" />,
         element: lazyElement(<SessionAppShell />),
@@ -159,6 +176,11 @@ export const router = createBrowserRouter([
         ],
       },
       adminRoutes,
+      {
+        path: '*',
+        errorElement: <AppRouteErrorBoundary scope="public" />,
+        element: lazyElement(<NotFoundPage />),
+      },
     ],
   },
 ])
