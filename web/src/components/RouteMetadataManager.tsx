@@ -3,8 +3,24 @@ import { useLocation } from 'react-router-dom'
 import type { SeoMetadataPayload } from '../services/admin'
 import { getSeoMetadata } from '../services/seo'
 
+const PUBLIC_HOME_TITLE = 'RAYD8 | Scalar Rejuvenation Technology'
+const PUBLIC_HOME_DESCRIPTION =
+  'RAYD8 is a digital scalar-inspired visual resonance experience you can stream on any screen.'
+
 const seoMetadataCache = new Map<string, SeoMetadataPayload>()
 const publicSeoPaths = new Set(['/', '/subscription', '/success', '/privacy', '/terms'])
+
+function containsMedBed(value: string) {
+  return /med\s*bed/i.test(value)
+}
+
+function withoutMedBed(value: string | undefined, fallback: string) {
+  if (!value || containsMedBed(value)) {
+    return fallback
+  }
+
+  return value
+}
 
 function ensureMetaTag(selector: string, attributes: Record<string, string>) {
   let element = document.head.querySelector<HTMLMetaElement>(selector)
@@ -73,6 +89,21 @@ function applySeoMetadata(metadata: SeoMetadataPayload) {
     })
   }
 
+  const twitterTitle = metadata.og.title ?? metadata.title
+  const twitterDescription = metadata.og.description ?? metadata.description
+  ensureMetaTag('meta[name="twitter:card"]', {
+    content: 'summary_large_image',
+    name: 'twitter:card',
+  })
+  ensureMetaTag('meta[name="twitter:title"]', {
+    content: twitterTitle,
+    name: 'twitter:title',
+  })
+  ensureMetaTag('meta[name="twitter:description"]', {
+    content: twitterDescription,
+    name: 'twitter:description',
+  })
+
   const canonical = ensureCanonicalTag()
 
   if (metadata.canonicalUrl) {
@@ -107,6 +138,26 @@ function applyPrivateRouteDefaults(path: string) {
   })
 }
 
+function sanitizeSeoMetadata(metadata: SeoMetadataPayload, path: string): SeoMetadataPayload {
+  const titleFallback = path === '/' ? PUBLIC_HOME_TITLE : metadata.title
+  const descriptionFallback = path === '/' ? PUBLIC_HOME_DESCRIPTION : metadata.description
+  const title = path === '/' ? PUBLIC_HOME_TITLE : withoutMedBed(metadata.title, titleFallback)
+  const description = path === '/' ? PUBLIC_HOME_DESCRIPTION : withoutMedBed(metadata.description, descriptionFallback)
+  const ogTitle = path === '/' ? PUBLIC_HOME_TITLE : withoutMedBed(metadata.og.title, title)
+  const ogDescription = path === '/' ? PUBLIC_HOME_DESCRIPTION : withoutMedBed(metadata.og.description, description)
+
+  return {
+    ...metadata,
+    description,
+    og: {
+      ...metadata.og,
+      description: ogDescription,
+      title: ogTitle,
+    },
+    title,
+  }
+}
+
 export function RouteMetadataManager() {
   const location = useLocation()
 
@@ -133,13 +184,37 @@ export function RouteMetadataManager() {
           return
         }
 
-        seoMetadataCache.set(nextPath, metadata)
-        applySeoMetadata(metadata)
+        const sanitized = sanitizeSeoMetadata(metadata, nextPath)
+        seoMetadataCache.set(nextPath, sanitized)
+        applySeoMetadata(sanitized)
       })
       .catch(() => {
-        if (!cancelled) {
-          applyPrivateRouteDefaults(nextPath)
+        if (cancelled) {
+          return
         }
+
+        if (nextPath === '/') {
+          applySeoMetadata({
+            canonicalUrl: 'https://rayd8.app/',
+            description: PUBLIC_HOME_DESCRIPTION,
+            follow: true,
+            index: true,
+            keywords: ['RAYD8'],
+            og: {
+              description: PUBLIC_HOME_DESCRIPTION,
+              title: PUBLIC_HOME_TITLE,
+              type: 'website',
+              url: 'https://rayd8.app/',
+            },
+            path: '/',
+            priority: 100,
+            routeType: 'landing',
+            title: PUBLIC_HOME_TITLE,
+          })
+          return
+        }
+
+        applyPrivateRouteDefaults(nextPath)
       })
 
     return () => {
