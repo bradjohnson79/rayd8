@@ -20,7 +20,6 @@ interface PublicContactPayload {
 
 export function createPublicContactMessage(payload: PublicContactPayload) {
   return apiRequest<{
-    delivery_email: string
     emailDelivered: boolean
     ok: true
   }>('/api/contact/public', {
