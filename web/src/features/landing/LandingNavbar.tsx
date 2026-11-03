@@ -12,6 +12,8 @@ const navigationItems = [
   { href: '/#affiliate-program', label: 'Affiliate Program' },
   { href: '#about', label: 'About RAYD8®' },
   { href: '#testimonials', label: 'Testimonials' },
+  { href: '/#plans', label: 'Plans' },
+  { href: '/#faq', label: 'FAQ' },
   { href: '/#contact-form', label: 'Contact' },
 ]
 
@@ -100,7 +102,7 @@ export const LandingNavbar = memo(function LandingNavbar() {
           />
         </Link>
 
-        <nav className="hidden items-center gap-6 lg:flex">
+        <nav className="hidden max-w-3xl flex-wrap items-center justify-end gap-x-4 gap-y-2 lg:flex xl:gap-x-6">
           {navigationItems.map((item) => (
             <a
               className="group relative text-sm text-white/72 transition hover:text-white"

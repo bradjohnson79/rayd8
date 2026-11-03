@@ -185,17 +185,11 @@ export function Rayd8ExpressPromoSection({
               </MarketingButton>
             </div>
 
-            <div className="flex flex-col gap-3">
-              <div className="rounded-[1.35rem] border border-white/10 bg-black/18 p-5">
-                <h3 className="text-sm font-medium tracking-wide text-white/90">iPhone / Mac Users</h3>
-                <MarketingButton className="mt-4 w-full" onClick={() => openInstallDialog('apple')}>
-                  {DOWNLOAD_EXPRESS_CTA}
-                </MarketingButton>
-              </div>
-              <p className="text-xs leading-5 text-slate-200/60">
-                RAYD8 Express not available through Mozilla Firefox browser. Please use your member
-                dashboard to access RAYD8 when using this browser.
-              </p>
+            <div className="rounded-[1.35rem] border border-white/10 bg-black/18 p-5">
+              <h3 className="text-sm font-medium tracking-wide text-white/90">iPhone / Mac Users</h3>
+              <MarketingButton className="mt-4 w-full" onClick={() => openInstallDialog('apple')}>
+                {DOWNLOAD_EXPRESS_CTA}
+              </MarketingButton>
             </div>
           </div>
         </div>

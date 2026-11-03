@@ -48,7 +48,7 @@ const planCards: Array<{
     bullets: [...amritaTierFeatures],
     ctaLabel: 'Start Amrita Membership',
     priceLine: AMRITA_PRICE_LINE,
-    supportingLine: 'Everything in REGEN, plus unlimited HAMSA and AMRITA.',
+    supportingLine: 'Everything in REGEN, plus Unlimited HAMSA and unlimited use of the AMRITA app.',
     subtext: 'Flagship access to the complete RAYD8 ecosystem',
   },
 ]

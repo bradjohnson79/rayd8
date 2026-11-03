@@ -16,6 +16,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 800,
     minify: 'esbuild',
     rollupOptions: {
+      input: {
+        main: path.resolve(webRoot, 'index.html'),
+        start: path.resolve(webRoot, 'start.html'),
+      },
       output: {
         manualChunks(id) {
           if (id.includes('node_modules/react') || id.includes('node_modules/scheduler')) {

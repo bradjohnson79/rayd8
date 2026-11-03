@@ -29,7 +29,7 @@ export function AmritaLaunchBanner({ className = '', location }: AmritaLaunchBan
             NEW: RAYD8 AMRITA HAS ARRIVED
           </p>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-100 sm:text-base">
-            Unlock Unlimited HAMSA and Unlimited AMRITA Access with the new flagship RAYD8 membership.
+            Unlock Unlimited HAMSA and unlimited use of the AMRITA app with the new flagship RAYD8 membership.
           </p>
         </div>
         <button
