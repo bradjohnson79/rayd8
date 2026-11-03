@@ -2,9 +2,49 @@ import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import type { SeoMetadataPayload } from '../services/admin'
 import { getSeoMetadata } from '../services/seo'
+import {
+  containsMedBed,
+  PUBLIC_HOME_DESCRIPTION,
+  PUBLIC_HOME_TITLE,
+  PUBLIC_OG_IMAGE,
+  PUBLIC_SITE_ORIGIN,
+  PUBLIC_START_DESCRIPTION,
+  PUBLIC_START_TITLE,
+} from '../services/publicSeo'
 
 const seoMetadataCache = new Map<string, SeoMetadataPayload>()
-const publicSeoPaths = new Set(['/', '/subscription', '/success', '/privacy', '/terms'])
+const publicSeoPaths = new Set(['/', '/start', '/subscription', '/success', '/privacy', '/terms'])
+
+function localPublicMetadata(path: '/' | '/start'): SeoMetadataPayload {
+  const isHome = path === '/'
+  const title = isHome ? PUBLIC_HOME_TITLE : PUBLIC_START_TITLE
+  const description = isHome ? PUBLIC_HOME_DESCRIPTION : PUBLIC_START_DESCRIPTION
+  const url = isHome ? `${PUBLIC_SITE_ORIGIN}/` : `${PUBLIC_SITE_ORIGIN}/start`
+
+  return {
+    canonicalUrl: url,
+    description,
+    follow: true,
+    index: true,
+    keywords: isHome ? ['RAYD8', 'scalar resonance'] : ['RAYD8', 'relaxation', 'daily ritual'],
+    og: {
+      description,
+      image: PUBLIC_OG_IMAGE,
+      title,
+      type: 'website',
+      url,
+    },
+    path,
+    priority: isHome ? 100 : 90,
+    routeType: isHome ? 'landing' : 'conversion',
+    title,
+  }
+}
+
+const localPublicSeo: Partial<Record<string, SeoMetadataPayload>> = {
+  '/': localPublicMetadata('/'),
+  '/start': localPublicMetadata('/start'),
+}
 
 function ensureMetaTag(selector: string, attributes: Record<string, string>) {
   let element = document.head.querySelector<HTMLMetaElement>(selector)
@@ -73,6 +113,27 @@ function applySeoMetadata(metadata: SeoMetadataPayload) {
     })
   }
 
+  const twitterTitle = metadata.og.title ?? metadata.title
+  const twitterDescription = metadata.og.description ?? metadata.description
+  ensureMetaTag('meta[name="twitter:card"]', {
+    content: 'summary_large_image',
+    name: 'twitter:card',
+  })
+  ensureMetaTag('meta[name="twitter:title"]', {
+    content: twitterTitle,
+    name: 'twitter:title',
+  })
+  ensureMetaTag('meta[name="twitter:description"]', {
+    content: twitterDescription,
+    name: 'twitter:description',
+  })
+  if (metadata.og.image) {
+    ensureMetaTag('meta[name="twitter:image"]', {
+      content: metadata.og.image,
+      name: 'twitter:image',
+    })
+  }
+
   const canonical = ensureCanonicalTag()
 
   if (metadata.canonicalUrl) {
@@ -107,15 +168,49 @@ function applyPrivateRouteDefaults(path: string) {
   })
 }
 
+function isGenericAmritaFallback(metadata: SeoMetadataPayload) {
+  return (
+    metadata.title === 'RAYD8® Amrita' &&
+    metadata.description === 'RAYD8® Amrita controlled playback environment.'
+  )
+}
+
+function sanitizePublicSeo(metadata: SeoMetadataPayload, fallback?: SeoMetadataPayload) {
+  const titleFallback = fallback?.title ?? PUBLIC_HOME_TITLE
+  const descriptionFallback = fallback?.description ?? PUBLIC_HOME_DESCRIPTION
+  const title = containsMedBed(metadata.title) ? titleFallback : metadata.title
+  const description = containsMedBed(metadata.description) ? descriptionFallback : metadata.description
+  const ogTitle = containsMedBed(metadata.og.title ?? '') ? titleFallback : (metadata.og.title ?? title)
+  const ogDescription = containsMedBed(metadata.og.description ?? '')
+    ? descriptionFallback
+    : (metadata.og.description ?? description)
+
+  return {
+    ...metadata,
+    description,
+    og: {
+      ...metadata.og,
+      description: ogDescription,
+      title: ogTitle,
+    },
+    title,
+  }
+}
+
 export function RouteMetadataManager() {
   const location = useLocation()
 
   useEffect(() => {
     const nextPath = location.pathname || '/'
+    const localMetadata = localPublicSeo[nextPath]
 
     if (!publicSeoPaths.has(nextPath)) {
       applyPrivateRouteDefaults(nextPath)
       return
+    }
+
+    if (localMetadata) {
+      applySeoMetadata(localMetadata)
     }
 
     const cachedMetadata = seoMetadataCache.get(nextPath)
@@ -133,11 +228,16 @@ export function RouteMetadataManager() {
           return
         }
 
-        seoMetadataCache.set(nextPath, metadata)
-        applySeoMetadata(metadata)
+        if (localMetadata && isGenericAmritaFallback(metadata)) {
+          return
+        }
+
+        const sanitized = sanitizePublicSeo(metadata, localMetadata)
+        seoMetadataCache.set(nextPath, sanitized)
+        applySeoMetadata(sanitized)
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!cancelled && !localMetadata) {
           applyPrivateRouteDefaults(nextPath)
         }
       })

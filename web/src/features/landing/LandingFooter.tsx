@@ -53,6 +53,12 @@ export function LandingFooter() {
             <Link className={footerLinkClassName} to="/#about">
               About
             </Link>
+            <Link className={footerLinkClassName} to="/#plans">
+              Plans
+            </Link>
+            <Link className={footerLinkClassName} to="/#faq">
+              FAQ
+            </Link>
             <Link className={footerLinkClassName} to="/#contact">
               Contact
             </Link>

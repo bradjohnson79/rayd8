@@ -35,6 +35,11 @@ const Rayd8DemoVideoSection = lazyWithPreload(() =>
     default: module.Rayd8DemoVideoSection,
   })),
 )
+const PlansAndFaqSection = lazyWithPreload(() =>
+  import('../features/landing/PlansAndFaqSection').then((module) => ({
+    default: module.PlansAndFaqSection,
+  })),
+)
 const AffiliatePromoSection = lazyWithPreload(() =>
   import('../components/sections/AffiliatePromoSection').then((module) => ({
     default: module.AffiliatePromoSection,
@@ -115,6 +120,7 @@ export function LandingPage() {
       void Rayd8DemoVideoSection.preload()
       void NewsletterSignup.preload()
       void TeaserSection.preload()
+      void PlansAndFaqSection.preload()
       void AffiliatePromoSection.preload()
       void AboutSection.preload()
     }
@@ -163,6 +169,8 @@ export function LandingPage() {
 
     if (hashId === 'teaser') {
       void TeaserSection.preload()
+    } else if (hashId === 'plans' || hashId === 'faq') {
+      void PlansAndFaqSection.preload()
     } else if (hashId === 'affiliate-program') {
       void AffiliatePromoSection.preload()
     } else if (hashId === 'about') {
@@ -231,6 +239,9 @@ export function LandingPage() {
               <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
                 <TeaserSection reducedEffects={reducedEffects} />
               </Suspense>
+              <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[48svh]" />}>
+                <PlansAndFaqSection reducedEffects={reducedEffects} />
+              </Suspense>
               <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[72svh]" />}>
                 <AffiliatePromoSection reducedEffects={reducedEffects} />
               </Suspense>
@@ -281,6 +292,14 @@ export function LandingPage() {
               >
                 <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[30svh]" />}>
                   <TeaserSection reducedEffects={reducedEffects} />
+                </Suspense>
+              </DeferredRender>
+              <DeferredRender
+                fallback={<LandingSectionFallback minHeightClassName="min-h-[48svh]" />}
+                rootMargin={deferredRootMargin}
+              >
+                <Suspense fallback={<LandingSectionFallback minHeightClassName="min-h-[48svh]" />}>
+                  <PlansAndFaqSection reducedEffects={reducedEffects} />
                 </Suspense>
               </DeferredRender>
               <DeferredRender

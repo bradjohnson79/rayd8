@@ -64,6 +64,12 @@ const HamsaRoutePage = lazy(() =>
 const AmritaRoutePage = lazy(() =>
   import('../features/amrita').then((module) => ({ default: module.AmritaRoutePage })),
 )
+const StartPage = lazy(() =>
+  import('../pages/StartPage').then((module) => ({ default: module.StartPage })),
+)
+const NotFoundPage = lazy(() =>
+  import('../pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })),
+)
 const SessionAppShell = lazy(() =>
   import('../components/SessionAppShell').then((module) => ({
     default: module.SessionAppShell,
@@ -99,6 +105,11 @@ export const router = createBrowserRouter([
         path: 'subscription',
         errorElement: <AppRouteErrorBoundary scope="public" />,
         element: lazyElement(<SubscriptionPage />),
+      },
+      {
+        path: 'start',
+        errorElement: <AppRouteErrorBoundary scope="public" />,
+        element: lazyElement(<StartPage />),
       },
       {
         path: 'signup',
@@ -159,6 +170,11 @@ export const router = createBrowserRouter([
         ],
       },
       adminRoutes,
+      {
+        path: '*',
+        errorElement: <AppRouteErrorBoundary scope="public" />,
+        element: lazyElement(<NotFoundPage />),
+      },
     ],
   },
 ])

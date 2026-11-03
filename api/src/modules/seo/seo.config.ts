@@ -16,14 +16,35 @@ export const seoRouteManifest: SeoRouteManifestEntry[] = [
     openGraph: {
       description:
         "RAYD8® is the world's first digital scalar-inspired visual resonance system designed to elevate your state physically, mentally, and energetically in minutes.",
-      title: 'RAYD8® - The Med Bed Alternative System for Your Home.',
+      image: 'https://rayd8.app/hero/RAYD8_Hero.png',
+      title: 'RAYD8® | Next Level Digital Wellness System',
       type: 'website',
       url: buildAbsoluteUrl('/'),
     },
     path: '/',
     priority: 100,
     routeType: 'landing',
-    title: 'RAYD8® - The Med Bed Alternative System for Your Home.',
+    title: 'RAYD8® | Next Level Digital Wellness System',
+  },
+  {
+    canonicalUrl: buildAbsoluteUrl('/start'),
+    description:
+      'A visual and sound experience for relaxation. RAYD8® is a calm daily ritual you can play on your screen.',
+    follow: true,
+    index: true,
+    keywords: ['RAYD8', 'relaxation', 'daily ritual'],
+    openGraph: {
+      description:
+        'A visual and sound experience for relaxation. RAYD8® is a calm daily ritual you can play on your screen.',
+      image: 'https://rayd8.app/hero/RAYD8_Hero.png',
+      title: 'RAYD8® | A calm daily ritual',
+      type: 'website',
+      url: buildAbsoluteUrl('/start'),
+    },
+    path: '/start',
+    priority: 90,
+    routeType: 'conversion',
+    title: 'RAYD8® | A calm daily ritual',
   },
   {
     canonicalUrl: buildAbsoluteUrl('/subscription'),
