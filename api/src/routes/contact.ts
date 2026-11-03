@@ -54,7 +54,6 @@ export const contactRoutes: FastifyPluginAsync = async (app) => {
     })
 
     return {
-      delivery_email: 'bradjohnson79@gmail.com',
       emailDelivered,
       message,
       ok: true,
@@ -66,7 +65,6 @@ export const contactRoutes: FastifyPluginAsync = async (app) => {
 
     if (payload.company.trim()) {
       return {
-        delivery_email: 'bradjohnson79@gmail.com',
         emailDelivered: false,
         ok: true,
       }
@@ -98,7 +96,6 @@ export const contactRoutes: FastifyPluginAsync = async (app) => {
     })
 
     return {
-      delivery_email: 'bradjohnson79@gmail.com',
       emailDelivered,
       ok: true,
     }

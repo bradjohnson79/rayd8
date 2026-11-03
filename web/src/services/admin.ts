@@ -648,7 +648,6 @@ export async function createContactMessage(
   token: string,
 ) {
   return apiRequest<{
-    delivery_email: string
     emailDelivered: boolean
     message: ContactMessageRecord | null
     ok: true

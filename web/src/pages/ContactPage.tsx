@@ -38,15 +38,11 @@ export function ContactPage() {
         throw new Error('Please complete the name, email, and message fields.')
       }
 
-      const response = await createContactMessage(
+      await createContactMessage(
         { email: trimmedEmail, message: trimmedMessage, name: trimmedName },
         token,
       )
-      setSuccess(
-        response.emailDelivered
-          ? `Your message was saved and emailed to ${response.delivery_email}.`
-          : 'Your message was saved to the admin inbox. Email delivery is not configured yet.',
-      )
+      setSuccess('Your message was received. We will get back to you.')
       setName('')
       setMessage('')
     } catch (nextError) {
@@ -62,8 +58,7 @@ export function ContactPage() {
         <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/60">Contact</p>
         <h1 className="mt-3 text-4xl font-semibold text-white">Contact Admin</h1>
         <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
-          Send account, billing, or playback questions directly to admin. Messages are always saved
-          to the admin inbox, and email delivery is attempted when configured.
+          Send account, billing, or playback questions. We will follow up by email.
         </p>
 
         <form
@@ -132,14 +127,6 @@ export function ContactPage() {
           </div>
 
           <div className="space-y-5">
-            <div className="rounded-[1.8rem] bg-white/[0.04] p-5 ring-1 ring-white/10">
-              <p className="text-xs uppercase tracking-[0.28em] text-emerald-200/60">Routing</p>
-              <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
-                <p>Admin inbox target: bradjohnson79@gmail.com</p>
-                <p>DB write stays primary so email delivery failure never blocks the saved message.</p>
-              </div>
-            </div>
-
             <div className="rounded-[1.8rem] bg-white/[0.04] p-5 ring-1 ring-white/10">
               <p className="text-xs uppercase tracking-[0.28em] text-emerald-200/60">Use Cases</p>
               <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">

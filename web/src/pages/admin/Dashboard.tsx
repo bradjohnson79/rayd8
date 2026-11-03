@@ -342,8 +342,7 @@ function AdminDashboardHome({
               <p className="text-xs uppercase tracking-[0.32em] text-violet-200/60">Messages</p>
               <h2 className="mt-3 text-2xl font-semibold text-white">Latest contact requests</h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
-                Member messages route here after submission and are addressed to
-                {' '}bradjohnson79@gmail.com.
+                Member messages route here after submission.
               </p>
             </div>
             <Link
