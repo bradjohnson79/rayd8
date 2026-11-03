@@ -30,7 +30,24 @@
       ],
       "destination": "https://rayd8.app/$1",
       "permanent": true
-    }
+    },
+    { "source": "/start/", "destination": "/start", "permanent": false },
+    { "source": "/subscription/", "destination": "/subscription", "permanent": false },
+    { "source": "/signup/", "destination": "/signup", "permanent": false },
+    { "source": "/rayd8-affiliate/", "destination": "/rayd8-affiliate", "permanent": false },
+    { "source": "/success/", "destination": "/success", "permanent": false },
+    { "source": "/privacy/", "destination": "/privacy", "permanent": false },
+    { "source": "/terms/", "destination": "/terms", "permanent": false },
+    { "source": "/dashboard/", "destination": "/dashboard", "permanent": false },
+    { "source": "/dashboard/:path*/", "destination": "/dashboard/:path*", "permanent": false },
+    { "source": "/player/", "destination": "/player", "permanent": false },
+    { "source": "/contact/", "destination": "/contact", "permanent": false },
+    { "source": "/instructions/", "destination": "/instructions", "permanent": false },
+    { "source": "/settings/", "destination": "/settings", "permanent": false },
+    { "source": "/amrita-dashboard/", "destination": "/amrita-dashboard", "permanent": false },
+    { "source": "/amrita/", "destination": "/amrita", "permanent": false },
+    { "source": "/admin/", "destination": "/admin", "permanent": false },
+    { "source": "/admin/:path*/", "destination": "/admin/:path*", "permanent": false }
   ],
   "rewrites": [
     { "source": "/start", "destination": "/start.html" },
