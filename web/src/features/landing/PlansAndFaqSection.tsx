@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react'
-import { AMRITA_PRICE_LINE, amritaTierFeatures, regenTierFeatures } from '../amrita/amritaContent'
+import {
+  AMRITA_APP_LINE,
+  AMRITA_PRICE_LINE,
+  AMRITA_VIDEO_HOURS_LINE,
+  amritaTierFeatures,
+  regenTierFeatures,
+} from '../amrita/amritaContent'
 import { Section } from './components/Section'
 
-/**
- * Pricing lines are copied from the public plan cards and member dashboard.
- * Do not collapse the Amrita hour lines into one claim. See the PR notes.
- */
 const FREE_TRIAL_HOURS = [
   '35 total hours during your 30-day free trial',
   'One-time trial window with no monthly reset',
@@ -27,7 +29,10 @@ const FREE_TRIAL_VERSIONS = [
 const REGEN_PRICE_LINE = 'Only $19.99 USD Per Month'
 const FREE_TRIAL_PRICE_LINE = 'No payment required'
 
-const AMRITA_HOUR_LINES = ['500 Hours', '500 Monthly Hours', 'Unlimited AMRITA'] as const
+const AMRITA_HOUR_LINES = [
+  AMRITA_VIDEO_HOURS_LINE,
+  'AMRITA app use is unlimited',
+] as const
 
 function CellList({ items }: { items: readonly string[] }) {
   return (
@@ -100,7 +105,7 @@ export function PlansAndFaqSection({ reducedEffects = false }: { reducedEffects?
                   <CellList items={regenTierFeatures.filter((feature) => feature !== '250 Hours')} />
                 </td>
                 <td className="px-4 py-4 leading-6">
-                  <CellList items={amritaTierFeatures.filter((feature) => feature !== '500 Hours')} />
+                  <CellList items={amritaTierFeatures.filter((feature) => feature !== AMRITA_VIDEO_HOURS_LINE)} />
                 </td>
               </tr>
               <tr className="border-t border-white/10 align-top">
@@ -115,13 +120,13 @@ export function PlansAndFaqSection({ reducedEffects = false }: { reducedEffects?
           </table>
         </div>
         <p className="mt-4 text-sm leading-6 text-slate-400">
-          Amrita publishes both “500 Hours” and “500 Monthly Hours,” and also “Unlimited AMRITA.” Those
-          lines are shown together here.
+          Amrita video sessions use a 500-hour monthly pool. The AMRITA app itself is unlimited, and HAMSA is included
+          with both REGEN and Amrita.
         </p>
       </Section>
 
       <Section
-        description="Answers below use the plan cards, account settings, and terms. Nothing here adds a policy that is not already written."
+        description="Plan hours, what each membership includes, and how cancellation and refunds work."
         eyebrow="FAQ"
         id="faq"
         reducedEffects={reducedEffects}
@@ -137,18 +142,15 @@ export function PlansAndFaqSection({ reducedEffects = false }: { reducedEffects?
             </p>
           </FaqItem>
           <FaqItem title="What does REGEN include, and what does it cost?">
-            <p>250 Hours, Expansion, Premium, REGEN, and HAMSA Access.</p>
+            <p>250 Hours, Expansion, Premium, REGEN, and HAMSA. HAMSA is included with REGEN and Amrita.</p>
             <p className="mt-3">Only $19.99 USD Per Month. Secure checkout powered by Stripe.</p>
           </FaqItem>
           <FaqItem title="What does Amrita include, and what does it cost?">
             <p>
-              The plan card lists 500 Hours, Expansion, Premium, REGEN, Unlimited HAMSA, Unlimited AMRITA, and Full
-              Ecosystem Access.
+              Amrita includes {AMRITA_VIDEO_HOURS_LINE} (Expansion, Premium, and REGEN), Unlimited HAMSA, and{' '}
+              {AMRITA_APP_LINE}. The AMRITA app is unlimited because it is an app, not a video session.
             </p>
-            <p className="mt-3">
-              Membership benefits also say 500 Monthly Hours, Unlimited HAMSA, and Unlimited AMRITA. The published
-              price is {AMRITA_PRICE_LINE}.
-            </p>
+            <p className="mt-3">The published price is {AMRITA_PRICE_LINE}.</p>
           </FaqItem>
           <FaqItem title="How does cancellation work?">
             <p>
@@ -160,16 +162,8 @@ export function PlansAndFaqSection({ reducedEffects = false }: { reducedEffects?
               account. You may stop using RAYD8 at any time.
             </p>
           </FaqItem>
-          <FaqItem title="Refunds — TODO for Brad">
-            <p>
-              TODO for Brad: the terms and billing screens do not state a refund policy. Do not publish a refund
-              promise until you write the approved wording. This answer is unfinished on purpose.
-            </p>
-            <p className="mt-3">
-              What the product currently says is only about cancellation: access continues until the end of the
-              current billing period after cancellation is confirmed, and the terms point people to checkout or the
-              account for cancellation mechanics.
-            </p>
+          <FaqItem title="Are subscriptions refundable?">
+            <p>Subscriptions are non refundable.</p>
           </FaqItem>
         </div>
       </Section>

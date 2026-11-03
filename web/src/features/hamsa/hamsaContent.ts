@@ -7,7 +7,7 @@ export const hamsaFeatureCallouts = [
   'Deep meditative and restorative environments',
   'Sacred geometry-inspired energetic systems',
   'Designed for calm, focus, stillness & coherence',
-  'Exclusive to REGEN subscribers',
+  'Included with REGEN and Amrita',
 ]
 
 export const hamsaPreviewCopy = {

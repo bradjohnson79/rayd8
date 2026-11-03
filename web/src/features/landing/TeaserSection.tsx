@@ -2,7 +2,12 @@ import { useLandingPerformanceProfile } from './useLandingPerformanceProfile'
 import { useLandingBackdropMedium } from './landingBackdropHooks'
 import { ConversionButton } from './components/ConversionButton'
 import { Section } from './components/Section'
-import { AMRITA_PRICE_LINE, amritaTierFeatures, regenTierFeatures } from '../amrita/amritaContent'
+import {
+  AMRITA_PRICE_LINE,
+  AMRITA_VIDEO_HOURS_LINE,
+  amritaTierFeatures,
+  regenTierFeatures,
+} from '../amrita/amritaContent'
 import { useSubscriptionPlanAction, type SubscriptionPlan } from '../subscription/useSubscriptionPlanAction'
 import { useLandingMembership } from './useLandingMembership'
 
@@ -178,7 +183,13 @@ export function TeaserSection({ reducedEffects = false }: TeaserSectionProps) {
               {amritaTierFeatures.map((feature) => (
                 <li className={featureLi} key={feature}>
                   <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300/60" aria-hidden />
-                  <span>{feature === '500 Hours' ? <span className="font-semibold text-slate-50">{feature}</span> : feature}</span>
+                  <span>
+                    {feature === AMRITA_VIDEO_HOURS_LINE ? (
+                      <span className="font-semibold text-slate-50">{feature}</span>
+                    ) : (
+                      feature
+                    )}
+                  </span>
                 </li>
               ))}
             </ul>

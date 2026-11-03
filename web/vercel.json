@@ -32,6 +32,8 @@
       "permanent": true
     },
     { "source": "/start/", "destination": "/start", "permanent": false },
+    { "source": "/login/", "destination": "/login", "permanent": false },
+    { "source": "/signin/", "destination": "/signin", "permanent": false },
     { "source": "/subscription/", "destination": "/subscription", "permanent": false },
     { "source": "/signup/", "destination": "/signup", "permanent": false },
     { "source": "/rayd8-affiliate/", "destination": "/rayd8-affiliate", "permanent": false },
@@ -51,6 +53,8 @@
   ],
   "rewrites": [
     { "source": "/start", "destination": "/start.html" },
+    { "source": "/login", "destination": "/index.html" },
+    { "source": "/signin", "destination": "/index.html" },
     { "source": "/subscription", "destination": "/index.html" },
     { "source": "/signup", "destination": "/index.html" },
     { "source": "/rayd8-affiliate", "destination": "/index.html" },

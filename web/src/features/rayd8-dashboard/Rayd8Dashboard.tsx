@@ -59,7 +59,9 @@ import {
 } from '../hamsa/hamsaContent'
 import { AmritaLaunchBanner } from '../amrita'
 import {
+  AMRITA_APP_LINE,
   AMRITA_CARD_IMAGE,
+  AMRITA_VIDEO_HOURS_LINE,
   amritaDescription,
   amritaMembershipBenefits,
 } from '../amrita/amritaContent'
@@ -1109,7 +1111,7 @@ function AmritaUpgradeCard({ onUpgrade }: { onUpgrade: () => void }) {
         <div>
           <p className="text-[10px] uppercase tracking-[0.32em] text-cyan-100/70">Upgrade To AMRITA</p>
           <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-200">
-            Unlock unlimited HAMSA and unlimited AMRITA access with our most advanced membership.
+            Unlock Unlimited HAMSA and unlimited use of the AMRITA app, plus 500 monthly hours for video sessions.
           </p>
         </div>
         <button
@@ -1148,7 +1150,7 @@ function AmritaDashboardSection({ onOpen }: { onOpen: () => void }) {
           />
           <div className="flex max-w-[520px] flex-col gap-8">
             <div className="flex flex-wrap gap-2">
-              {['500 Monthly Hours', 'Unlimited HAMSA', 'Unlimited AMRITA'].map((tag) => (
+              {['Unlimited HAMSA', AMRITA_VIDEO_HOURS_LINE, AMRITA_APP_LINE].map((tag) => (
                 <FeatureTag key={tag}>{tag}</FeatureTag>
               ))}
             </div>
@@ -1180,7 +1182,7 @@ function AmritaDashboardSection({ onOpen }: { onOpen: () => void }) {
 function AmritaComingSoonSection({ onUpgrade }: { onUpgrade: () => void }) {
   return (
     <ExperienceSection
-      bodyPrimary="RAYD8 Amrita is the flagship membership for the complete RAYD8 ecosystem: 500 monthly hours across Expansion, Premium, and REGEN, plus unlimited HAMSA and unlimited AMRITA access."
+      bodyPrimary="RAYD8 Amrita includes 500 monthly hours for the video sessions (Expansion, Premium, and REGEN), plus Unlimited HAMSA and unlimited use of the AMRITA app."
       bodySecondary="Upgrade to unlock the AMRITA main menu and the highest available membership tier."
       ctaLabel="Start Amrita Membership"
       ctaTone="active"
@@ -1190,7 +1192,7 @@ function AmritaComingSoonSection({ onUpgrade }: { onUpgrade: () => void }) {
       onClick={onUpgrade}
       showcaseSubtitle="RAYD8 AMRITA"
       showcaseTitle="Complete Ecosystem Access"
-      tags={['500 Monthly Hours', 'Unlimited HAMSA', 'Unlimited AMRITA']}
+      tags={['Unlimited HAMSA', AMRITA_VIDEO_HOURS_LINE, AMRITA_APP_LINE]}
       title="RAYD8 Amrita"
       tone="amrita"
     />
