@@ -153,6 +153,9 @@ const writtenTestimonials = [
   },
 ] as const
 
+const michaelCrookQuote =
+  'I was using the rayd8.app and found the initial results exceptional! After 10 min of usage on the free portion, my sinuses stopped running, had a difficult time sleeping, it was like I was wired and the next morning my beard had grown 2x normal.'
+
 export const TestimonialsSection = memo(function TestimonialsSection({
   reducedEffects = false,
 }: TestimonialsSectionProps) {
@@ -208,6 +211,20 @@ export const TestimonialsSection = memo(function TestimonialsSection({
       showBackToTop
       title="Real people who experienced RAYD8® living technology for the first time."
     >
+      <figure
+        className={`mb-8 rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-6 sm:rounded-[2.25rem] sm:p-8 ${cardShadow} ${backdropStrong}`}
+      >
+        <p className="text-[11px] uppercase tracking-[0.36em] text-emerald-200/70">Written story</p>
+        <blockquote className="mt-5 text-base font-medium leading-[1.65] tracking-tight text-white/95 sm:text-lg sm:leading-[1.7]">
+          <p>&quot;{michaelCrookQuote}&quot;</p>
+        </blockquote>
+        <figcaption className="mt-6 text-sm text-emerald-100/80">~ Michael Crook</figcaption>
+        <p className="mt-4 text-xs leading-6 text-slate-400">
+          Individual experience; results vary. RAYD8 is not a medical device and is not intended to
+          diagnose, treat, cure or prevent any condition.
+        </p>
+      </figure>
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)] xl:gap-8">
         <div
           className={`rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 ${cardShadow} ${backdropStrong} sm:rounded-[2.25rem] sm:p-6`}
