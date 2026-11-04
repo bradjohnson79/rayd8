@@ -170,6 +170,7 @@ const featuredTestimonials = [
       'I play it on my phone at work all day for 10 hours. There seems to be a more jovial atmosphere around the area I\'m working in. One colleague said he felt more energised in the afternoon. Usually he has an afternoon slump. He downloaded the free version and uses it at home with his breath work. I have a friend who wasn\'t sleeping very well. I told her to try the free trial. She is now sleeping well.',
   },
   {
+    context: 'In-person RAYD8 session',
     name: '~ Beverly Smith',
     quote:
       'I started off with some low back pain and at the end of the session and, throughout the remainder of the day, the pain had definitely eased. I was very impressed with the means taken to ensure the comfort of the clients as well as the opportunity to be able to experience this cutting edge healing technology. Thank you for bringing this type of technology to our attention.',
@@ -180,13 +181,15 @@ const testimonialDisclaimer =
   'Individual experience; results vary. RAYD8 is not a medical device and is not intended to diagnose, treat, cure or prevent any condition.'
 
 function FeaturedTestimonialCard({
-  cardShadow,
   backdropStrong,
+  cardShadow,
+  context,
   name,
   quote,
 }: {
   backdropStrong: string
   cardShadow: string
+  context?: string
   name: string
   quote: string
 }) {
@@ -200,7 +203,10 @@ function FeaturedTestimonialCard({
           &quot;{quote}&quot;
         </p>
       </blockquote>
-      <figcaption className="mt-6 text-sm text-emerald-100/80">{name}</figcaption>
+      <figcaption className="mt-6">
+        <p className="text-sm text-emerald-100/80">{name}</p>
+        {context ? <p className="mt-1 text-xs leading-5 text-white/45">{context}</p> : null}
+      </figcaption>
       <p className="mt-4 text-xs leading-6 text-slate-400">{testimonialDisclaimer}</p>
     </figure>
   )
@@ -266,6 +272,7 @@ export const TestimonialsSection = memo(function TestimonialsSection({
           <FeaturedTestimonialCard
             backdropStrong={backdropStrong}
             cardShadow={cardShadow}
+            context={'context' in testimonial ? testimonial.context : undefined}
             key={testimonial.name}
             name={testimonial.name}
             quote={testimonial.quote}
