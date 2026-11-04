@@ -164,6 +164,11 @@ const featuredTestimonials = [
     quote:
       'I had injured my right hip and knee and experienced pain while walking and even sleeping. I could not sleep on my right side anymore and often woke up in the middle of the night in pain. This went on for about 6 months and then I purchased the RayD8 premium app on my Apple phone. I use it every night. Within 3 months I no longer felt any pain while sleeping and walking was much easier. At this point I have resumed my walking routine without any pain. I am convinced the app is the cause of the healing. Also, in general I sleep so much better when the App is running at night. I speak to the Spirit of RayD8 before I go to sleep, such as "heal my hip and knee and help me to sleep deeply".',
   },
+  {
+    name: '~ Pete Fordham',
+    quote:
+      'I play it on my phone at work all day for 10 hours. There seems to be a more jovial atmosphere around the area I\'m working in. One colleague said he felt more energised in the afternoon. Usually he has an afternoon slump. He downloaded the free version and uses it at home with his breath work. I have a friend who wasn\'t sleeping very well. I told her to try the free trial. She is now sleeping well.',
+  },
 ] as const
 
 const testimonialDisclaimer =
@@ -182,10 +187,10 @@ function FeaturedTestimonialCard({
 }) {
   return (
     <figure
-      className={`flex h-full min-w-0 flex-col rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-6 sm:rounded-[2.25rem] sm:p-8 ${cardShadow} ${backdropStrong}`}
+      className={`flex h-full min-w-0 flex-col rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-5 sm:rounded-[2rem] sm:p-6 xl:p-7 ${cardShadow} ${backdropStrong}`}
     >
       <p className="text-[11px] uppercase tracking-[0.36em] text-emerald-200/70">Written story</p>
-      <blockquote className="mt-5 min-h-0 text-base font-medium leading-[1.65] tracking-tight text-white/95 sm:text-lg sm:leading-[1.7]">
+      <blockquote className="mt-4 min-h-0 text-[0.95rem] font-medium leading-[1.65] tracking-tight text-white/95 sm:text-base sm:leading-[1.7]">
         <p className="max-h-[min(70svh,34rem)] overflow-y-auto overscroll-contain pr-1 text-pretty [scrollbar-gutter:stable]">
           &quot;{quote}&quot;
         </p>
@@ -251,7 +256,7 @@ export const TestimonialsSection = memo(function TestimonialsSection({
       showBackToTop
       title="Real people who experienced RAYD8® living technology for the first time."
     >
-      <div className="mb-8 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+      <div className="mb-8 grid grid-cols-1 items-stretch gap-5 lg:grid-cols-3 lg:gap-6">
         {featuredTestimonials.map((testimonial) => (
           <FeaturedTestimonialCard
             backdropStrong={backdropStrong}
