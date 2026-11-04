@@ -169,6 +169,11 @@ const featuredTestimonials = [
     quote:
       'I play it on my phone at work all day for 10 hours. There seems to be a more jovial atmosphere around the area I\'m working in. One colleague said he felt more energised in the afternoon. Usually he has an afternoon slump. He downloaded the free version and uses it at home with his breath work. I have a friend who wasn\'t sleeping very well. I told her to try the free trial. She is now sleeping well.',
   },
+  {
+    name: '~ Beverly Smith',
+    quote:
+      'I started off with some low back pain and at the end of the session and, throughout the remainder of the day, the pain had definitely eased. I was very impressed with the means taken to ensure the comfort of the clients as well as the opportunity to be able to experience this cutting edge healing technology. Thank you for bringing this type of technology to our attention.',
+  },
 ] as const
 
 const testimonialDisclaimer =
@@ -256,7 +261,7 @@ export const TestimonialsSection = memo(function TestimonialsSection({
       showBackToTop
       title="Real people who experienced RAYD8® living technology for the first time."
     >
-      <div className="mb-8 grid grid-cols-1 items-stretch gap-5 lg:grid-cols-3 lg:gap-6">
+      <div className="mb-8 grid grid-cols-1 items-stretch gap-5 md:grid-cols-2 md:gap-6">
         {featuredTestimonials.map((testimonial) => (
           <FeaturedTestimonialCard
             backdropStrong={backdropStrong}
