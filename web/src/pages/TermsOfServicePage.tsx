@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { LegalPageShell } from '../features/legal/LegalPageShell'
 
-const EFFECTIVE_DATE = 'May 8, 2026'
+const EFFECTIVE_DATE = 'November 23, 2026'
 
 const sectionTitle = 'mt-12 text-xl font-semibold tracking-tight text-white first:mt-0'
 const subTitle = 'mt-6 text-lg font-medium text-white/95'
@@ -18,7 +18,7 @@ export function TermsOfServicePage() {
             Terms &amp; Conditions
           </h1>
           <p className={`${body} mt-4 text-slate-400`}>
-            Effective date: <time dateTime="2026-05-08">{EFFECTIVE_DATE}</time>
+            Effective date: <time dateTime="2026-11-23">{EFFECTIVE_DATE}</time>
           </p>
 
           <div
@@ -86,6 +86,13 @@ export function TermsOfServicePage() {
               Paid plans, renewals, and payment processing may be handled through Stripe or another
               authorized processor. Fees, renewal intervals, and cancellation mechanics are presented at
               checkout or in your account where applicable. Taxes may apply based on your location.
+            </p>
+            <h3 className={subTitle}>Refunds</h3>
+            <p className={body}>
+              Subscriptions are not refundable. Once a subscription fee is charged, that payment is final.
+              We do not refund subscription charges, including charges for time remaining in a billing
+              period. You may cancel a subscription to stop future renewals. Cancellation does not refund a
+              charge that has already been collected.
             </p>
             <h3 className={subTitle}>Free trials</h3>
             <p className={body}>
